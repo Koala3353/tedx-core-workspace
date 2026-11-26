@@ -14,6 +14,8 @@ export type NavigationCapability =
 export type NavigationContext = {
   audience: NavigationAudience
   capabilities: readonly NavigationCapability[]
+  /** Ids of optional areas whose workspace connection is available (see optionalConnections). */
+  connected?: readonly string[]
 }
 
 export type NavigationItem = {
@@ -39,10 +41,10 @@ export const navigationItems: readonly NavigationItem[] = [
   { id: 'resources', label: 'Resources & Start Here', href: '/resources', description: 'Process guides, shared resources and who to ask.', group: 'workspace', audiences: ['setup', 'core', 'guest'] },
   { id: 'people', label: 'People', href: '/people', description: 'Committee contacts and the permitted member directory.', group: 'workspace', audiences: ['setup', 'core'] },
   { id: 'committee', label: 'My committee', href: '/committee', description: 'Work and contributions for your assigned committee.', group: 'role', audiences: ['core'], capability: 'committee.manage' },
-  { id: 'department', label: 'Department inbox', href: '/department', description: 'Requests assigned to your department scope.', group: 'role', audiences: ['core'], capability: 'department.review' },
+  { id: 'department', label: 'Department inbox', href: '/reviews', description: 'Requests assigned to your department scope.', group: 'role', audiences: ['core'], capability: 'department.review' },
   { id: 'publicity', label: 'Final publicity', href: '/publicity', description: 'Frozen final publicity and independent MCD review.', group: 'role', audiences: ['core'] },
   { id: 'finance', label: 'FIN desk', href: '/finance', description: 'Financial cases within your explicit review authority.', group: 'role', audiences: ['core'], capability: 'finance.review' },
-  { id: 'feedback', label: 'PRISM desk', href: '/feedback', description: 'Evaluation cases explicitly assigned to you.', group: 'role', audiences: ['core'], capability: 'feedback.review' },
+  { id: 'feedback', label: 'PRISM desk', href: '/prism', description: 'Evaluation cases explicitly assigned to you.', group: 'role', audiences: ['core'], capability: 'feedback.review' },
   { id: 'mentoring', label: 'Mentoring', href: '/mentoring', description: 'Goals and check-ins for assigned mentoring relationships.', group: 'role', audiences: ['core'], capability: 'mentoring.view' },
   { id: 'reports', label: 'Reports', href: '/reports', description: 'Operational reports within your permitted scope.', group: 'role', audiences: ['core'], capability: 'reports.view' },
   { id: 'admin', label: 'Administration', href: '/admin', description: 'Workspace configuration for authorized administrators.', group: 'role', audiences: ['core'], capability: 'admin.configure' },
@@ -52,10 +54,13 @@ export const navigationItems: readonly NavigationItem[] = [
   { id: 'account', label: 'Account', href: '/account', description: 'Your profile and account settings.', group: 'account', audiences: ['setup', 'core', 'guest'] },
 ]
 
+// Areas that only exist when their optional workspace connection is configured.
+const optionalConnections = ['mentoring']
+
 // Presentation only. Database/route authorization must be enforced separately.
 export function getVisibleNavigation(context: NavigationContext): NavigationItem[] {
   return navigationItems.filter((item) => item.audiences.includes(context.audience)
-    && !['feedback','mentoring'].includes(item.id)
+    && (!optionalConnections.includes(item.id) || !!context.connected?.includes(item.id))
     && (!item.capability || context.capabilities.includes(item.capability)))
 }
 

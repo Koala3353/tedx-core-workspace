@@ -1,4 +1,7 @@
 import { appPath } from '../../lib/basePath'
+import { TriangleAlert } from 'lucide-react'
+import { TedxLockup, licenseLine } from '../../components/TedxLockup'
+import { Countdown } from '../../components/Countdown'
 import {SiteLogo} from '../admin/site/SiteLogo'
 import {SiteEditMode} from '../admin/site/SiteEditMode'
 import {usePublishedSite} from '../admin/site/usePublishedSite'
@@ -94,7 +97,7 @@ export function ProtectedShell({notifications,gateway}:{notifications?:Notificat
     return () => clearTimeout(timer)
   }, [member.expiresAt, revalidate])
   if (memberPreview) return <Outlet />
-  return <NotificationCenter api={notifications} term={member.termId} identity={'memberId'in member?member.memberId:member.guestAccessId}><AppShell context={{ audience: isGuest(member) ? 'guest' : 'core', capabilities: member.capabilities as NavigationCapability[] }} identity={{ displayName: member.displayName }} preview={false} headerAction={canPreviewAsMember(member)?<Link className="button button--secondary" to={memberPreviewPath}>View as member</Link>:undefined} sitePresentation={site.presentation} siteUnavailable={site.unavailable} siteLogo={gateway?.site&&site.presentation?.logo?<SiteLogo api={gateway.site} term={member.termId} scope={siteScope} asset={site.presentation.logo.assetId} approval={site.presentation.logo.approvalId}/>:undefined} siteEditor={gateway?.siteWording?<SiteEditMode api={gateway.siteWording} context={member} onPublished={()=>setSiteEpoch(n=>n+1)}/>:undefined} content={gateway?<CurrentRecordScope gateway={gateway}><Outlet /></CurrentRecordScope>:undefined} /></NotificationCenter>
+  return <NotificationCenter api={notifications} term={member.termId} identity={'memberId'in member?member.memberId:member.guestAccessId}><AppShell context={{ audience: isGuest(member) ? 'guest' : 'core', capabilities: member.capabilities as NavigationCapability[], connected: gateway?.growth ? ['mentoring'] : [] }} identity={{ displayName: member.displayName }} preview={false} headerAction={canPreviewAsMember(member)?<Link className="button button--secondary" to={memberPreviewPath}>View as member</Link>:undefined} sitePresentation={site.presentation} siteUnavailable={site.unavailable} siteLogo={gateway?.site&&site.presentation?.logo?<SiteLogo api={gateway.site} term={member.termId} scope={siteScope} asset={site.presentation.logo.assetId} approval={site.presentation.logo.approvalId}/>:undefined} siteEditor={gateway?.siteWording?<SiteEditMode api={gateway.siteWording} context={member} onPublished={()=>setSiteEpoch(n=>n+1)}/>:undefined} content={gateway?<CurrentRecordScope gateway={gateway}><Outlet /></CurrentRecordScope>:undefined} /></NotificationCenter>
 }
 
 export function LoginPage({ gateway }: { gateway: AuthGateway }) {
@@ -112,14 +115,20 @@ export function LoginPage({ gateway }: { gateway: AuthGateway }) {
       await gateway.beginGoogle(returnTo)
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Sign-in could not start.'); setBusy(false) }
   }
-  return <main className="standalone-page auth-page">
-    <p className="muted">TEDx Ateneo de Manila U · Core workspace</p>
+  return <div className="stage">
+  <main className="stage-main">
+    <div className="stage-lockup"><TedxLockup size="lg" /></div>
+    <div className="stage-identity">
+      <p className="stage-kicker">Core workspace</p>
+      <Countdown variant="hero" />
+    </div>
+    <div className="stage-panel auth-panel">
     <h1>Sign in to your workspace</h1>
     {new URLSearchParams(safeReturnPath(new URLSearchParams(location.search).get('returnTo')).split('?')[1]).has('term')?<p>The selected term could not be opened. You can <Link to="/search">return to current workspace search</Link> or retry sign-in for the selected term below.</p>:null}
     {guestEntry?<p>Use the Google account your guest sponsor invited. If your access has expired, ask your sponsor for a fresh link.</p>:
       <p>Use your approved <strong>student.ateneo.edu</strong> Google account. A school email alone does not grant access.</p>}
-    {new URLSearchParams(location.search).get('reason') === 'check' ? <p>Your session needs a current access check. Sign in again if it has expired.</p> : null}
-    {result.state === 'unavailable' ? <section className="feedback-state"><h2>Setup needed</h2><p>Sign-in is unavailable until Supabase and Google login are configured for this address. No member records are being loaded.</p></section> : <>
+    {new URLSearchParams(location.search).get('reason') === 'expired' ? <p role="status">Your previous session has ended. Sign in again to continue where you left off.</p> : null}
+    {result.state === 'unavailable' ? <section className="feedback-state feedback-state--error"><TriangleAlert className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /><h2>Setup needed</h2><p>Sign-in is unavailable until Supabase and Google login are configured for this address. No member records are being loaded.</p></section> : <>
       {denied ? <p role="alert">{guestEntry?'Guest access could not be confirmed. Check the invited Google account or ask your sponsor for help.':
         'This account does not have active core access. Use another account or contact the roster custodian.'}</p> : null}
       {result.state === 'error' ? <p role="alert">Access could not be checked. Please retry when the service is available.</p> : null}
@@ -128,7 +137,10 @@ export function LoginPage({ gateway }: { gateway: AuthGateway }) {
     {error ? <p className="field-error" role="alert">{error}</p> : null}
     <p className="muted">Invited guests may use an external Google account. Open the invitation link from your sponsor to continue.</p>
     {import.meta.env.DEV ? <Link className="button button--secondary" to="/preview">View development shell preview</Link> : null}
+    </div>
   </main>
+  <footer className="stage-footer"><p className="license-line">{licenseLine}</p></footer>
+  </div>
 }
 
 export function CallbackPage({ gateway }: { gateway: AuthGateway }) {

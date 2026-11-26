@@ -1,4 +1,5 @@
 import { appPath, basePath, stripBase } from '../lib/basePath'
+import { Countdown } from '../components/Countdown'
 import {ArchivePage,archivePath} from '../features/admin/turnover/ArchivePage'
 import {TurnoverPage} from '../features/admin/turnover/TurnoverPage'
 import {PrivacyPage,PrivacyRequestPage} from '../features/admin/privacy/Privacy'
@@ -36,7 +37,8 @@ import {TimelinePage} from '../features/timeline/TimelinePage'
 import {WorkingTogetherPage} from '../features/synergies/WorkingTogetherPage'
 import {AgreementPage} from '../features/synergies/AgreementPage'
 import {Overview} from '../features/overview/Overview'
-import { createBrowserRouter, Link, redirect, type RouteObject } from 'react-router'
+import { createBrowserRouter, Link, Navigate, redirect, useLocation, type RouteObject } from 'react-router'
+import { CommitteePage } from '../features/committee/CommitteePage'
 import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
 import { PageHeading, Panel } from '../components/Page'
 import { EmptyState, ErrorState } from '../components/FeedbackState'
@@ -48,7 +50,7 @@ import { navigationItems } from './navigation'
 import { createAuthGateway, isGuest, type AuthGateway } from '../features/auth/gateway'
 import { RedeemPage, SharedWork, SponsorPage } from '../features/guests/pages'
 import { AccountPage, AuthRevalidator, CallbackPage, LoginPage, ProtectedShell } from '../features/auth/pages'
-import { safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
+import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
 import { DeliverablesRoute } from '../features/deliverables/DeliverablesPage'
 import { DeliverablePage } from '../features/deliverables/DeliverablePage'
 import { LoadingState } from '../components/FeedbackState'
@@ -61,6 +63,7 @@ function FoundationPage({ environment }: { environment: ClientEnvironment }) {
   return (
     <>
       <PageHeading title="Overview" description="A focused view of your work and the people moving it forward." />
+      <Countdown variant="overview" />
       <div className="overview-layout">
       <Panel title={environment.state === 'not_configured' ? 'Setup needed' : 'Configuration present'}>
         {environment.state === 'not_configured' ? (
@@ -96,6 +99,36 @@ function RouteErrorPage() {
   )
 }
 
+/** Client-side redirect that keeps the query string, for renamed workspace addresses. */
+function MovedPage({ to }: { to: string }) {
+  const { search, hash } = useLocation()
+  return <Navigate replace to={{ pathname: to, search, hash }} />
+}
+
+function Unavailable({ title }: { title: string }) {
+  return <><PageHeading title={title} /><EmptyState title={title + ' unavailable'} description="This area is not available on the current workspace connection." action={<Link className="button button--secondary" to="/">Return to overview</Link>} /></>
+}
+
+// Presentation gate only, so members without authority never see an admin shell.
+// Every admin RPC still enforces authority on the server. Privacy custodian and
+// announcement publishing authority is checked by those pages' own APIs.
+function adminCapabilities(path: string): string[] | null {
+  if (path === '/admin') return ['admin.configure']
+  if (path === '/admin/access' || path === '/admin/imports') return ['admin.configure', 'roles.manage']
+  if (/^\/admin\/(?:config|process|layouts)(?:\/|$)/.test(path)) return ['admin.configure', 'committee.manage']
+  return null
+}
+
+// Areas declared below as explicit routes; navigation items must not add a second route for them.
+const explicitAreas = new Set(['/shared', '/search', '/reports', '/publicity', '/finance', '/prism', '/mentoring', '/committee', '/reviews'])
+
+// Search-param-only changes on the same page (filters, pagination, views) keep the
+// workspace context. A different `term` changes the context, so it still reloads.
+function shouldRevalidateWorkspace({ currentUrl, nextUrl }: { currentUrl: URL; nextUrl: URL }): boolean {
+  return !(currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search
+    && currentUrl.searchParams.get('term') === nextUrl.searchParams.get('term'))
+}
+
 function NotFoundPage() {
   return (
     <>
@@ -123,10 +156,13 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       { id:'workspace', path: '/', element: <ProtectedShell notifications={gateway.notifications} gateway={gateway}/>, loader: async ({ request }) => {
         const result = await gateway.readContext(request.signal,new URL(request.url).searchParams.get('term')??undefined)
         if (result.state === 'authorized') {
+          rememberSession()
           const path=stripBase(new URL(request.url).pathname)
           if(isGuest(result) && !isDeliverablePath(path) && !isTaskPath(path) && !isAnnouncementPath(path) && !isPrivacyPath(path) && !navigationItems.some(item=>item.href===path && item.audiences.includes('guest')))return redirect('/shared')
           if (isMemberPreviewPath(path) && !canPreviewAsMember(result)) return redirect('/')
           if(path==='/guests' && !result.capabilities.includes('roles.manage'))return redirect(isGuest(result)?'/shared':'/')
+          const adminNeeds=adminCapabilities(path)
+          if(adminNeeds && !adminNeeds.some(capability=>result.capabilities.includes(capability)))return redirect('/')
           return result
         }
         const url = new URL(request.url), appUrlPath = stripBase(url.pathname)
@@ -137,13 +173,20 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
             try{if(await gateway.turnover.record(current.termId,retained[1]))return redirect(archivePath(current.termId,retained[1]))}catch{/* The original denied result remains authoritative. */}
           }
         }
-        return redirect(`/login?reason=${result.state === 'denied' ? 'denied' : 'check'}&returnTo=${encodeURIComponent(safeReturnPath(appUrlPath+url.search))}`)
-      // Timeline filter RPCs recheck scope themselves. Explicit focus/expiry checks still revalidate.
-      }, shouldRevalidate: ({currentUrl,nextUrl}) => !(stripBase(currentUrl.pathname)==='/working-together/timeline'&&nextUrl.pathname===currentUrl.pathname&&currentUrl.search!==nextUrl.search), children: [
+        // Only say a session ended when this browser actually had one; first visits get no notice.
+        const reason = result.state === 'denied' ? 'denied' : result.state === 'signed_out' && hadSession() ? 'expired' : null
+        if (result.state === 'signed_out') forgetSession()
+        return redirect(`/login?${reason ? `reason=${reason}&` : ''}returnTo=${encodeURIComponent(safeReturnPath(appUrlPath+url.search))}`)
+      // Page RPCs recheck scope themselves. Explicit focus/expiry checks and path changes still revalidate.
+      }, shouldRevalidate: shouldRevalidateWorkspace, children: [
       {path:memberPreviewPath.slice(1)+'/*',element:<MemberPreview/>},
       { index: true, element: gateway.overview?<><CurrentPhase api={gateway.process}/><Overview api={gateway.overview} announcements={gateway.announcements} canSearch={!!gateway.search} tasks={gateway.tasks} inventory={gateway.inventory} growth={gateway.growth} evaluations={gateway.evaluations} turnover={gateway.turnover}/></>:<><PageHeading title="Overview"/><EmptyState title="Overview unavailable" description="The workspace connection is unavailable."/></> },
       ...(gateway.turnover?[{path:'archive/:archivedWorkId?',element:<ArchivePage api={gateway.turnover}/>},{path:'handover/:turnoverCaseId?',element:<TurnoverPage api={gateway.turnover}/>}]:[]),
-      ...(gateway.evaluations?[{path:'prism/:evaluationId?/:view?',element:<EvaluationsPage api={gateway.evaluations}/>}]:[]),
+      {path:'prism/:evaluationId?/:view?',element:gateway.evaluations?<EvaluationsPage api={gateway.evaluations}/>:<Unavailable title="PRISM desk"/>},
+      {path:'feedback',element:<MovedPage to="/prism"/>},
+      {path:'department',element:<MovedPage to="/reviews"/>},
+      {path:'committee',element:<CommitteePage tasks={gateway.tasks} deliverables={gateway.deliverables} handoffs={gateway.handoffs}/>},
+      {path:'mentoring',element:gateway.growth?<GrowthPage api={gateway.growth}/>:<Unavailable title="Mentoring"/>},
       ...(gateway.inventory?[{path:'inventory/:inventoryLoanId?',element:<InventoryPage api={gateway.inventory}/>}]:[]),
       {path:'announcements',element:gateway.announcements?<Announcements api={gateway.announcements}/>:<EmptyState title="Announcements unavailable" description="Check the workspace connection."/>},
       {path:'privacy',element:gateway.privacy?<PrivacyPage api={gateway.privacy}/>:<EmptyState title="Privacy information unavailable" description="Check the workspace connection."/>},
@@ -182,10 +225,9 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       {path:'working-together/:agreementId',element:gateway.synergies?<AgreementPage api={gateway.synergies}/>:<EmptyState title="Agreement unavailable" description="The connection is unavailable."/>},
       {path:'tasks/:taskId',element:gateway.tasks?<TaskDetail process={gateway.process} publicity={gateway.publicity} finance={gateway.finance} handoffs={gateway.handoffs} timeline={gateway.timeline} dependencies={gateway.dependencies} api={gateway.tasks} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<EmptyState title="Task unavailable" description="The connection is unavailable."/>},
       {path:'deliverables/:deliverableId',element:gateway.deliverables?<DeliverablePage process={gateway.process} readiness={gateway.readiness} publicity={gateway.publicity} finance={gateway.finance} timeline={gateway.timeline} api={gateway.deliverables} commands={gateway.deliverableCommands} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<EmptyState title="Deliverable unavailable" description="The workspace connection is unavailable."/>},
-      ...(gateway.growth?[{path:'mentoring',element:<GrowthPage api={gateway.growth}/>}]:[]),
-      ...navigationItems.filter((item) => item.href !== '/' && (item.id!=='mentoring'||!gateway.growth)).map((item) => ({
+      ...navigationItems.filter((item) => item.href !== '/' && !explicitAreas.has(item.href)).map((item) => ({
         path: item.href.slice(1),
-        element: item.id === 'admin' && gateway.organization ? <OrganizationPage api={gateway.organization}/> : item.id === 'resources' && gateway.resources ? <ResourcesPage api={gateway.resources} people={gateway.people}/> : item.id === 'calendar' && gateway.calendar ? <CalendarPage api={gateway.calendar}/> : item.id === 'notifications' ? <><Notifications/><ContextAnnouncements api={gateway.announcements}/></> : item.id === 'department' && gateway.inbox ? <ReviewInbox api={gateway.inbox}/> : item.id === 'requests' && gateway.catalog ? <CatalogPage api={gateway.catalog} process={gateway.process}/> : item.href === '/working-together' && gateway.synergies ? <WorkingTogetherPage api={gateway.synergies}/> : item.id === 'tasks' && gateway.tasks ? <TasksPage api={gateway.tasks} exportCsv={gateway.exportOperationalWork} /> : item.id === 'deliverables' && gateway.deliverables ? <DeliverablesRoute api={gateway.deliverables} commands={gateway.deliverableCommands} exportCsv={gateway.exportOperationalWork} /> : item.id === 'people' && gateway.people ? <DirectoryPage api={gateway.people} /> : item.id === 'guests' && gateway.guests ? <SponsorPage api={gateway.guests} /> : item.id === 'account' ? <AccountPage gateway={gateway} /> : <><PageHeading title={item.label} description={item.description} /><EmptyState title="This area is not connected yet" description="Its records and actions will become available after the relevant feature is implemented." action={<Link className="button button--secondary" to="/">Return to overview</Link>} /></>,
+        element: item.id === 'admin' && gateway.organization ? <OrganizationPage api={gateway.organization}/> : item.id === 'resources' && gateway.resources ? <ResourcesPage api={gateway.resources} people={gateway.people}/> : item.id === 'calendar' && gateway.calendar ? <CalendarPage api={gateway.calendar}/> : item.id === 'notifications' ? <><Notifications/><ContextAnnouncements api={gateway.announcements}/></> : item.id === 'requests' && gateway.catalog ? <CatalogPage api={gateway.catalog} process={gateway.process}/> : item.href === '/working-together' && gateway.synergies ? <WorkingTogetherPage api={gateway.synergies}/> : item.id === 'tasks' && gateway.tasks ? <TasksPage api={gateway.tasks} exportCsv={gateway.exportOperationalWork} /> : item.id === 'deliverables' && gateway.deliverables ? <DeliverablesRoute api={gateway.deliverables} commands={gateway.deliverableCommands} exportCsv={gateway.exportOperationalWork} /> : item.id === 'people' && gateway.people ? <DirectoryPage api={gateway.people} /> : item.id === 'guests' && gateway.guests ? <SponsorPage api={gateway.guests} /> : item.id === 'account' ? <AccountPage gateway={gateway} /> : <Unavailable title={item.label} />,
         errorElement: <ErrorState title="This page could not open" description="Return to the overview and try again. If it keeps happening, contact the workspace maintainer." action={<Link className="button" to="/">Return to overview</Link>} />,
       })),
       ] },

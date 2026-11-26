@@ -1,5 +1,6 @@
 import{createContext,useCallback,useContext,useEffect,useState,type ReactNode}from 'react'
 import{Link,useLocation,useRouteLoaderData}from 'react-router'
+import{Bell}from 'lucide-react'
 import type{WorkspaceContext}from '../auth/gateway'
 import {SavedNotificationRules} from '../admin/notifications/SavedRules'
 import{PageHeading,Panel}from '../../components/Page'
@@ -17,7 +18,10 @@ export function NotificationCenter({api,term,identity,children}:{api?:Notificati
 function CenterBody({api,term,children}:{api:NotificationsApi;term:string;children:ReactNode}){const[page,setPage]=useState(1),[epoch,setEpoch]=useState(0),[state,setState]=useState<{key:string;value:NotificationPage|null;error:boolean}|null>(null),location=useLocation(),key=term+':'+page+':'+epoch+':'+location.pathname,refresh=useCallback(()=>setEpoch(n=>n+1),[]);
  useEffect(()=>{let live=true;void api.read(term,page).then(value=>{if(live)setState({key,value,error:false})}).catch(()=>{if(live)setState({key,value:null,error:true})});return()=>{live=false}},[api,key,page,term]);useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')refresh()};window.addEventListener('focus',check);document.addEventListener('visibilitychange',check);window.addEventListener('notifications-changed',check);const timer=setInterval(check,20000);return()=>{clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('notifications-changed',check);document.removeEventListener('visibilitychange',check)}},[refresh]);const current=state?.key===key?state:null;return <Context.Provider value={{api,term,page,setPage,value:current?.value??null,error:current?.error??false,refresh}}>{children}</Context.Provider>
 }
-export function NotificationBadge(){const c=useContext(Context);return c?<Link className="button button--secondary" to="/notifications" aria-label={c.value?`Notifications · ${c.value.unread} unread`:'Notifications · count unavailable'}>Notifications{c.value?` · ${c.value.unread} unread`:''}</Link>:null}
+/** Unread count from the already-loaded notification page; null when unavailable. No extra request. */
+export function useUnreadCount():number|null{const c=useContext(Context);return c?.value?.unread??null}
+export function NotificationBadge(){const c=useContext(Context);if(!c)return null;const unread=c.value?.unread
+ return <Link className="icon-button" to="/notifications" aria-label={c.value?`Notifications · ${c.value.unread} unread`:'Notifications · count unavailable'} title="Notifications"><Bell className="icon" size={20} strokeWidth={1.5} aria-hidden="true"/>{unread?<span className="icon-button__count" aria-hidden="true">{unread>99?'99+':unread}</span>:null}</Link>}
 export function Notifications(){
  const c=useContext(Context),workspace=useRouteLoaderData('workspace') as WorkspaceContext|undefined
  const optional=c&&workspace&&'memberId' in workspace&&c.term===workspace.termId?c.api:undefined

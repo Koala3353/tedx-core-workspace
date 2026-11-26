@@ -1,9 +1,12 @@
-import {NotificationBadge} from '../features/notifications/Notifications'
+import {NotificationBadge,useUnreadCount} from '../features/notifications/Notifications'
+import { CircleUser, Ellipsis, Moon, Sun } from 'lucide-react'
+import { TedxLockup, licenseLine } from '../components/TedxLockup'
+import { Countdown } from '../components/Countdown'
+import { navIcon, shortLabels } from './navIcons'
 import {applyNavigationPresentation,validSitePresentation,type SitePresentation} from '../features/admin/site/presentation'
 import { useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigation } from 'react-router'
-import { LoadingState } from '../components/FeedbackState'
-import { getMobilePrimaryNavigation, getVisibleNavigation, setupNavigation, type NavigationContext, type NavigationItem } from './navigation'
+import { getMobilePrimaryNavigation, getVisibleNavigation, navigationItems, setupNavigation, type NavigationContext, type NavigationItem } from './navigation'
 
 type AppShellProps = {
   context?: NavigationContext
@@ -24,17 +27,29 @@ const groupLabels: Record<'workspace' | 'role' | 'account', string> = {
   account: 'Account & tools',
 }
 
+// Matches public/theme.js, which applies the same choice before first paint:
+// stored choice, then the system preference, then dark.
 function readInitialTheme(): 'dark' | 'light' {
+  const applied = document.documentElement.dataset.theme
+  if (applied === 'light' || applied === 'dark') return applied
   try {
-    return window.localStorage.getItem('tedx-workspace-theme') === 'light' ? 'light' : 'dark'
-  } catch {
-    return 'dark'
-  }
+    const stored = window.localStorage.getItem('tedx-workspace-theme')
+    if (stored === 'light' || stored === 'dark') return stored
+  } catch { /* Storage optional. */ }
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
-function PageLink({ item, compact = false }: { item: NavigationItem; compact?: boolean }) {
-  const label = compact && item.id === 'deliverables' && item.label === 'Core deliverables' ? 'Deliverables' : item.label
-  return <NavLink className="nav-link" to={item.href} end={item.href === '/'}>{label}</NavLink>
+const defaultLabels = new Map(navigationItems.map(item => [item.id, item.label]))
+
+function PageLink({ item, compact = false, count = null }: { item: NavigationItem; compact?: boolean; count?: number | null }) {
+  // Short labels only replace the default wording; a published custom label is kept as written.
+  const short = compact && item.label === defaultLabels.get(item.id) ? shortLabels[item.id] : undefined
+  const Icon = navIcon(item.id)
+  return <NavLink className="nav-link" to={item.href} end={item.href === '/'} aria-label={short && short !== item.label ? item.label : undefined}>
+    <Icon className="icon" size={compact ? 20 : 18} strokeWidth={1.5} aria-hidden="true" />
+    <span className="nav-link__label">{short ?? item.label}</span>
+    {count ? <span className="nav-count">{count > 99 ? '99+' : count}<span className="visually-hidden"> unread</span></span> : null}
+  </NavLink>
 }
 
 export function AppShell({ context = setupNavigation, identity, content, preview = true,sitePresentation,siteUnavailable = false,siteEditor,siteLogo,memberPreviewPath,headerAction }: AppShellProps) {
@@ -42,6 +57,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const navigation = useNavigation()
   const [moreOpen, setMoreOpen] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>(readInitialTheme)
+  const themeChosen = useRef(false)
   const mainRef = useRef<HTMLElement>(null)
   const moreButtonRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -61,12 +77,15 @@ export function AppShell({ context = setupNavigation, identity, content, preview
     : item
   const more = items.filter(item => item.label.length > 24 || !primary.some(entry => entry.id === item.id))
   const current = items.find((item) => item.href === location.pathname)
+  const unread = useUnreadCount()
+  const countFor = (item: NavigationItem) => item.id === 'notifications' && !memberPreviewPath ? unread : null
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#141513' : '#f6f6f2')
-    try { window.localStorage.setItem('tedx-workspace-theme', theme) } catch { /* Storage optional. */ }
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#111111' : '#ffffff')
+    // Only an explicit toggle is remembered, so the system preference keeps applying until then.
+    if (themeChosen.current) try { window.localStorage.setItem('tedx-workspace-theme', theme) } catch { /* Storage optional. */ }
   }, [theme])
 
   useEffect(() => {
@@ -97,9 +116,8 @@ export function AppShell({ context = setupNavigation, identity, content, preview
         <aside className="sidebar" aria-label="Workspace sidebar">
           <div className="workspace-identity">
             {siteLogo}
-            <Link to={destination('/')} className="text-identity"><span className="brand-tedx">TEDx</span> Ateneo de Manila U</Link>
+            <TedxLockup to={destination('/')} />
             <p>Core workspace</p>
-            <small>{presentation?.logo?'Protected text identity; approved image shown when currently verified':'Text identity; approved logo pending'}</small>
           </div>
           <nav aria-label="Workspace navigation" className="desktop-navigation">
             {(['workspace', 'role', 'account'] as const).map((group) => {
@@ -107,28 +125,30 @@ export function AppShell({ context = setupNavigation, identity, content, preview
               return entries.length ? (
                 <div key={group}>
                   <div className="nav-group-label">{groupLabels[group]}</div>
-                  <ul className={`navigation-group navigation-group--${group}`}>{entries.map((item) => <li key={item.id}><PageLink item={item} /></li>)}</ul>
+                  <ul className={`navigation-group navigation-group--${group}`}>{entries.map((item) => <li key={item.id}><PageLink item={item} count={countFor(item)} /></li>)}</ul>
                 </div>
               ) : null
             })}
           </nav>
-          <div className="sidebar-footer"><p>One team. Clear next steps.</p><p className="muted">Event day<br /><time dateTime="2027-04-17">April 17, 2027</time></p></div>
+          <div className="sidebar-footer">{location.pathname !== '/' && <Countdown />}<p className="license-line">{licenseLine}</p></div>
         </aside>
         <div className="workspace-body">
           <header className="workspace-header">
-            <div className="location-heading"><span className="mobile-identity"><span className="brand-tedx">TEDx</span> Ateneo de Manila U</span>{' '}<span>{current?.label ?? 'Core workspace'}</span></div>
+            <div className="location-heading"><span className="mobile-identity"><TedxLockup to={destination('/')} /></span><span className="current-location">{current?.label ?? 'Core workspace'}</span></div>
             <div className="account-summary">
               {identity ? <div className="identity-details"><strong>{identity.displayName}</strong>{identity.unitName ? <span>{identity.unitName}</span> : null}</div> : <span className="muted">Not signed in</span>}
-              <button className="button button--secondary" type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')}>
-                {theme === 'dark' ? 'Light theme' : 'Dark theme'}
-              </button>
               {headerAction}
-              {!memberPreviewPath && <NotificationBadge/>}<Link className="button button--secondary" to={destination('/account')}>Account</Link>
+              <button className="icon-button" type="button" aria-label="Dark theme" title="Dark theme" aria-pressed={theme === 'dark'} onClick={() => { themeChosen.current = true; setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark') }}>
+                {theme === 'dark' ? <Moon className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /> : <Sun className="icon" size={20} strokeWidth={1.5} aria-hidden="true" />}
+              </button>
+              {!memberPreviewPath && <NotificationBadge/>}<Link className="icon-button" to={destination('/account')} aria-label="Account" title="Account"><CircleUser className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /></Link>
             </div>
           </header>
           <main className="workspace-main" id="main-content" tabIndex={-1} ref={mainRef} aria-busy={navigation.state !== 'idle'}>
+            {/* The current page stays mounted while the next one loads, so filters, scroll and drafts survive. */}
+            {navigation.state !== 'idle' ? <div className="route-progress" role="progressbar" aria-label="Opening page" /> : null}
             {siteEditor}
-            {navigation.state !== 'idle' ? <LoadingState /> : <div key={location.pathname} className="view-enter">{content ?? <Outlet />}</div>}
+            <div key={location.pathname} className="view-enter">{content ?? <Outlet />}</div>
             {showGuidance&&(blocks.length>0||siteUnavailable)?<details className="site-guidance"><summary>Workspace guidance</summary>
               {siteUnavailable?<p className="muted">Published site settings could not be applied. Standard navigation and work remain available.</p>:null}
               {blocks.map(block=><section key={block.id} className={block.kind==='card'?'panel site-guidance-card':'site-guidance-block'}>
@@ -143,11 +163,15 @@ export function AppShell({ context = setupNavigation, identity, content, preview
           if (event.relatedTarget && !morePanelRef.current?.contains(event.relatedTarget) && event.relatedTarget !== moreButtonRef.current) setMoreOpen(false)
         }}>
         <div className="more-heading"><h2>More pages</h2><button className="button button--secondary" type="button" ref={closeButtonRef} tabIndex={moreOpen ? 0 : -1} onClick={closeMore}>Close pages</button></div>
-        <nav aria-label="Additional workspace navigation"><ul>{more.map((item) => <li key={item.id}><PageLink item={item} /></li>)}</ul></nav>
+        <nav aria-label="Additional workspace navigation"><ul>{more.map((item) => <li key={item.id}><PageLink item={item} count={countFor(item)} /></li>)}</ul></nav>
+        <p className="license-line">{licenseLine}</p>
       </section>
       <nav className="mobile-navigation" aria-label="Mobile workspace navigation" onKeyDown={handleMoreKey}>
         {primary.map((item) => <PageLink key={item.id} item={mobileLabel(item)} compact />)}
-        <button ref={moreButtonRef} className={`nav-link more-button${moreOpen ? ' active' : ''}`} type="button" aria-expanded={moreOpen} aria-controls="mobile-more-pages" onClick={() => moreOpen ? closeMore() : setMoreOpen(true)}>More</button>
+        <button ref={moreButtonRef} className={`nav-link more-button${moreOpen ? ' active' : ''}`} type="button" aria-expanded={moreOpen} aria-controls="mobile-more-pages" onClick={() => moreOpen ? closeMore() : setMoreOpen(true)}>
+          <Ellipsis className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /><span className="nav-link__label">More</span>
+          {unread && !memberPreviewPath && !moreOpen ? <span className="visually-hidden">, {unread} unread notifications</span> : null}
+        </button>
       </nav>
     </div>
   )

@@ -30,8 +30,15 @@ export function safeReturnPath(value: string | null): string {
     if(input.getAll('term').length===1&&uuid.test(input.get('term')!))kept.set('term',input.get('term')!)
     return path+(kept.size?'?'+kept.toString():'')
   }
-  return /^\/publicity\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || path === '/reviews' || /^\/finance\/reviews\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || /^\/finance\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || /^\/reviews\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || path === '/guest/redeem' || isDeliverablePath(path) || isTaskPath(path) || isAgreementPath(path) || isHandoffPath(path) || navigationItems.some((item) => item.href === path) ? path : '/'
+  return /^\/publicity\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || path === '/reviews' || path === '/department' || path === '/feedback' || /^\/finance\/reviews\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || /^\/finance\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || /^\/reviews\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || path === '/guest/redeem' || isDeliverablePath(path) || isTaskPath(path) || isAgreementPath(path) || isHandoffPath(path) || navigationItems.some((item) => item.href === path) ? path : '/'
 }
+
+// A content-free marker that this browser held a workspace session, so the sign-in page
+// can say a session ended instead of greeting first-time visitors with an expiry notice.
+const sessionMarkerKey = 'tedx-workspace-had-session'
+export function rememberSession(): void { try { localStorage.setItem(sessionMarkerKey, '1') } catch { /* Storage optional. */ } }
+export function forgetSession(): void { try { localStorage.removeItem(sessionMarkerKey) } catch { /* Storage optional. */ } }
+export function hadSession(): boolean { try { return localStorage.getItem(sessionMarkerKey) === '1' } catch { return false } }
 
 export function readCallback(search: string): string | null {
   const params = new URLSearchParams(search)

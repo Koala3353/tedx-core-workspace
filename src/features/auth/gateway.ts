@@ -43,7 +43,7 @@ import {createDriveApi} from '../integrations/drive/api'
 import {createCommentsApi,type CommentsApi} from '../comments/api'
 import type { ClientEnvironment } from '../../lib/env'
 import { createSupabaseClient } from '../../lib/supabase'
-import { callbackUrl, safeReturnPath } from './redirects'
+import { callbackUrl, forgetSession, safeReturnPath } from './redirects'
 import { createGuestGateway, type GuestGateway } from '../guests/gateway'
 import { createPeopleGateway, type PeopleGateway } from '../people/gateway'
 import { createProfileGateway, type ProfileGateway } from '../account/gateway'
@@ -252,6 +252,7 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       exchangeCode = undefined
       exchangePromise = undefined
       try { sessionStorage.removeItem(returnStorageKey) } catch { /* No application data is cached. */ }
+      forgetSession()
     },
     onChange(listener) {
       let stopped = false

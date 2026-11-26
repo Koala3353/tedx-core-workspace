@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router'
 import { createAppRouter } from './app/router'
 import '@fontsource-variable/karla'
+import '@fontsource-variable/inter'
 import './styles/tokens.css'
 import './styles/global.css'
 

@@ -1,4 +1,5 @@
 import {TurnoverLinks} from '../admin/turnover/TurnoverPage'
+import {Countdown} from '../../components/Countdown'
 import type {TurnoverApi} from '../admin/turnover/api'
 import {useCallback,useEffect,useState} from 'react'
 import {Link,useNavigate,useRouteLoaderData} from 'react-router'
@@ -50,7 +51,7 @@ function OverviewBody({api,announcements,context,subject,canSearch,tasks,invento
  }
  useEffect(()=>{let live=true;void api.read(termId).then(r=>{if(live){setResult(r);setError(false)}}).catch(()=>{if(live){setResult(null);setError(true)}});return()=>{live=false}},[api,termId,reload])
  useEffect(()=>{const refresh=()=>{setResult(null);setReload(n=>n+1)},visible=()=>{if(document.visibilityState==='visible')refresh()};window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',visible);return()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible)}},[])
- return <><PageHeading title="Overview" description="Your next actions and work waiting on someone else."/><p>Open a work title below to act. Task completion and independent approval stay separate.</p>
+ return <><PageHeading title="Overview" description="Your next actions and work waiting on someone else."/><Countdown variant="overview"/><p>Open a work title below to act. Task completion and independent approval stay separate.</p>
  <button className="button button--secondary" onClick={()=>{setResult(null);setReload(n=>n+1)}}>Refresh overview</button>
  {error?<ErrorState title="Overview unavailable" description="Check access or connection, then refresh the overview."/>:!result?<LoadingState title="Loading next actions"/>:<>
  <p>Refreshed {dateLabel(result.refreshedAt,null)}. Dates and overdue cutoff use Manila time.{result.hasMore?' Showing the first 50 permitted records; open Department inbox, My tasks or Core deliverables for more.':''}</p>

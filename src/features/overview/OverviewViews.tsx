@@ -1,4 +1,5 @@
 import {Link} from 'react-router'
+import {Status} from '../../components/Status'
 import type {ReactNode} from 'react'
 import {Panel} from '../../components/Page'
 import {EmptyState} from '../../components/FeedbackState'
@@ -16,7 +17,7 @@ export function OverviewLane({items,lane,illustrative=false}:{items:OverviewRow[
  <h3><Link className="overview-work-link" aria-disabled={illustrative||undefined} tabIndex={illustrative?-1:undefined} onClick={illustrative?e=>e.preventDefault():undefined} to={illustrative?'#':(i.source==='review'?'/reviews/'+i.termId+'/':i.source==='request'?'/requests/'+i.termId+'/':i.source==='task'?'/tasks/':i.source==='handoff'?'/working-together/handoffs/':'/deliverables/')+i.id}>{i.title}</Link></h3>
  {i.source==='task'||i.source==='deliverable'?<WorkReference compact reference={i.reference} id={i.id} kind={i.source}/>:null}
  <p>Owner: {i.owner} · Committee: {i.committee??'Not assigned'}</p><p>Next action: {i.action} · Next person: {i.person}</p>
- {i.source==='review'||i.source==='request'?<p>Requested: {dateLabel(null,i.requestedOn??null)} · Accepted: {i.dueOn?dateLabel(null,i.dueOn):'Not agreed'}{i.overdue?' · Accepted date overdue':''} · {i.state.replaceAll('_',' ')}</p>:<p>Due: {dateLabel(i.dueAt,i.dueOn)} · {i.overdue?'Overdue':i.dueOn||i.dueAt?'Due date recorded':'No target recorded'} · {i.state.replaceAll('_',' ')}</p>}
+ {i.source==='review'||i.source==='request'?<p>Requested: {dateLabel(null,i.requestedOn??null)} · Accepted: {i.dueOn?dateLabel(null,i.dueOn):'Not agreed'}{i.overdue?' · Accepted date overdue':''} · <Status state={i.state}/></p>:<p>Due: {dateLabel(i.dueAt,i.dueOn)} · {i.overdue?'Overdue':i.dueOn||i.dueAt?'Due date recorded':'No target recorded'} · <Status state={i.state}/></p>}
  </li>)}</ul>}</Panel>
 }
 export function WorkHelp({guest,canSearch=false,children}:{guest:boolean;canSearch?:boolean;children?:ReactNode}){

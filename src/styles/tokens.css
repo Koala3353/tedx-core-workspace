@@ -1,34 +1,46 @@
+/*
+ * One red. TED red (#eb0028) is the wordmark colour and the only accent.
+ * It appears on the wordmark, one primary action per view, the active-nav
+ * indicator and critical statuses. Never as a large fill.
+ * Contrast (WCAG): on-accent white on #eb0028 4.60, on hover #d10024 5.62;
+ * accent-ink #ff4d64 on #111111 5.84; light accent-ink #c4001f on #fff 6.24.
+ */
 :root {
   /* Default dark theme tokens */
-  --color-background: #141513;
-  --color-surface: #1d1f1c;
-  --color-surface-subtle: #262925;
-  --color-surface-elevated: #282b27;
-  --color-ink: #f3f3ef;
-  --color-ink-secondary: #d0d2cb;
-  --color-muted: #a4a89f;
-  --color-line: #323630;
-  --color-line-strong: #4d524a;
-  --color-accent: #e54842;
-  --color-accent-hover: #f05a54;
-  --color-accent-soft: rgba(229, 72, 66, 0.16);
-  --color-accent-ink: #ffb3b0;
-  --color-focus: #60a5fa;
+  --color-background: #111111;
+  --color-surface: #181818;
+  --color-surface-subtle: #202020;
+  --color-surface-elevated: #1c1c1c;
+  --color-ink: #f4f4f2;
+  --color-ink-secondary: #cfcfcb;
+  --color-muted: #a3a39e;
+  --color-line: #2a2a28;
+  --color-line-strong: #4a4a46;
+  --color-accent: #eb0028;
+  --color-accent-hover: #d10024;
+  --color-accent-soft: rgba(235, 0, 40, 0.14);
+  --color-accent-ink: #ff4d64;
+  --color-on-accent: #ffffff;
+  --color-focus: #ffffff;
   --color-logo-red: #eb0028;
-  --color-ok: #6ee7a0;
-  --color-ok-soft: rgba(34, 197, 94, 0.16);
+  --color-logo-tile: #000000;
+  --color-logo-name: #ffffff;
+  --color-ok: #4ade80;
   --color-warn: #fbbf24;
-  --color-warn-soft: rgba(245, 158, 11, 0.16);
-  --color-danger: #f87171;
-  --color-danger-soft: rgba(239, 68, 68, 0.16);
+  --color-danger: #ff4d64;
+  --color-danger-soft: rgba(235, 0, 40, 0.12);
   --color-info: #7dd3fc;
-  --color-info-soft: rgba(56, 189, 248, 0.16);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.55);
+  --color-neutral: #a3a39e;
+  --shadow-sm: none;
+  --shadow-md: 0 -1px 0 var(--color-line-strong);
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --font-body: 'Karla Variable', Karla, Arial, sans-serif;
-  --radius-control: 6px;
-  --radius-panel: 10px;
+  --font-display: 'Inter Variable', Inter, Helvetica, Arial, sans-serif;
+  --text-display: 3rem;
+  --text-h1: 2.25rem;
+  --text-h2: 1.25rem;
+  --radius-control: 4px;
+  --radius-panel: 6px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -36,52 +48,82 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 40px;
-  --sidebar-width: 248px;
+  --sidebar-width: 256px;
   --control-min-size: 44px;
-  --mobile-nav-height: 76px;
+  --mobile-nav-height: 64px;
+  --mobile-header-height: 56px;
+  color-scheme: dark;
 }
 
 [data-theme='light'] {
-  --color-background: #f6f6f2;
+  --color-background: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-subtle: #f0f0ea;
+  --color-surface-subtle: #f4f4f2;
   --color-surface-elevated: #ffffff;
-  --color-ink: #1d1e1c;
-  --color-ink-secondary: #4c5049;
-  --color-muted: #61655e;
-  --color-line: #dcdcd4;
-  --color-line-strong: #b8bab0;
-  --color-accent: #b4231e;
-  --color-accent-hover: #911a16;
-  --color-accent-soft: #faeae8;
-  --color-accent-ink: #8f1a16;
-  --color-focus: #1d4ed8;
-  --color-ok: #166534;
-  --color-ok-soft: #e7f6ec;
-  --color-warn: #8a4b08;
-  --color-warn-soft: #fef3e2;
-  --color-danger: #b4231e;
-  --color-danger-soft: #fdecec;
-  --color-info: #1d4e89;
-  --color-info-soft: #e8f1fb;
-  --shadow-sm: 0 1px 2px rgba(29, 30, 28, 0.06);
-  --shadow-md: 0 10px 28px rgba(29, 30, 28, 0.14);
+  --color-ink: #111111;
+  --color-ink-secondary: #3d3d3a;
+  --color-muted: #5f5f5b;
+  --color-line: #e4e4e0;
+  --color-line-strong: #b5b5b0;
+  --color-accent: #eb0028;
+  --color-accent-hover: #c4001f;
+  --color-accent-soft: #fdeaed;
+  --color-accent-ink: #c4001f;
+  --color-on-accent: #ffffff;
+  --color-focus: #000000;
+  --color-logo-tile: #ffffff;
+  --color-logo-name: #000000;
+  --color-ok: #15803d;
+  --color-warn: #a16207;
+  --color-danger: #c4001f;
+  --color-danger-soft: #fdeaed;
+  --color-info: #1d4ed8;
+  --color-neutral: #5f5f5b;
+  --shadow-sm: none;
+  --shadow-md: 0 -8px 24px rgba(17, 17, 17, 0.08);
+  color-scheme: light;
 }
 
-/* Closed P39 interface accent; approved identity/logo tokens remain separate. */
+/* Closed P39 interface accent; approved identity/logo tokens remain separate.
+ * Dark: #111111 on #d8dad3 13.39, on hover #ffffff 18.88.
+ * Light: #ffffff on #252624 15.20, on hover #111210 18.79. */
 .site-theme--ink {
   --color-accent: #d8dad3;
   --color-accent-hover: #ffffff;
   --color-accent-soft: rgba(216, 218, 211, 0.14);
-  --color-accent-ink: #f3f3ef;
-  --color-focus: #60a5fa;
+  --color-accent-ink: #f4f4f2;
+  --color-on-accent: #111111;
+  --color-focus: #ffffff;
 }
 [data-theme='light'] .site-theme--ink {
   --color-accent: #252624;
   --color-accent-hover: #111210;
   --color-accent-soft: #ecece8;
-  --color-accent-ink: #1d1e1c;
-  --color-focus: #252624;
+  --color-accent-ink: #111111;
+  --color-on-accent: #ffffff;
+  --color-focus: #000000;
+}
+
+/* The sign-in stage is always black: the logo lives on solid black. */
+.stage {
+  --color-background: #000000;
+  --color-surface: #0c0c0c;
+  --color-surface-subtle: #161616;
+  --color-ink: #ffffff;
+  --color-ink-secondary: #d6d6d2;
+  --color-muted: #a3a39e;
+  --color-line: #262626;
+  --color-line-strong: #4a4a46;
+  --color-accent: #eb0028;
+  --color-accent-hover: #d10024;
+  --color-accent-ink: #ff4d64;
+  --color-on-accent: #ffffff;
+  --color-focus: #ffffff;
+  --color-logo-tile: #000000;
+  --color-logo-name: #ffffff;
+  --color-danger: #ff4d64;
+  --color-warn: #fbbf24;
+  color-scheme: dark;
 }
 
 .site-guidance { margin-block-start: var(--space-5); }

@@ -23,10 +23,10 @@
 .timeline-row-name span { color: var(--color-muted); font-size: .875rem; }
 .timeline-row-name a { min-height: var(--control-min-size); display: flex; align-items: center; }
 .timeline-track { position: relative; }
-.timeline-bar { position: absolute; top: 30px; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: var(--color-accent-soft); color: var(--color-accent); border: 1px solid var(--color-accent); border-radius: var(--radius-control); z-index: 2; }
+.timeline-bar { position: absolute; top: 30px; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: var(--color-surface-subtle); color: var(--color-ink); border: 1px solid var(--color-line-strong); font-variant-numeric: tabular-nums; border-radius: var(--radius-control); z-index: 2; }
 .timeline-deadline { min-width: 44px; font-size: 1.25rem; }
 .timeline-edges { position: absolute; top: 0; left: 260px; pointer-events: none; z-index: 1; }
-.timeline-edge-required { stroke: var(--color-accent); stroke-width: 2; }
+.timeline-edge-required { stroke: var(--color-ink-secondary); stroke-width: 2; }
 .timeline-edge-info { stroke: var(--color-muted); stroke-width: 2; stroke-dasharray: 5 4; }
 .timeline-marker { position: absolute; top: 0; border-left: 2px solid var(--color-ink); pointer-events: none; z-index: 3; }
 .timeline-marker span { position: absolute; top: 2px; left: 3px; background: var(--color-surface); font-weight: 600; font-size: .75rem; white-space: nowrap; }
