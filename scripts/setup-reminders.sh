@@ -101,7 +101,7 @@ printf '%s' "$EMAIL_DISPATCH_SECRET" | gh secret set EMAIL_DISPATCH_SECRET -R "$
 
 echo "Deploying functions..."
 for fn in dispatch-notifications email-adapter dispatch-telegram; do
-  pnpm exec supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+  pnpm exec supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --use-api
 done
 
 cat <<EOF
