@@ -2,7 +2,8 @@
 #
 # 1. dispatch-notifications: enqueues due/overdue reminders, delivers in-app notifications, and
 #    enqueues typed email reminders for members who turned email on.
-# 2. email-adapter: sends queued email reminders (08:00-20:00 Asia/Manila only).
+# 2. email-adapter: sends queued email reminders (08:00-20:00 Asia/Manila; digests to 21:00).
+# 3. dispatch-telegram (optional): alerts with Done/Snooze/Got it buttons and the 08:00 "Your day" message.
 #
 # Both functions have verify_jwt = false (supabase/config.toml) and reject any request without their
 # own shared-secret header. Secrets are set by scripts/setup-reminders.sh:
@@ -57,4 +58,20 @@ jobs:
             --request POST --header "x-email-dispatch-secret: ${DISPATCH_SECRET}" \
             "${FUNCTIONS_URL}/email-adapter")
           echo "email-adapter HTTP ${status}: $(head -c 500 response.json)"
+          [ "${status}" -ge 200 ] && [ "${status}" -lt 300 ]
+
+      - name: Send Telegram alerts
+        # Optional: skipped until TELEGRAM_DISPATCH_SECRET is set (Telegram bot configured).
+        env:
+          DISPATCH_SECRET: ${{ secrets.TELEGRAM_DISPATCH_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DISPATCH_SECRET}" ]; then
+            echo "TELEGRAM_DISPATCH_SECRET not set; skipping Telegram."
+            exit 0
+          fi
+          status=$(curl --silent --show-error --max-time 120 --output response.json --write-out '%{http_code}' \
+            --request POST --header "x-telegram-dispatch-secret: ${DISPATCH_SECRET}" \
+            "${FUNCTIONS_URL}/dispatch-telegram")
+          echo "dispatch-telegram HTTP ${status}: $(head -c 500 response.json)"
           [ "${status}" -ge 200 ] && [ "${status}" -lt 300 ]

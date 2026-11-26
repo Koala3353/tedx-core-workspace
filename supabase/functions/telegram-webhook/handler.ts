@@ -2,12 +2,15 @@ import { bounded } from '../files/validation.ts'
 import { driveHash,importDriveKey,sealDriveToken } from '../google-oauth/protocol.ts'
 import { matchesTelegramSecret } from '../_shared/notification-adapters/backend.ts'
 import { telegramChat,type TelegramBot } from '../_shared/notification-adapters/telegram.ts'
+import { callbackData,keyboardWithout,telegramActionReply } from '../_shared/notification-adapters/telegram-items.ts'
 
 type Stage={startHash:string;confirmHash:string;chatHash:string;sealedChat:string}
+export type ActionOutcome={result?:unknown;repeat?:unknown;title?:unknown}
 interface WebhookBackend {
   stage(staged:Stage):Promise<boolean>
   abandon(staged:Stage):Promise<void>
   block(chatHash:string,providerSeconds:number):Promise<void>
+  action(tokenHash:string,chatHash:string):Promise<ActionOutcome|null>
 }
 
 const formatSecret=/^[A-Za-z0-9_-]{32,128}$/
@@ -31,6 +34,27 @@ export async function telegramWebhook(backend:WebhookBackend,bot:TelegramBot,con
     let input
     try{input=JSON.parse(new TextDecoder().decode(await bounded(request.body,16384)))}
     catch{return reply(false,400)}
+    const query=input?.callback_query
+    if(Number.isSafeInteger(input?.update_id)&&query&&typeof query==='object') {
+      // Inline button press. Only a private chat with its own human user, and only our token shape.
+      const source=query.message
+      const match=typeof query.data==='string'?query.data.match(callbackData):null
+      if(typeof query.id!=='string'||query.from?.is_bot!==false||source?.chat?.type!=='private'
+        ||!Number.isSafeInteger(source.chat.id)||query.from.id!==source.chat.id||!Number.isSafeInteger(source.message_id)
+        ||!match)return reply(true)
+      const chat=String(source.chat.id)
+      if(!telegramChat.test(chat))return reply(true)
+      try {
+        const outcome=await backend.action(await driveHash(match[1]),await chatHash(chat))
+        const answer=telegramActionReply(outcome?.result,outcome?.repeat===true,outcome?.title)
+        await bot.answer(query.id,answer.toast)
+        if(answer.line&&typeof source.text==='string'&&source.text.length<=3800)
+          await bot.edit(chat,source.message_id,source.text+'\n\n'+answer.line,keyboardWithout(source.reply_markup,query.data))
+        return reply(true)
+      } catch {
+        return reply(false,503)
+      }
+    }
     const message=input?.message
     if(!Number.isSafeInteger(input?.update_id)||message?.chat?.type!=='private'
       ||message?.from?.is_bot!==false||!Number.isSafeInteger(message.chat.id)||message.from.id!==message.chat.id

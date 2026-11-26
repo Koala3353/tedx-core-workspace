@@ -3,13 +3,16 @@ import { workspaceOrigin,type Mail } from './provider.ts'
 // Per-kind reminder copy. Content comes from the email_digest_dispatch 'prepare' result, which the
 // database computes from live state at send time; anything unexpected is refused (null), never guessed.
 export const reminderTypes=['task_due_soon','task_overdue','deliverable_due_soon','deliverable_overdue',
-  'approval_waiting','announcement_unacknowledged','event_countdown','digest'] as const
+  'approval_waiting','announcement_unacknowledged','event_countdown','digest','welcome','nudge_sign_in','nudge_install',
+  'nudge_tutorial','nudge_reminders','weekly_digest'] as const
 export type ReminderType=typeof reminderTypes[number]
 
 const CONTROL=new RegExp('[\\x00-\\x1f\\x7f'+String.fromCharCode(0x2028,0x2029)+']+','g')
 const ELLIPSIS=String.fromCharCode(0x2026),DASH=String.fromCharCode(0x2014)
 const SIGNATURE='TEDxAteneodeManilaU Core Workspace'
 const FOOTER='You are getting this because email reminders are on in your workspace notification settings.'
+// Welcome and nudge emails are sent without the reminder opt-in, so they say why they arrived instead.
+const ROSTER_FOOTER='You are getting this because you were added to the TEDxAteneodeManilaU core team roster.'
 const uuid='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 const route=new RegExp('^(?:(?:tasks|deliverables|announcements)/'+uuid+'|(?:reviews|finance/reviews|publicity)/'+uuid+'/'+uuid+')?$')
 
@@ -38,8 +41,8 @@ function count(value:unknown,min:number,max:number):number|null {
   return typeof value==='number'&&Number.isInteger(value)&&value>=min&&value<=max?value:null
 }
 
-function compose(type:ReminderType,subject:string,lines:string[],link:string):Mail {
-  return {type,subject,text:[...lines,'',link,'',DASH+' '+SIGNATURE,'',FOOTER].join('\n')}
+function compose(type:ReminderType,subject:string,lines:string[],link:string,footer=FOOTER):Mail {
+  return {type,subject,text:[...lines,'',link,'',DASH+' '+SIGNATURE,'',footer].join('\n')}
 }
 
 export function reminderMail(base:WorkspaceLink,content:unknown):Mail|null {
@@ -89,6 +92,39 @@ export function reminderMail(base:WorkspaceLink,content:unknown):Mail|null {
     }
     case 'digest':
       return compose(type as ReminderType,'Workspace updates',['Hi! You have workspace updates waiting.','Sign in to open your notifications.'],link)
+    case 'welcome':
+      return compose(type as ReminderType,'Welcome to the TEDxAteneodeManilaU core workspace',
+        ["You've been added to the TEDxAteneodeManilaU core workspace. Sign in with your school Google account:"],
+        link+'\n\nInstall it to your home screen when prompted.',ROSTER_FOOTER)
+    case 'nudge_sign_in':
+      return compose(type as ReminderType,'Sign in to the TEDx core workspace',
+        ['Hi! Your team is already working in the TEDxAteneodeManilaU core workspace.',
+          'Sign in with your school Google account to see your tasks and announcements:'],link,ROSTER_FOOTER)
+    case 'nudge_install':
+      return compose(type as ReminderType,'Add the workspace to your home screen',
+        ['Hi! Open the workspace on your phone and choose Install (or Add to Home Screen).',
+          'Your tasks and announcements are then one tap away.'],link,ROSTER_FOOTER)
+    case 'nudge_tutorial':
+      return compose(type as ReminderType,'Take the 2-minute workspace tour',
+        ['Hi! The workspace tour takes about two minutes and shows where your tasks, deadlines and announcements live.',
+          'It starts when you open the workspace.'],link,ROSTER_FOOTER)
+    case 'nudge_reminders':
+      return compose(type as ReminderType,'Turn on workspace reminders',
+        ['Hi! Turn on email or Telegram reminders in the workspace so you hear about deadlines before they slip.',
+          'You can change this any time in your notification settings.'],link,ROSTER_FOOTER)
+    case 'weekly_digest': {
+      const due=count(c.dueThisWeek,0,10000),late=count(c.overdue,0,10000),meetings=count(c.meetings,0,10000)
+      if(due===null||late===null||meetings===null)return null
+      const plural=(n:number,one:string,many:string)=>n+' '+(n===1?one:many)
+      const lines=["Hi! Here's your week in the workspace:",
+        '- Due this week: '+plural(due,'item','items'),
+        '- Overdue: '+plural(late,'item','items'),
+        '- Meetings this week: '+meetings]
+      const committee=clean(c.committee,80),pct=count(c.onTrackPct,0,100)
+      if(committee&&pct!==null)lines.push(`- ${committee} on track: ${pct}%`)
+      lines.push('','Open the workspace to plan your week.')
+      return compose(type as ReminderType,late>0?`Your week ahead (${late} overdue)`:'Your week ahead',lines,link)
+    }
   }
   return null
 }

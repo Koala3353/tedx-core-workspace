@@ -28,5 +28,9 @@ if(Deno.env.get('TELEGRAM_LINK_ENABLED')!=='true'||!url||!service||!token||!secr
     async block(chatHash,providerSeconds) {
       await rpc('telegram_stage',{p_action:'stop',p_chat_hash:chatHash,p_provider_seconds:providerSeconds})
     },
+    async action(tokenHash,chatHash) {
+      const result=await rpc('telegram_action',{p_token_hash:tokenHash,p_chat_hash:chatHash})
+      return result&&typeof result==='object'&&!Array.isArray(result)?result as Record<string,unknown>:null
+    },
   },telegramBot(token),{secret,encryptionKey}))
 }
