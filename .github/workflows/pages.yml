@@ -1,0 +1,70 @@
+# Builds the workspace and publishes it to GitHub Pages.
+#
+# One-time setup (repository Settings):
+#   Pages -> Build and deployment -> Source: GitHub Actions
+#   Secrets and variables -> Actions -> Variables:
+#     VITE_SUPABASE_PUBLISHABLE_KEY  sb_publishable_... (public browser key, never a secret key)
+#     VITE_APP_ORIGIN                https://david-gy.github.io  (or https://<custom-domain>)
+#     PAGES_BASE_PATH                optional; defaults to /<repository>/. Set to / for a custom domain.
+#   Environments -> github-pages -> Deployment branches: allow the branch below.
+# Supabase Auth must list <VITE_APP_ORIGIN><PAGES_BASE_PATH>auth/callback as a redirect URL.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, codex/webapp-essential-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: |
+          pnpm typecheck
+          pnpm typecheck:files
+          pnpm lint
+
+      - name: Build for Pages
+        env:
+          VITE_SUPABASE_URL: https://wyurosneoxfqqrrvstke.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_APP_ORIGIN: ${{ vars.VITE_APP_ORIGIN }}
+          PAGES_BASE_PATH: ${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+        run: pnpm build:pages
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

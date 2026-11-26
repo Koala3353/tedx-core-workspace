@@ -1,8 +1,11 @@
 /* global self, caches, fetch, Request, Response, URL */
 const prefix = 'tedx-public-shell-'
-const cacheName = prefix + '2'
-const offlinePath = '/offline/'
-const publicFiles = [offlinePath, '/manifest.webmanifest', '/workspace-192.png', '/workspace-512.png']
+const cacheName = prefix + '3'
+// The worker is registered at <base>/workspace-sw.js, so its scope is the deployment base
+// ('/' at a domain root, '/<repository>/' on a GitHub Pages project site).
+const base = new URL(self.registration.scope).pathname
+const offlinePath = base + 'offline/'
+const publicFiles = [offlinePath, base + 'manifest.webmanifest', base + 'workspace-192.png', base + 'workspace-512.png']
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(publicFiles.map(path =>
@@ -29,8 +32,9 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  const appNavigation = /^\/(?:$|(?:login|shared|account|announcements|privacy|privacy-notice|tasks|deliverables|working-together|requests|reviews|finance|publicity|resources|calendar|people|committee|department|reports|search|notifications|guests|admin|rooms|inventory|mentoring|prism|archive|handover)(?:\/[\w/-]*)?$)/
-  if (request.mode === 'navigate' && appNavigation.test(url.pathname)) {
+  const appNavigation = /^\/(?:$|(?:login|auth|shared|account|announcements|privacy|privacy-notice|tasks|deliverables|working-together|requests|reviews|finance|publicity|resources|calendar|people|committee|department|reports|search|notifications|guests|guest|admin|inventory|mentoring|prism|feedback|archive|handover)(?:\/[\w/-]*)?$)/
+  const appPath = url.pathname.startsWith(base) ? '/' + url.pathname.slice(base.length) : null
+  if (request.mode === 'navigate' && appPath !== null && appNavigation.test(appPath)) {
     event.respondWith(fetch(request, { cache: 'no-store' }).catch(async () =>
       (await (await caches.open(cacheName)).match(offlinePath)) || Response.error(),
     ))

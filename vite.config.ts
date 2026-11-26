@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { loadEnv } from 'vite'
 import { defineConfig } from 'vite'
 import { readClientEnvironment } from './src/lib/env.ts'
@@ -26,6 +27,12 @@ export default defineConfig(({ command, mode }) => {
     || [input.VITE_DRIVE_PICKER_ENABLED,input.VITE_DRIVE_EVIDENCE_ENABLED,input.VITE_CALENDAR_SYNC_ENABLED,input.VITE_EMAIL_DIGEST_ENABLED]
       .some(setting=>setting?.trim() && setting.trim()!=='false'))
   const environment = readClientEnvironment(input)
+  // Deployment base path. GitHub Pages project sites serve from /<repository>/; a custom
+  // domain or Vercel serves from /. Not a VITE_ setting, so it never enters the bundle as config.
+  const base = (process.env.PAGES_BASE_PATH ?? '/').trim() || '/'
+  if (!/^\/(?:[A-Za-z0-9._-]+\/)*$/.test(base)) {
+    throw new Error('PAGES_BASE_PATH must start and end with "/", for example /TEDxAteneo2627/.')
+  }
   // Client-side rejection is too late: VITE_ values can already be in the bundle.
   if (command === 'build') {
     const unexpectedSettings = Object.keys(values).filter(key => !Object.hasOwn(input,key))
@@ -62,13 +69,43 @@ export default defineConfig(({ command, mode }) => {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   }
 
+  // GitHub Pages ignores _headers, so the Pages build carries the policy in a <meta> tag.
+  // frame-ancestors is not honoured in <meta>; src/main.tsx refuses to render when framed.
+  const metaPolicy = headers['Content-Security-Policy'].split('; ')
+    .filter(directive => !directive.startsWith('frame-ancestors')).join('; ')
+  const metaTag = `<meta http-equiv="Content-Security-Policy" content="${metaPolicy}" />`
+  const injectPolicy = (html: string) => html.replace(/<meta charset="utf-8"\s*\/?>/i, match => `${match}\n    ${metaTag}`)
+  let outDir = 'dist'
+
   return {
+    base,
     plugins: [react(), {
-      name: 'workspace-pages-headers',
+      name: 'workspace-host-headers',
       apply: 'build',
       generateBundle() {
+        if (mode === 'pages') return
         const source = '/*\n' + Object.entries(headers).map(([name,value]) => `  ${name}: ${value}\n`).join('')
         this.emitFile({ type: 'asset', fileName: '_headers', source })
+      },
+    }, {
+      name: 'workspace-github-pages',
+      apply: 'build',
+      configResolved(config) { outDir = config.build.outDir },
+      transformIndexHtml(html) {
+        if (mode !== 'pages') return html
+        const result = injectPolicy(html)
+        if (result === html) throw new Error('index.html needs <meta charset="UTF-8"> for the Pages policy.')
+        return result
+      },
+      closeBundle() {
+        if (mode !== 'pages') return
+        const offline = join(outDir, 'offline', 'index.html')
+        const offlineHtml = readFileSync(offline, 'utf8'), offlineResult = injectPolicy(offlineHtml)
+        if (offlineResult === offlineHtml) throw new Error('offline/index.html needs <meta charset="utf-8"> for the Pages policy.')
+        writeFileSync(offline, offlineResult)
+        // Pages has no rewrites: serve the app shell for deep links such as /tasks/<id>.
+        copyFileSync(join(outDir, 'index.html'), join(outDir, '404.html'))
+        writeFileSync(join(outDir, '.nojekyll'), '')
       },
     }],
     preview: { headers },

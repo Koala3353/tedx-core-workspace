@@ -1,3 +1,4 @@
+import { basePath } from '../../lib/basePath'
 import {parseTimelineQuery,timelineSearch} from '../timeline/filters'
 import { navigationItems } from '../../app/navigation'
 
@@ -11,7 +12,7 @@ export const isHandoffPath=(path:string)=>/^\/working-together\/handoffs(?:\/[0-
 export const isAgreementPath = (path: string) => /^\/working-together\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
 export function callbackUrl(origin: string, configuredOrigin?: string): string | null {
   const allowed = configuredOrigin ? origin === configuredOrigin : authOrigins.some(value => value === origin)
-  return allowed ? `${origin}/auth/callback` : null
+  return allowed ? `${origin}${basePath}/auth/callback` : null
 }
 
 export function safeReturnPath(value: string | null): string {

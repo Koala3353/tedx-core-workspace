@@ -1,3 +1,4 @@
+import { basePath } from '../../lib/basePath'
 import type { createSupabaseClient } from '../../lib/supabase'
 
 export type GuestInvitation = {
@@ -67,4 +68,4 @@ export function createGuestGateway(ready: ReturnType<typeof createSupabaseClient
 export function readInvitationFragment(hash: string): string | null {
   return /^#[a-f0-9]{64}$/.test(hash) ? hash.slice(1) : null
 }
-export function invitationUrl(origin: string,token: string) { return `${origin}/guest/redeem#${token}` }
+export function invitationUrl(origin: string,token: string) { return `${origin}${basePath}/guest/redeem#${token}` }

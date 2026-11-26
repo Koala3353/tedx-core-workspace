@@ -1,3 +1,4 @@
+import { appPath } from '../../lib/basePath'
 import {TextField} from '../../components/TextField'
 import {useState} from 'react'
 import {validWorkReference,type WorkReferenceValue} from './api'
@@ -6,7 +7,7 @@ import './references.css'
 export function WorkReference({reference,id,kind,compact=false}:{reference?:WorkReferenceValue|null;id:string;kind:'task'|'deliverable';compact?:boolean}){
  const [status,setStatus]=useState<{key:string;message:string;failed:boolean}|null>(null)
  if(!validWorkReference(reference,kind))return compact?null:<p className="muted">Reference not yet available. This work still uses its existing link.</p>
- const context=reference.value+' · '+reference.termLabel,key=id+context,href=new URL((kind==='task'?'/tasks/':'/deliverables/')+id,window.location.origin).href
+ const context=reference.value+' · '+reference.termLabel,key=id+context,href=new URL(appPath((kind==='task'?'/tasks/':'/deliverables/')+id),window.location.origin).href
  const current=status?.key===key?status:null
  async function copy(link=false){
   try{await navigator.clipboard.writeText(link?href:context);setStatus({key,message:link?'Link copied.':'Reference copied.',failed:false})}

@@ -1,3 +1,4 @@
+import { appPath } from '../../lib/basePath'
 import {SiteLogo} from '../admin/site/SiteLogo'
 import {SiteEditMode} from '../admin/site/SiteEditMode'
 import {usePublishedSite} from '../admin/site/usePublishedSite'
@@ -37,7 +38,7 @@ export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
   const draftIdentity=workspace?JSON.stringify([workspace.termId,isGuest(workspace)?'guest:'+workspace.guestAccessId:'core:'+workspace.memberId,[...(workspace.capabilities??[])].sort()]):'signed-out'
   useEffect(() => { if (offline) offlineHeading.current?.focus() }, [offline])
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState === 'visible' && window.location.pathname !== '/auth/callback') void revalidate() }
+    const refresh = () => { if (document.visibilityState === 'visible' && window.location.pathname !== appPath('/auth/callback')) void revalidate() }
     const stop = gateway.onChange(refresh)
     window.addEventListener('focus', refresh)
     document.addEventListener('visibilitychange', refresh)
@@ -66,7 +67,7 @@ export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
     setOfflineError('')
     try {
       await gateway.signOut()
-      window.location.replace('/login')
+      window.location.replace(appPath('/login'))
     } catch {
       setSigningOut(false)
       setOfflineError('Sign-out could not be confirmed. Reconnect and try again.')
@@ -139,7 +140,7 @@ export function CallbackPage({ gateway }: { gateway: AuthGateway }) {
   useEffect(() => {
     let active = true
     const code = readCallback(location.search)
-    window.history.replaceState(window.history.state, '', '/auth/callback')
+    window.history.replaceState(window.history.state, '', appPath('/auth/callback'))
     const fail=()=>{
       if(!active)return
       recovered.current??=consumeReturnPath()
@@ -160,7 +161,7 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
   const [busy, setBusy] = useState(false)
   async function leave(switchAccount: boolean) {
     setBusy(true); setError('')
-    try { await gateway.signOut(); if (switchAccount) await gateway.beginGoogle('/'); else window.location.replace('/login') }
+    try { await gateway.signOut(); if (switchAccount) await gateway.beginGoogle('/'); else window.location.replace(appPath('/login')) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Sign-out could not be confirmed.'); setBusy(false) }
   }
   return <><h1>Your account</h1><p>{context && isGuest(context) ? 'Access follows your current invitation and its expiry.' : 'Access follows your current roster membership and scoped grants.'}</p><div className="auth-actions">

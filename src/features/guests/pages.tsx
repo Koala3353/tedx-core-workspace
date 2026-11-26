@@ -1,3 +1,4 @@
+import { appPath } from '../../lib/basePath'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLoaderData, useNavigate, useRouteLoaderData } from 'react-router'
 import { PageHeading, Panel } from '../../components/Page'
@@ -116,7 +117,7 @@ export function RedeemPage({gateway}:{gateway:AuthGateway}) {
   const [error,setError]=useState('')
   const [otherShared,setOtherShared]=useState(()=>auth.state==='authorized'&&isGuest(auth))
   const navigate=useNavigate()
-  useEffect(()=>{window.history.replaceState(window.history.state,'','/guest/redeem')},[])
+  useEffect(()=>{window.history.replaceState(window.history.state,'',appPath('/guest/redeem'))},[])
   async function redeem() {
     if(!token||!gateway.guests)return
     setBusy(true);setError('')

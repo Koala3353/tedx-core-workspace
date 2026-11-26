@@ -1,3 +1,4 @@
+import { appPath, basePath, stripBase } from '../lib/basePath'
 import {ArchivePage,archivePath} from '../features/admin/turnover/ArchivePage'
 import {TurnoverPage} from '../features/admin/turnover/TurnoverPage'
 import {PrivacyPage,PrivacyRequestPage} from '../features/admin/privacy/Privacy'
@@ -90,7 +91,7 @@ function RouteErrorPage() {
   return (
     <main className="standalone-page">
       <h1>The workspace could not open</h1>
-      <ErrorState title="This page could not be displayed" description="Try returning to the start. If this continues, contact the workspace maintainer." action={<a className="button" href="/">Return to start</a>} />
+      <ErrorState title="This page could not be displayed" description="Try returning to the start. If this continues, contact the workspace maintainer." action={<a className="button" href={appPath('/')}>Return to start</a>} />
     </main>
   )
 }
@@ -122,23 +123,23 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       { id:'workspace', path: '/', element: <ProtectedShell notifications={gateway.notifications} gateway={gateway}/>, loader: async ({ request }) => {
         const result = await gateway.readContext(request.signal,new URL(request.url).searchParams.get('term')??undefined)
         if (result.state === 'authorized') {
-          const path=new URL(request.url).pathname
+          const path=stripBase(new URL(request.url).pathname)
           if(isGuest(result) && !isDeliverablePath(path) && !isTaskPath(path) && !isAnnouncementPath(path) && !isPrivacyPath(path) && !navigationItems.some(item=>item.href===path && item.audiences.includes('guest')))return redirect('/shared')
           if (isMemberPreviewPath(path) && !canPreviewAsMember(result)) return redirect('/')
           if(path==='/guests' && !result.capabilities.includes('roles.manage'))return redirect(isGuest(result)?'/shared':'/')
           return result
         }
-        const url = new URL(request.url)
-        const retained=/^\/(?:deliverables|tasks)\/([0-9a-f-]{36})\/?$/i.exec(url.pathname)
+        const url = new URL(request.url), appUrlPath = stripBase(url.pathname)
+        const retained=/^\/(?:deliverables|tasks)\/([0-9a-f-]{36})\/?$/i.exec(appUrlPath)
         if(retained&&gateway.turnover){
           const current=await gateway.readContext(request.signal)
           if(current.state==='authorized'&&!isGuest(current)){
             try{if(await gateway.turnover.record(current.termId,retained[1]))return redirect(archivePath(current.termId,retained[1]))}catch{/* The original denied result remains authoritative. */}
           }
         }
-        return redirect(`/login?reason=${result.state === 'denied' ? 'denied' : 'check'}&returnTo=${encodeURIComponent(safeReturnPath(url.pathname+url.search))}`)
+        return redirect(`/login?reason=${result.state === 'denied' ? 'denied' : 'check'}&returnTo=${encodeURIComponent(safeReturnPath(appUrlPath+url.search))}`)
       // Timeline filter RPCs recheck scope themselves. Explicit focus/expiry checks still revalidate.
-      }, shouldRevalidate: ({currentUrl,nextUrl}) => !(currentUrl.pathname==='/working-together/timeline'&&nextUrl.pathname===currentUrl.pathname&&currentUrl.search!==nextUrl.search), children: [
+      }, shouldRevalidate: ({currentUrl,nextUrl}) => !(stripBase(currentUrl.pathname)==='/working-together/timeline'&&nextUrl.pathname===currentUrl.pathname&&currentUrl.search!==nextUrl.search), children: [
       {path:memberPreviewPath.slice(1)+'/*',element:<MemberPreview/>},
       { index: true, element: gateway.overview?<><CurrentPhase api={gateway.process}/><Overview api={gateway.overview} announcements={gateway.announcements} canSearch={!!gateway.search} tasks={gateway.tasks} inventory={gateway.inventory} growth={gateway.growth} evaluations={gateway.evaluations} turnover={gateway.turnover}/></>:<><PageHeading title="Overview"/><EmptyState title="Overview unavailable" description="The workspace connection is unavailable."/></> },
       ...(gateway.turnover?[{path:'archive/:archivedWorkId?',element:<ArchivePage api={gateway.turnover}/>},{path:'handover/:turnoverCaseId?',element:<TurnoverPage api={gateway.turnover}/>}]:[]),
@@ -206,5 +207,5 @@ export function createAppRouter() {
     VITE_TELEGRAM_BOT_USERNAME: import.meta.env.VITE_TELEGRAM_BOT_USERNAME,
     VITE_EMAIL_DIGEST_ENABLED: import.meta.env.VITE_EMAIL_DIGEST_ENABLED,
   })
-  return createBrowserRouter(createAppRoutes(environment))
+  return createBrowserRouter(createAppRoutes(environment), { basename: basePath || '/' })
 }
