@@ -326,7 +326,7 @@ begin
         where p.term_id=p_term_id and r.code=role_code and (p.unit_id is null or u.archived_at is null);
       if position.role_id is null then reason:='unknown_role';
       elsif unit.id is not null and position.unit_id is distinct from unit.id then reason:='role_committee_mismatch';
-      elsif position.administrator and not full_admin then reason:='role_not_allowed';
+      elsif (position.administrator or position.tier<>'core') and not full_admin then reason:='role_not_allowed';
       end if;
     elsif reason is null and unit.id is not null then
       select p.* into position from app_private.tedx_positions p join public.roles r on r.id=p.role_id and r.state='active'
