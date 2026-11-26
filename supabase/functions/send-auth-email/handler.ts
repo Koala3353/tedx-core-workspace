@@ -1,4 +1,5 @@
-import { approvedRecipient,type MailProvider } from '../email-adapter/provider.ts'
+import { htmlPart,LICENSE_LINE,SIGNATURE } from '../email-adapter/layout.ts'
+import { approvedRecipient,type Mail,type MailProvider } from '../email-adapter/provider.ts'
 
 // Supabase Auth "Send Email Hook" (HTTPS). Auth signs every call with Standard Webhooks:
 //   webhook-id, webhook-timestamp (unix seconds), webhook-signature ("v1,<base64>" entries, space separated)
@@ -59,11 +60,20 @@ export async function verifyWebhook(secret:Uint8Array,headers:Headers,body:strin
   return matched
 }
 
-export function signInCodeMail(code:string) {
+const CODE_REASON='You are getting this because someone asked to sign in to the TEDxAteneodeManilaU core workspace with this email address.'
+
+// The code is never in an image: plain text in both parts so it can be read aloud, selected and copied.
+export function signInCodeMail(code:string):Mail {
+  const subject='Your TEDx workspace sign-in code: '+code
   return {
     type:'auth_code',
-    subject:'Your TEDx workspace sign-in code: '+code,
-    text:'Your sign-in code is '+code+". It expires in about 10 minutes. If you didn't ask for this, ignore this email.",
+    subject,
+    text:'Your sign-in code is '+code+". It expires in about 10 minutes. If you didn't ask for this, ignore this email."
+      +'\n\n'+SIGNATURE+'\n\n'+CODE_REASON+'\n'+LICENSE_LINE,
+    ...htmlPart({subject,preheader:'Your code is '+code+'. It expires in about 10 minutes.',heading:'Your sign-in code',
+      body:['Enter this code in the TEDx core workspace to finish signing in.'],
+      detail:{kind:'code',label:'Sign-in code',code},
+      after:["It expires in about 10 minutes. If you didn't ask for this, you can ignore this email."],reason:CODE_REASON}),
   }
 }
 
