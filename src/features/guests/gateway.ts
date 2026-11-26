@@ -15,7 +15,7 @@ export interface GuestGateway {
   redeem(token: string): Promise<void>
 }
 export function createGuestGateway(ready: ReturnType<typeof createSupabaseClient>): GuestGateway {
-  const message = 'Guest access could not be updated. Refresh the list and check your account, invitation and expiry before retrying.'
+  const message = 'Couldn\'t update guest access. Refresh the page, check the invitation hasn\'t expired, then try again.'
   async function client() {
     const value = await ready
     if (!value) throw new Error('Guest access needs Supabase and Google sign-in setup.')

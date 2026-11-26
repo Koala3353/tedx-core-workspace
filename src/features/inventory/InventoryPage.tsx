@@ -8,13 +8,13 @@ import {forgetRecordDrafts} from '../auth/draftScope'
 import {manilaDay} from '../timeline/dates'
 import {InventoryEditor,type InventoryAction} from './InventoryEditor'
 import type {InventoryApi,InventoryEntry,InventoryReceipt,InventoryWorkspace,Loan,StockItem} from './api'
+import {formatDay,formatDateTime} from '../shared/dates'
 import './inventory.css'
 
-const loanStates={reserved:'Reserved',issued:'Physically issued',partial:'Partial return',complete:'Complete',cancelled:'Cancelled'}
-const historyNames={reserve:'Reserved',issue:'Physically issued',consume:'Issued for consumption',return:'Returned to stock',
+const loanStates={reserved:'Reserved',issued:'Picked up',partial:'Partial return',complete:'Complete',cancelled:'Cancelled'}
+const historyNames={reserve:'Reserved',issue:'Picked up',consume:'Picked up to use up',return:'Returned to stock',
   damage:'Damaged · set aside',loss:'Reported lost',cancel:'Reservation cancelled'}
 const conditions={usable:'Usable',worn:'Worn · still usable',damaged:'Damaged',missing:'Missing'}
-const formatted=new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Manila'})
 const details=(w:InventoryWorkspace,choice:InventoryAction)=>{
   const loan='loan'in choice?w.loans.find(l=>l.id===choice.loan):undefined
   return {loan,item:w.items.find(i=>i.id===('item'in choice?choice.item:loan?.itemId))}
@@ -64,12 +64,13 @@ export function InventoryOverviewActions({api,term}: {api:InventoryApi;term:stri
 
 export function InventoryPage({api}:{api:InventoryApi}){
   const c=useRouteLoaderData('workspace')as WorkspaceContext,{inventoryLoanId}=useParams(),[search]=useSearchParams()
-  if(!('memberId'in c))return <EmptyState title="Inventory unavailable" description="Check your current workspace access."/>
+  if(!('memberId'in c))return <EmptyState title="Inventory isn't available" description="Only organizers on this term's roster can borrow inventory."/>
   return <InventoryBody key={c.termId+':'+c.memberId+':'+inventoryLoanId} api={api} term={c.termId}
-    loanId={inventoryLoanId??null} termQuery={search.has('term')?'?term='+c.termId:''}/>
+    loanId={inventoryLoanId??null} termQuery={search.has('term')?'?term='+c.termId:''}
+    focusItem={/^[0-9a-f-]{36}$/i.test(search.get('item')??'')?search.get('item'):null}/>
 }
 
-function InventoryBody({api,term,loanId,termQuery}:{api:InventoryApi;term:string;loanId:string|null;termQuery:string}){
+function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:InventoryApi;term:string;loanId:string|null;termQuery:string;focusItem?:string|null}){
   const [itemPage,changeItemPage]=useState(1),[loanPage,changeLoanPage]=useState(1)
   const [filter,setFilter]=useState(''),[query,setQuery]=useState('')
   const [workspace,setWorkspace]=useState<InventoryWorkspace|null>(null)
@@ -79,6 +80,7 @@ function InventoryBody({api,term,loanId,termQuery}:{api:InventoryApi;term:string
   const generation=useRef(0),initialized=useRef(false),activeChoice=useRef<InventoryAction|null>(null)
   const confirmation=useRef<HTMLParagraphElement>(null)
   const editor=useRef<HTMLDivElement>(null),focusEditor=useRef(false)
+  const focusedItem=useRef<string|null>(null)
 
   const load=useCallback(async()=>{
     const current=++generation.current
@@ -120,6 +122,14 @@ function InventoryBody({api,term,loanId,termQuery}:{api:InventoryApi;term:string
     return()=>{generation.current++;clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}
   },[load])
   useEffect(()=>{if(receipt)confirmation.current?.focus()},[receipt])
+  // A scanned item label opens /inventory?item=<id>: bring that item into view once.
+  const itemListed=!!focusItem&&!!workspace?.items.some(i=>i.id===focusItem)
+  useEffect(()=>{
+    if(!focusItem||!itemListed||focusedItem.current===focusItem)return
+    focusedItem.current=focusItem
+    const row=document.getElementById('inventory-item-'+focusItem)
+    row?.scrollIntoView({block:'center'});row?.focus({preventScroll:true})
+  },[focusItem,itemListed])
   useEffect(()=>{if(choice&&focusEditor.current){editor.current?.focus();focusEditor.current=false}},[choice])
 
   function choose(selected:InventoryAction){
@@ -136,19 +146,19 @@ function InventoryBody({api,term,loanId,termQuery}:{api:InventoryApi;term:string
   return <div className="inventory">
     <PageHeading title={loanId?'Inventory booking':'Borrow inventory'} description={workspace?.termLabel}/>
     {loanId?<Link className="button button--secondary" to={loansHref}>Back to inventory</Link>:null}
-    {failed?<ErrorState title="Inventory unavailable" description="Check your connection and current access. Your entered details are kept."
-      action={<button className="button" onClick={()=>void load()}>Check inventory again</button>}/>:null}
-    {!workspace&&checking?<LoadingState title="Checking inventory availability"/>:null}
-    {!workspace&&!checking&&!failed?<EmptyState title="Inventory is unavailable" description="Check the current term or ask the inventory service for help."
-      action={<Link className="button button--secondary" to="/people">Find a permitted contact</Link>}/>:null}
+    {failed?<ErrorState title="Couldn't load inventory" description="Check your connection and try again. What you typed is kept."
+      action={<button className="button button--secondary" onClick={()=>void load()}>Try again</button>}/>:null}
+    {!workspace&&checking?<LoadingState title="Loading inventory"/>:null}
+    {!workspace&&!checking&&!failed?<EmptyState title="Inventory isn't switched on yet" description="Borrowing isn't open for this term yet. Ask Logistics if you need equipment."
+      action={<Link className="button button--secondary" to="/people">Find a contact</Link>}/>:null}
     {workspace?<div hidden={failed}>
       {receipt?<p ref={confirmation} tabIndex={-1} role="status" className="inventory-result">
         {'loanId'in receipt?<>{loanId?'Saved':'Reserved'} · {receipt.reference}{!loanId?
           <> <Link className="button button--secondary" to={'/inventory/'+receipt.loanId+termQuery}>Open booking {receipt.reference}</Link></>:null}</>:
-          'financeRequestId'in receipt?<>Private FIN draft created. <Link className="button button--secondary" to={'/finance/'+term+'/'+receipt.financeRequestId+termQuery}>Open FIN request</Link></>:
+          'financeRequestId'in receipt?<>FIN draft created. <Link className="button button--secondary" to={'/finance/'+term+'/'+receipt.financeRequestId+termQuery}>Open FIN request</Link></>:
           'Inventory item saved.'}
       </p>:null}
-      {checking&&workspace?<p role="status">Checking current stock and bookings…</p>:null}
+      {checking&&workspace?<p role="status">Updating stock and bookings…</p>:null}
       <div inert={checking}>
         {loanId&&workspace.loans[0]?<LoanSummary loan={workspace.loans[0]} item={itemForLoan} term={term}
           termQuery={termQuery} choose={choose} editing={!!choice} editable={workspace.editable}/>:null}
@@ -168,38 +178,38 @@ function InventoryBody({api,term,loanId,termQuery}:{api:InventoryApi;term:string
                 maxLength={160} value={filter} disabled={!!choice} onChange={event=>setFilter(event.target.value)}/>
               <button className="button button--secondary" disabled={!!choice}>Find items</button>
             </form>
+            {focusItem&&!itemListed&&!checking&&!query&&itemPage===1?<p className="muted">The scanned item isn't on this page. Search for it by name.</p>:null}
             {workspace.steward&&!choice?<button className="button button--secondary" onClick={()=>choose({kind:'register'})}>Register an item</button>:null}
-            {workspace.items.length?<ul className="inventory-list">{workspace.items.map(i=><li key={i.id}>
+            {workspace.items.length?<ul className="inventory-list">{workspace.items.map(i=><li key={i.id} id={'inventory-item-'+i.id} tabIndex={i.id===focusItem?-1:undefined} className={i.id===focusItem?'inventory-item--focused':undefined} aria-current={i.id===focusItem?'true':undefined}>
               <h3>{i.name}</h3><p><strong>{i.available} available</strong> · {i.kind==='returnable'?'Returnable equipment':'Consumable supplies'}</p>
-              <p>{i.location} · {i.custodian?'Custodian '+i.custodian:'Custodian assignment needed'}</p>
+              <p>{i.location} · {i.custodian?'In charge: '+i.custodian:'Needs someone in charge'}</p>
               {!choice?<div className="auth-actions">
                 {i.canReserve&&i.available>0?<button className="button" onClick={()=>choose({kind:'reserve',item:i.id})}>Reserve {i.name}</button>:null}
                 {i.canReassign&&(i.needsCustodian||workspace.custodians.some(person=>person.id!==i.custodianId))?
                   <button className="button button--secondary" onClick={()=>choose({kind:'reassign',item:i.id})}>
-                    {i.needsCustodian?'Assign replacement custodian':'Reassign custodian'} · {i.name}</button>:null}
+                    {i.needsCustodian?'Assign someone in charge':'Change who\'s in charge'} · {i.name}</button>:null}
                 {i.canStartFinance?<button className="button button--secondary" onClick={()=>choose({kind:'finance',item:i.id})}>Request purchase · {i.name}</button>:null}
               </div>:null}
-            </li>)}</ul>:<p>{query?'No items match this search.':'No items on this page. Ask the inventory service about available stock.'}</p>}
+            </li>)}</ul>:<p>{query?'No items match this search.':'No items listed yet. Ask Logistics about available stock.'}</p>}
             {itemPage>1||workspace.moreItems?<div className="auth-actions">
-              <button className="button button--secondary" disabled={!!choice||itemPage===1} onClick={()=>changeItemPage(v=>v-1)}>Previous items</button>
-              <button className="button button--secondary" disabled={!!choice||!workspace.moreItems} onClick={()=>changeItemPage(v=>v+1)}>More items</button>
+              <button className="button button--secondary" disabled={!!choice||itemPage===1} onClick={()=>changeItemPage(v=>v-1)}>Previous</button>
+              <button className="button button--secondary" disabled={!!choice||!workspace.moreItems} onClick={()=>changeItemPage(v=>v+1)}>Next</button>
             </div>:null}
           </Panel>
-          <Panel title={workspace.steward?'Inventory bookings in your care':'My inventory bookings'}>
+          <Panel title={workspace.steward?'Bookings you look after':'My bookings'}>
             {workspace.loans.length?<ul className="inventory-list">{workspace.loans.map(l=><li key={l.id}>
               <h3><Link className="button button--secondary" to={'/inventory/'+l.id+termQuery}>{l.item} · {l.reference}</Link></h3>
               <p>{loanStates[l.state]} · {l.quantity} units{l.custodian?' · '+l.borrower:''}</p>
-              <p>{l.kind==='returnable'?'Return by '+l.dueOn:'Pickup '+l.startsOn}</p>
-            </li>)}</ul>:<p>Bookings you can access will appear here.</p>}
+              <p>{l.kind==='returnable'?'Return by '+formatDay(l.dueOn):'Pickup '+formatDay(l.startsOn)}</p>
+            </li>)}</ul>:<p>No bookings yet. Reserve an item above to start one.</p>}
             {loanPage>1||workspace.moreLoans?<div className="auth-actions">
-              <button className="button button--secondary" disabled={!!choice||loanPage===1} onClick={()=>changeLoanPage(v=>v-1)}>Previous bookings</button>
-              <button className="button button--secondary" disabled={!!choice||!workspace.moreLoans} onClick={()=>changeLoanPage(v=>v+1)}>More bookings</button>
+              <button className="button button--secondary" disabled={!!choice||loanPage===1} onClick={()=>changeLoanPage(v=>v-1)}>Previous</button>
+              <button className="button button--secondary" disabled={!!choice||!workspace.moreLoans} onClick={()=>changeLoanPage(v=>v+1)}>Next</button>
             </div>:null}
           </Panel>
         </div>:null}
       </div>
       <div className="auth-actions">
-        <button className="button button--secondary" disabled={checking} onClick={()=>void load()}>Refresh inventory</button>
         <Link className="button button--secondary" to="/people">Find inventory help</Link>
       </div>
     </div>:null}
@@ -210,12 +220,12 @@ function LoanSummary({loan:l,item,term,termQuery,choose,editing,editable}:{
   loan:Loan;item?:StockItem;term:string;termQuery:string;choose:(a:InventoryAction)=>void;editing:boolean;editable:boolean
 }){
   return <Panel title={l.item+' · '+l.reference}>
-    <p><strong>{loanStates[l.state]}</strong>{l.consumed?' · issued for consumption':''}</p>
-    <p>{l.quantity} units · Pickup {l.startsOn}{l.kind==='returnable'?' · Return by '+l.dueOn:''} (Manila)</p>
-    <p>{l.location} · {item?.custodian?'Custodian '+item.custodian:'Custodian assignment needed'}</p>
-    {l.custodian?<p>Borrower {l.borrower}{!l.borrowerActive?' · workspace access ended':''}</p>:null}
-    {l.state==='reserved'?<p>{l.custodian&&!canIssue(l)?'Check pickup date and current borrower access before issuing.':
-      'Collect at pickup. The custodian records physical checkout.'}</p>:null}
+    <p><strong>{loanStates[l.state]}</strong>{l.consumed?' · picked up to use up':''}</p>
+    <p>{l.quantity} units · Pickup {formatDay(l.startsOn)}{l.kind==='returnable'?' · Return by '+formatDay(l.dueOn):''}</p>
+    <p>{l.location} · {item?.custodian?'In charge: '+item.custodian:'Needs someone in charge'}</p>
+    {l.custodian?<p>Borrower {l.borrower}{!l.borrowerActive?' · no longer on the roster':''}</p>:null}
+    {l.state==='reserved'?<p>{l.custodian&&!canIssue(l)?'Check the pickup date and that the borrower is still on the roster before handing it over.':
+      'Collect it at pickup. The person in charge records the handover.'}</p>:null}
     {l.kind==='returnable'&&l.state!=='reserved'&&l.state!=='cancelled'?<dl className="inventory-balance">
       <div><dt>Still out</dt><dd>{l.outstanding}</dd></div><div><dt>Returned</dt><dd>{l.returned}</dd></div>
       {l.damaged?<div><dt>Damaged</dt><dd>{l.damaged}</dd></div>:null}
@@ -223,9 +233,9 @@ function LoanSummary({loan:l,item,term,termQuery,choose,editing,editable}:{
     </dl>:null}
     {editable&&!editing?<div className="auth-actions">
       {l.custodian&&l.state==='reserved'&&canIssue(l)?
-        <button className="button" onClick={()=>choose({kind:'movement',loan:l.id,action:'issue'})}>Review checkout</button>:null}
-      {l.state==='reserved'?<button className="button button--secondary" onClick={()=>choose({kind:'movement',loan:l.id,action:'cancel'})}>Review cancellation</button>:null}
-      {l.custodian&&l.outstanding>0?<button className="button" onClick={()=>choose({kind:'movement',loan:l.id,action:'return'})}>Review return</button>:null}
+        <button className="button" onClick={()=>choose({kind:'movement',loan:l.id,action:'issue'})}>Hand over</button>:null}
+      {l.state==='reserved'?<button className="button button--secondary" onClick={()=>choose({kind:'movement',loan:l.id,action:'cancel'})}>Cancel booking</button>:null}
+      {l.custodian&&l.outstanding>0?<button className="button" onClick={()=>choose({kind:'movement',loan:l.id,action:'return'})}>Record return</button>:null}
     </div>:null}
     {editable&&!editing&&l.custodian&&l.outstanding>0?<details className="work-section"><summary>Report damage or loss</summary>
       <div className="auth-actions">
@@ -235,10 +245,10 @@ function LoanSummary({loan:l,item,term,termQuery,choose,editing,editable}:{
     {l.relatedWork?<p>Related work <Link className="button button--secondary" to={'/'+(l.relatedWork.kind==='task'?'tasks':'deliverables')+'/'+l.relatedWork.id+termQuery}>{l.relatedWork.label}</Link></p>:null}
     <details className="work-section"><summary>Booking history</summary>
       <ol className="inventory-list">{l.history.map(h=><li key={h.version}>
-        <p>{historyNames[h.action]} · {h.quantity} units{h.condition?' · '+conditions[h.condition]:''} · {formatted.format(new Date(h.at))}</p>
+        <p>{historyNames[h.action]} · {h.quantity} units{h.condition?' · '+conditions[h.condition]:''} · {formatDateTime(h.at)}</p>
         {h.note?<p className="record-text">{h.note}</p>:null}
-        {h.evidence?<p>Finalized evidence recorded</p>:null}
-        {h.financeRequestId?<Link className="button button--secondary" to={'/finance/'+term+'/'+h.financeRequestId+termQuery}>Open private FIN follow-up</Link>:
+        {h.evidence?<p>Photo or file attached</p>:null}
+        {h.financeRequestId?<Link className="button button--secondary" to={'/finance/'+term+'/'+h.financeRequestId+termQuery}>Open FIN follow-up</Link>:
           h.financeStarted?<p>FIN follow-up started</p>:null}
         {h.incidentId&&l.canStartFinance&&!h.financeStarted&&!editing?
           <button className="button button--secondary" onClick={()=>choose({kind:'replacement',loan:l.id,incident:h.incidentId!})}>Request replacement through FIN</button>:null}

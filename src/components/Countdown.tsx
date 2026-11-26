@@ -21,6 +21,16 @@ function useDaysToEvent() {
   return days
 }
 
+/** Compact header chip: "142 days to go". Hidden after the event. */
+export function CountdownChip({ className = '' }: { className?: string }) {
+  const days = useDaysToEvent()
+  if (days < 0) return null
+  return <span className={`countdown-mini ${className}`.trim()} title={`${eventName} · ${eventLabel}`}>
+    <span className="countdown-mini__dot" aria-hidden="true" />
+    <span>{days === 0 ? 'Event day' : <><span className="numeric">{days}</span> {days === 1 ? 'day' : 'days'} to go</>}<span className="visually-hidden"> until {eventName} on {eventLabel}</span></span>
+  </span>
+}
+
 export function Countdown({ variant = 'sidebar' }: { variant?: 'sidebar' | 'hero' | 'overview' }) {
   const days = useDaysToEvent()
   const className = `countdown countdown--${variant === 'sidebar' ? 'sidebar' : 'hero'}${variant === 'overview' ? ' countdown--overview' : ''}`

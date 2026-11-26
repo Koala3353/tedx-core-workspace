@@ -1,15 +1,17 @@
 import { useEffect,useRef,useState } from 'react'
 import { Link } from 'react-router'
 import { Panel } from '../../../components/Page'
+import {formatDateTime} from '../../shared/dates'
+import {RefreshButton} from '../../shared/RefreshButton'
 import { CalendarSyncError,takeCalendarTerm,type CalendarSyncApi,type SyncStatus } from './api'
 
 const failed=(error:unknown)=>error instanceof CalendarSyncError?
   ({
     stale:'This event or connection changed. Refresh the calendar and try again.',
-    denied:'Permission to use this named calendar could not be confirmed.',
-    reconnect:'Ask the calendar custodian to reconnect the approved school account.',
-  } as Record<string,string>)[error.code]??'Google Calendar could not be checked. Use the app calendar for the latest schedule.'
-  :'Google Calendar could not be checked. Use the app calendar for the latest schedule.'
+    denied:'You don\'t have permission to use this calendar.',
+    reconnect:'Ask an admin to reconnect the school Google account.',
+  } as Record<string,string>)[error.code]??'Couldn\'t reach Google Calendar. The app calendar has the latest schedule.'
+  :'Couldn\'t reach Google Calendar. The app calendar has the latest schedule.'
 
 function useStatus(api:CalendarSyncApi,term:string,event?:string) {
   const [reading,setReading]=useState<{key:string;status:SyncStatus|null;error:boolean}|null>(null)
@@ -34,9 +36,9 @@ const label=(status:SyncStatus)=>{
     case 'queued':return status.tombstone?'Removal from Google Calendar is pending.':'A change from the app calendar is waiting to publish.'
     case 'removed':return 'Removal from Google Calendar verified.'
     case 'retry':return 'Google Calendar could not be updated. The change is waiting for another attempt.'
-    case 'conflict':return 'Google Calendar needs review. Ask the custodian to check the matching event.'
+    case 'conflict':return 'Google Calendar needs a check. Ask an admin to look at the matching event.'
     case 'reconnect':return 'Google access needs reconnecting. Use the app calendar for the latest schedule.'
-    default:return 'Available to publish to the approved calendar.'
+    default:return 'Ready to publish to Google Calendar.'
   }
 }
 
@@ -67,14 +69,14 @@ function CalendarSyncDetails({api,term,event,version,confirmed}:{
     } catch(error){setNotice(failed(error))}
     finally{refresh();setBusy(false)}
   }
-  if(pending)return <p role="status">Checking shared Google Calendar status…</p>
-  if(error)return <p role="status">Shared Google Calendar status is unavailable. The app calendar has the latest schedule.</p>
-  if(!status)return <p role="status">No shared Google Calendar publication is recorded for this event.</p>
+  if(pending)return <p role="status">Checking Google Calendar…</p>
+  if(error)return <p role="status">Couldn\'t check Google Calendar. The app calendar has the latest schedule.</p>
+  if(!status)return <p role="status">This event isn\'t on the shared Google Calendar.</p>
   const previous=status.lastVerifiedAt
   return <div>
     <div role="status">
       <p><strong>{status.calendar}</strong> · {busy?'Checking the latest result with Google…':label(status)}</p>
-      {previous?<p>Last verified with Google <time dateTime={previous}>{new Date(previous).toLocaleString('en-PH',{timeZone:'Asia/Manila'})} Manila</time></p>:null}
+      {previous?<p>Last verified with Google <time dateTime={previous}>{formatDateTime(previous)}</time></p>:null}
       {notice?<p>{notice}</p>:null}
     </div>
     {status.canManage&&status.connection==='connected'&&(confirmed||status.state!==null)?<div className="auth-actions">
@@ -106,7 +108,7 @@ export function CalendarSyncSettings({api,term}:{api:CalendarSyncApi;term:string
         setNotice(outcome==='verified'?'One calendar change verified with Google.':
           outcome==='retry'?'Google Calendar could not be updated. A retry is pending.':
           outcome==='conflict'?'A calendar change needs review. Check the matching Google event.':
-          outcome==='reconnect'?'Reconnect the approved school account.':'No calendar change is ready to send.')
+          outcome==='reconnect'?'Reconnect the school Google account.':'No calendar change is ready to send.')
       }
     } catch(error){popup?.close();setNotice(failed(error))}
     finally {if(action!=='connect')refresh();setBusy(false)}
@@ -114,24 +116,24 @@ export function CalendarSyncSettings({api,term}:{api:CalendarSyncApi;term:string
   if(!status?.canManage)return null
   return <Panel title="Shared Google Calendar">
     <p><strong>{status.calendar}</strong> · {status.connection==='connected'?'Connection ready.':label(status)}</p>
-    <p>Shared publishing is optional. Publish individual core events from their sync status. The app calendar is the official schedule.</p>
+    <p>Optional. Publish events one at a time from each event\'s sync status. The app calendar is the official schedule.</p>
     {notice?<p role="status">{notice}</p>:null}
     <div className="auth-actions">
       {status.connection==='disconnected'||status.connection==='reconnect'?<button className="button button--secondary" disabled={busy} onClick={()=>void run('connect')}>
-        {status.connection==='reconnect'?'Reconnect Google Calendar':'Connect approved Google Calendar'}
+        {status.connection==='reconnect'?'Reconnect Google Calendar':'Connect Google Calendar'}
       </button>:null}
       {status.connection!=='disconnected'?<button className="button button--secondary" disabled={busy} onClick={()=>void run('disconnect')}>
         {status.connection==='revoking'?'Finish disconnecting Google Calendar':'Disconnect Google Calendar'}
       </button>:null}
-      {status.connection==='connected'?<button className="button button--secondary" disabled={busy} onClick={()=>void run('process')}>Process next pending calendar change</button>:null}
-      {status.connection==='connected'&&status.pausedRemoval?<button className="button button--secondary" disabled={busy} onClick={()=>void run('repair')}>Retry a paused removal</button>:null}
-      <button className="button button--secondary" disabled={busy} onClick={refresh}>Check calendar connection</button>
+      {status.connection==='connected'?<button className="button button--secondary" disabled={busy} onClick={()=>void run('process')}>Send next pending change</button>:null}
+      {status.connection==='connected'&&status.pausedRemoval?<button className="button button--secondary" disabled={busy} onClick={()=>void run('repair')}>Retry paused removal</button>:null}
+      <RefreshButton onRefresh={refresh} disabled={busy}/>
     </div>
   </Panel>
 }
 
 export function CalendarSyncCallback({api}:{api:CalendarSyncApi}) {
-  const [message,setMessage]=useState('Confirming access to the approved calendar…')
+  const [message,setMessage]=useState('Connecting Google Calendar…')
   const attempt=useRef<Promise<void>|null>(null)
   useEffect(()=>{
     attempt.current??=(async()=>{

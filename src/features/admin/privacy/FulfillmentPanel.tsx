@@ -3,6 +3,7 @@ import { forgetRecordDrafts } from '../../auth/draftScope'
 import { downloadCsv } from '../../exports/downloadCsv'
 import { useFinDecision } from '../../finance/DecisionMemory'
 import { spreadsheetCsv } from '../../imports/csv'
+import { formatDateTime } from '../../shared/dates'
 import type { RequestDetail } from './api'
 import { profileFields, type Fulfillment, type FulfillmentApi, type FulfillmentCommand, type ProfileField, type ProfileResponse } from './fulfillment'
 
@@ -12,11 +13,11 @@ const options: Record<'member' | 'guest', ProfileField[]> = {
 }
 const messages = {
   waiting: 'A custodian is reviewing your request.',
-  step_up: 'A stronger sign-in is required to open or review a profile response. Use the approved privacy contact for help.',
-  paused: 'This profile response is unavailable now. Ask the approved privacy contact about current access.',
-  finished: 'The independent review was recorded. The requester can open the profile response while verified access is current.',
-  identity_needed: 'Waiting for verified identity evidence from the approved privacy channel.',
-  stale: 'The profile, identity evidence or custody changed. Record a new handling update before preparing another response.',
+  step_up: 'You need a stronger sign-in to open or review this response. Sign in again with your school account\'s extra verification, or ask the privacy contact for help.',
+  paused: 'This response isn\'t available right now. Ask the privacy contact why.',
+  finished: 'Review recorded. The requester can now open their response.',
+  identity_needed: 'Waiting for the requester\'s identity to be confirmed through the official privacy channel.',
+  stale: 'The profile, identity check or custodian changed. Add a new handling update before preparing another response.',
 }
 
 function ProfileValues({ values, sharing }: Pick<ProfileResponse, 'values' | 'sharing'>) {
@@ -81,7 +82,7 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
       if (isDenied(error)) {
         forgetRecordDrafts(id)
         setDenied(true)
-      } else setMessage('Profile review is unavailable. Refresh this request to check again.')
+      } else setMessage('Couldn\'t load the profile review. Reload this request to try again.')
     }).finally(() => { if (current) setLoading(false) })
     return () => { current = false }
   }, [api, term, id, version])
@@ -90,7 +91,7 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
     const timeout = window.setTimeout(() => {
       setResponse(null)
       setView(null)
-      setMessage('Verified access expired. Refresh this request for the current status.')
+      setMessage('Your access to this response ended. Reload this request to see the current status.')
     }, Math.max(0, Math.min(Date.parse(expires) - Date.now(), 2_147_483_647)))
     return () => window.clearTimeout(timeout)
   }, [expires])
@@ -108,7 +109,7 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
       if (!live.current) return
       if (!result || Date.parse(result.validUntil) <= Date.now() || result.reference !== request.reference) {
         setView(null)
-        setMessage('Verified access changed. Refresh this request before opening the response again.')
+        setMessage('Access changed. Reload this request, then open the response again.')
         return
       }
       if (isExport) {
@@ -116,33 +117,33 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
         const csv = spreadsheetCsv([['request_reference', 'profile_field', 'value', 'sharing_enabled'], ...fields.map(field =>
           [result.reference, profileFields[field], result.values[field] ?? '', String(result.sharing[field] ?? '')])])
         downloadCsv(csv, 'tedx-profile-' + result.reference + '.csv')
-        setMessage('Profile CSV download requested.')
+        setMessage('Profile CSV downloaded.')
       } else setResponse(result)
     } catch (error) {
       if (!live.current) return
       if (isDenied(error)) clearDenied()
-      else setMessage('The profile response could not be opened. Refresh to check your access.')
+      else setMessage('Couldn\'t open the response. Reload this request and try again.')
     } finally {
       if (live.current) setOpening(false)
     }
   }
 
-  if (denied) return <p role="alert">Profile response access is unavailable. Private response fields were cleared.</p>
+  if (denied) return <p role="alert">You no longer have access to this response, so it was hidden.</p>
 
   return <section data-unsaved-changes={!!decision.fields.value} data-pending-command={decision.locked}>
-    <h2>Verified profile response</h2>
-    <p>This review covers your account profile in this workspace. Use the approved privacy contact for other records.</p>
-    {loading && <p role="status">Checking verified response status…</p>}
+    <h2>Profile response</h2>
+    <p>This covers your profile in this workspace. For other records, contact the privacy office.</p>
+    {loading && <p role="status">Loading…</p>}
     {view && view.status in messages && <p role="status">{messages[view.status as keyof typeof messages]}</p>}
     {view?.status === 'released' && <button type="button" className="button" disabled={opening} onClick={() => void open()}>
-      {isExport ? 'Download my reviewed profile CSV' : 'Open my reviewed profile response'}
+      {isExport ? 'Download my profile CSV' : 'Open my profile response'}
     </button>}
-    {response && <section aria-label="Reviewed profile response">
+    {response && <section aria-label="Profile response">
       <ProfileValues values={response.values} sharing={response.sharing} />
-      <button type="button" className="button button--secondary" onClick={() => setResponse(null)}>Close profile response</button>
+      <button type="button" className="button button--secondary" onClick={() => setResponse(null)}>Close</button>
     </section>}
     {(view?.status === 'ready' || view?.status === 'prepared') && <section aria-label="Custodian response review">
-      <p>Verified evidence {view.verificationReference} · Valid until {new Date(view.validUntil).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} Manila time</p>
+      <p>Identity check {view.verificationReference} · Valid until {formatDateTime(view.validUntil)}</p>
       {Object.keys(view.values).length > 0 && <ProfileValues values={view.values} sharing={view.sharing} />}
       {view.status === 'ready' && <>
         {isCorrection && <>
@@ -155,14 +156,14 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
           <label htmlFor={fieldId + '-value'}>Corrected value</label>
           <textarea id={fieldId + '-value'} value={decision.fields.value} rows={3} maxLength={1000}
             disabled={decision.locked} onChange={e => decision.change({ ...decision.fields, value: e.target.value })} />
-          <p>Leave the value blank to clear this field. The second custodian will review the exact change and current sharing setting.</p>
+          <p>Leave it blank to clear the field. A second custodian checks the change before it\'s applied.</p>
         </>}
         {stale && <button type="button" className="button button--secondary" disabled={decision.locked}
-          onClick={() => decision.change({ ...decision.fields, base: String(version) })}>Use this reviewed request version</button>}
+          onClick={() => decision.change({ ...decision.fields, base: String(version) })}>Keep my changes</button>}
         <button type="button" className="button" disabled={decision.locked || stale || isCorrection && !decision.fields.field}
           onClick={() => void run({ action: 'prepare', term, id, version,
             field: isCorrection ? decision.fields.field : null, value: isCorrection ? decision.fields.value : null })}>
-          Prepare for independent review
+          Send for second review
         </button>
       </>}
       {view.status === 'prepared' && <>
@@ -170,13 +171,13 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
         {view.canApprove && view.reviewHash
           ? <button type="button" className="button" disabled={decision.locked}
               onClick={() => void run({ action: 'approve', term, id, version, reviewHash: view.reviewHash! })}>
-              {isCorrection ? 'Approve correction and release response' : 'Approve and release profile response'}
+              {isCorrection ? 'Approve correction and release' : 'Approve and release'}
             </button>
-          : <p>Another current privacy custodian must review and release this response.</p>}
+          : <p>Another privacy custodian has to review and release this.</p>}
       </>}
     </section>}
     {decision.pending && view && view.status !== 'step_up' && <button type="button" className="button button--secondary" disabled={decision.busy}
-      onClick={() => void run()}>Retry identical response decision</button>}
+      onClick={() => void run()}>Try again</button>}
     {decision.error && <p role="alert">{decision.error}</p>}
     {message && <p role="status">{message}</p>}
   </section>

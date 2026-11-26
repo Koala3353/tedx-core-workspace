@@ -1,3 +1,5 @@
 .access-list{list-style:none;padding:0}.access-list>li{border-top:1px solid var(--color-line);padding-block:12px;overflow-wrap:anywhere}.access-editor{display:grid;gap:12px;border:0;padding:0;min-width:0}.access-editor label{display:flex;flex-wrap:wrap;gap:12px;align-items:center;min-height:44px}.access-editor input[type=checkbox]{width:24px;height:24px;flex-shrink:0}.access-editor select{min-height:44px;width:100%;max-width:100%;font:inherit;padding:10px;border:1px solid var(--color-line-strong);border-radius:6px}
 
 .access-impact{display:grid;gap:12px;margin-block:16px}.access-impact>div{min-width:0;overflow-wrap:anywhere}.access-impact dt{font-weight:600}.access-impact dd{margin:4px 0 0}
+
+.access-editor label.check-row{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;flex-wrap:nowrap}.access-editor label.check-row input{margin-top:2px}.access-confirm.check-row{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;min-height:44px}.access-confirm input{width:24px;height:24px}.access-subtasks{display:grid;gap:4px}.access-summary{font-size:1.0625rem}

@@ -1,0 +1,58 @@
+/* Coach marks: a dimmed page with a clear window over the real element, and a small bubble. */
+.tour-spot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  border-radius: 8px;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  /* Follows the target exactly while scrolling, so no position transition; it only fades in. */
+  animation: tour-fade 200ms ease-out both;
+}
+@keyframes tour-fade { from { opacity: 0; } }
+
+.tour-bubble {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 71;
+  width: min(22rem, calc(100vw - 32px));
+  padding: 16px 16px 12px;
+  border-radius: 10px;
+  background: var(--color-ink);
+  color: var(--color-background);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  /* Inverted surface: buttons and focus rings follow the bubble, not the page. */
+  --color-focus: var(--color-background);
+}
+.tour-bubble.is-placed { opacity: 1; }
+.tour-bubble__step { margin: 0 0 4px; color: color-mix(in srgb, var(--color-background) 62%, transparent); font-size: .8125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tour-bubble__title { margin: 0 0 6px; color: inherit; font-size: 1.0625rem; letter-spacing: -0.01em; }
+.tour-bubble__body { margin: 0; color: color-mix(in srgb, var(--color-background) 82%, transparent); font-size: .9375rem; line-height: 1.45; }
+.tour-bubble__extras { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.tour-bubble__controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; }
+.tour-bubble__nav { display: flex; gap: 8px; }
+.tour-bubble .button { min-height: 40px; padding: 6px 14px; font-size: .875rem; }
+.tour-bubble .button--secondary { color: var(--color-background); border-color: color-mix(in srgb, var(--color-background) 35%, transparent); }
+.tour-bubble .button--secondary:hover:not(:disabled) { border-color: var(--color-background); background: color-mix(in srgb, var(--color-background) 10%, transparent); }
+.tour-bubble__skip { min-height: 40px; padding: 0 4px; border: 0; background: none; color: color-mix(in srgb, var(--color-background) 70%, transparent); font-size: .875rem; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--color-background) 35%, transparent); }
+.tour-bubble__skip:hover { color: var(--color-background); }
+
+/* Phones: the bubble docks above the tab bar and the page stays readable above it. */
+@media (max-width: 39.9375rem) {
+  .tour-bubble {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 12px);
+    width: auto;
+    transform: translateY(8px);
+    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease-out;
+  }
+  .tour-bubble.is-placed { transform: none; }
+}
+/* First placement snaps into position; only opacity animates in. */
+.tour-bubble:not(.is-placed) { transition: none; }

@@ -1,0 +1,61 @@
+/* Today: a single column of short groups. Rows answer what, who's waiting, when. */
+.today { max-width: 46rem; }
+.today-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: var(--space-5); }
+.today-head h1 { margin-bottom: 6px; }
+.today-head__summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; color: var(--color-muted); font-size: .9375rem; }
+.today-head .today-customize { min-height: 40px; padding: 6px 12px; font-size: .875rem; gap: 6px; }
+/* The header shows the countdown on wide screens; Today shows it on phones. */
+@media (min-width: 60.0625rem) { .today-head .today-head__countdown { display: none; } }
+
+.today-section { margin-top: var(--space-6); }
+.today-section:first-child { margin-top: 0; }
+.today-section__title { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+.today-count { color: var(--color-muted); font-family: var(--font-body); font-weight: 600; font-size: .875rem; font-variant-numeric: tabular-nums; }
+
+.today-section--folded > summary { display: flex; align-items: baseline; gap: 8px; min-height: var(--control-min-size); padding-block: 10px; cursor: pointer; list-style: none; }
+.today-section--folded > summary::-webkit-details-marker { display: none; }
+.today-section--folded > summary::after { content: ''; width: 7px; height: 7px; margin-left: 2px; border-right: 1.5px solid var(--color-muted); border-bottom: 1.5px solid var(--color-muted); transform: translateY(-3px) rotate(45deg); transition: transform 160ms var(--ease-standard); }
+.today-section--folded[open] > summary::after { transform: translateY(0) rotate(225deg); }
+.today-section--folded .today-section__title { margin: 0; color: var(--color-ink-secondary); font-weight: 600; }
+
+.today-list { list-style: none; margin: 0; padding: 0; }
+.today-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 16px; padding: 12px 0; border-bottom: 1px solid var(--color-line); transition: opacity 200ms ease-out; }
+.today-row:last-child { border-bottom: 0; }
+.today-row__text { display: grid; gap: 3px; min-width: 0; }
+.today-row__title { color: var(--color-ink); font-size: 1rem; font-weight: 600; line-height: 1.3; text-decoration: none; overflow-wrap: anywhere; }
+/* The whole row opens the item; the in-place Acknowledge button sits above this layer. */
+.today-row__title::after { content: ''; position: absolute; inset: 0; }
+.today-row__title:focus-visible { outline: none; }
+.today-row:has(.today-row__title:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .today-row:hover .today-row__title { text-decoration: underline; text-decoration-color: var(--color-line-strong); }
+  .today-row:hover .today-verb--link { border-color: var(--color-ink); color: var(--color-ink); }
+}
+.today-row__meta { color: var(--color-muted); font-size: .8125rem; line-height: 1.35; overflow-wrap: anywhere; }
+.today-row__late { color: var(--color-accent-ink); font-weight: 700; }
+.today-row__error { color: var(--color-danger); font-size: .8125rem; font-weight: 600; }
+.today-chip { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 3px; background: var(--color-surface-subtle); color: var(--color-ink-secondary); font-size: .75rem; font-weight: 600; line-height: 1.5; }
+
+.today-row .today-verb { position: relative; z-index: 1; min-height: 40px; min-width: 72px; padding: 6px 14px; font-size: .875rem; }
+.today-verb--link { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); color: var(--color-ink-secondary); font-weight: 600; pointer-events: none; transition: border-color 150ms var(--ease-standard), color 150ms var(--ease-standard); }
+/* Red only where something is late. */
+.today-verb--primary { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-on-accent); }
+.today-row .button.today-verb:not(.today-verb--primary) { border-color: var(--color-line-strong); background: transparent; color: var(--color-ink); }
+.today-row--done { opacity: 0.55; }
+.today-verb--done:disabled { opacity: 1; cursor: default; }
+
+.today-clear { margin-block: var(--space-4) var(--space-2); padding-block: 8px 20px; border-bottom: 1px solid var(--color-line); }
+.today-clear__title { margin: 0 0 4px; font-family: var(--font-display); font-size: 1.375rem; font-weight: 800; letter-spacing: -0.02em; }
+.today-clear__next { margin: 0; color: var(--color-ink-secondary); }
+.today-more { margin-top: var(--space-5); color: var(--color-muted); font-size: .875rem; }
+
+.today-add { margin-bottom: var(--space-6); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-line); }
+.today-add__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.today-add__head h2 { margin: 0; font-size: 1.0625rem; }
+
+@media (max-width: 60rem) {
+  .today-head { margin-bottom: var(--space-4); }
+  .today-head .today-customize span { display: none; }
+  .today-head .today-customize { min-width: var(--control-min-size); min-height: var(--control-min-size); padding: 0; }
+  .today-section { margin-top: var(--space-5); }
+}

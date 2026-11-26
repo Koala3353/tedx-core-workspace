@@ -35,10 +35,10 @@ export function DriveRendition({api,term,work,disabled,onSaved,onBusy}: {
       setRetry(mode==='save'&&code==='unavailable')
       if (code!=='unavailable') setOffer(null)
       setManage(code==='reconnect')
-      if (code==='stale') setMessage('The draft or Drive file changed, or this selection expired. Choose the final file again.')
+      if (code==='stale') setMessage('The draft or Drive file changed, or your selection expired. Choose the final file again.')
       else if (code==='reconnect') setMessage('Connect Drive again, or upload the final PDF yourself.')
-      else if (code==='file_unavailable'||code==='denied') setMessage('The private PDF could not be saved. Check access and try another file, or upload the final PDF yourself.')
-      else setMessage(mode==='save'?'The save could not be confirmed. Retry this same selection.':'Drive could not open. Try again or upload the final PDF yourself.')
+      else if (code==='file_unavailable'||code==='denied') setMessage('Couldn\'t save the PDF. Check you can open the file and try again, or upload the PDF yourself.')
+      else setMessage(mode==='save'?'Couldn\'t confirm the save. Try again.':'Couldn\'t open Drive. Try again, or upload the PDF yourself.')
     } finally {
       active.current=null
       onBusy(false)
@@ -46,18 +46,18 @@ export function DriveRendition({api,term,work,disabled,onSaved,onBusy}: {
     }
   }
 
-  return <Panel title="Save a private PDF from Drive">
-    <p>Choose the final Google document, spreadsheet or presentation to copy into this review. Check the saved PDF together with the caption and intended use before submitting.</p>
+  return <Panel title="Save a PDF from Drive">
+    <p>Choose the final Google Doc, Sheet or Slides file. Check the saved PDF before you submit.</p>
     {offer?<p>Selected PDF: <strong>{offer.name}</strong></p>:null}
     <div className="auth-actions">
       <button type="button" className="button button--secondary" disabled={disabled||!!busy} onClick={()=>void run('pick')}>
-        {offer?'Choose a different file':'Choose final file from Drive'}
+        {offer?'Choose a different file':'Choose the final file from Drive'}
       </button>
       {offer?<button type="button" className="button" disabled={disabled||!!busy} onClick={()=>void run('save')}>
-        {retry?'Retry saving this PDF':'Save private PDF'}
+        {retry?'Try again':'Save PDF'}
       </button>:null}
     </div>
-    {busy?<p role="status">{busy==='save'?'Saving your selected PDF…':'Checking the selected Drive file…'}</p>:null}
+    {busy?<p role="status">{busy==='save'?'Saving your selected PDF…':'Checking the file…'}</p>:null}
     {message?<p role="alert">{message}</p>:null}
     {manage?<Link to={'/account?term='+encodeURIComponent(term)+'#drive-connection'}>Manage your Drive connection</Link>:null}
   </Panel>

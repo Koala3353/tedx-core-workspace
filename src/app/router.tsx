@@ -37,23 +37,34 @@ import {TimelinePage} from '../features/timeline/TimelinePage'
 import {WorkingTogetherPage} from '../features/synergies/WorkingTogetherPage'
 import {AgreementPage} from '../features/synergies/AgreementPage'
 import {Overview} from '../features/overview/Overview'
+import {TeamSetupPage,teamSetupCapabilities} from '../features/team-setup'
+import {WarRoomPage} from '../features/war-room'
+import {WhoToAskPage} from '../features/who-to-ask'
+import {CommitteeIndexPage,CommitteeOnePage} from '../features/committee-pages'
+import {MyPartPage,SpeakerTrackerPage} from '../features/speaker-portal'
+import {ContestBoardPage,TedifyBoardPage} from '../features/event-boards'
+import {RunOfShowPage} from '../features/run-of-show'
+import {EventQrPage,CrewCheckInPage} from '../features/event-qr'
 import { createBrowserRouter, Link, Navigate, redirect, useLocation, type RouteObject } from 'react-router'
 import { CommitteePage } from '../features/committee/CommitteePage'
 import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
 import { PageHeading, Panel } from '../components/Page'
 import { EmptyState, ErrorState } from '../components/FeedbackState'
 import { AppShell } from './AppShell'
-import { MemberPreview, canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from './MemberPreview'
+import { MemberPreview, SampleToday, canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from './MemberPreview'
 import { TaskDetail } from '../features/tasks/TaskDetail'
 import { TasksPage } from '../features/tasks/TasksPage'
-import { navigationItems } from './navigation'
+import { deskCapabilities, navigationItems } from './navigation'
+import { ShellServicesProvider } from './shellServices'
+import { TodayPage } from '../features/today/Today'
+import { DeskHub, EventHub, TeamHub, WorkHub } from './hubs/Hubs'
+import { BootScreen } from '../components/BrandLoader'
 import { createAuthGateway, isGuest, type AuthGateway } from '../features/auth/gateway'
 import { RedeemPage, SharedWork, SponsorPage } from '../features/guests/pages'
 import { AccountPage, AuthRevalidator, CallbackPage, LoginPage, ProtectedShell } from '../features/auth/pages'
 import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
 import { DeliverablesRoute } from '../features/deliverables/DeliverablesPage'
 import { DeliverablePage } from '../features/deliverables/DeliverablePage'
-import { LoadingState } from '../components/FeedbackState'
 import { DirectoryPage } from '../features/people/pages'
 import { DriveCallback } from '../features/integrations/drive/DriveSource'
 import { CalendarSyncCallback } from '../features/integrations/calendar/CalendarSync'
@@ -79,7 +90,7 @@ function FoundationPage({ environment }: { environment: ClientEnvironment }) {
       <Panel title="Find your next step">
         <p className="muted">Explore the workspace structure while setup is in progress.</p>
         <ul className="resource-links">
-          <li><Link to="/deliverables">Core deliverables<span>Event outputs and accountable owners</span></Link></li>
+          <li><Link to="/deliverables">Deliverables<span>Event outputs and accountable owners</span></Link></li>
           <li><Link to="/working-together">Working together<span>Committee contributions and handoffs</span></Link></li>
           <li><Link to="/resources">Resources & Start Here<span>Process guides and who to ask</span></Link></li>
         </ul>
@@ -105,8 +116,8 @@ function MovedPage({ to }: { to: string }) {
   return <Navigate replace to={{ pathname: to, search, hash }} />
 }
 
-function Unavailable({ title }: { title: string }) {
-  return <><PageHeading title={title} /><EmptyState title={title + ' unavailable'} description="This area is not available on the current workspace connection." action={<Link className="button button--secondary" to="/">Return to overview</Link>} /></>
+function Unavailable({ title, description = 'This isn\'t available right now. Try again later.' }: { title: string; description?: string }) {
+  return <><PageHeading title={title} /><EmptyState title={title + ' unavailable'} description={description} action={<Link className="button button--secondary" to="/">Back to Today</Link>} /></>
 }
 
 // Presentation gate only, so members without authority never see an admin shell.
@@ -116,11 +127,12 @@ function adminCapabilities(path: string): string[] | null {
   if (path === '/admin') return ['admin.configure']
   if (path === '/admin/access' || path === '/admin/imports') return ['admin.configure', 'roles.manage']
   if (/^\/admin\/(?:config|process|layouts)(?:\/|$)/.test(path)) return ['admin.configure', 'committee.manage']
+  if (path === '/team/setup') return [...teamSetupCapabilities]
   return null
 }
 
 // Areas declared below as explicit routes; navigation items must not add a second route for them.
-const explicitAreas = new Set(['/shared', '/search', '/reports', '/publicity', '/finance', '/prism', '/mentoring', '/committee', '/reviews'])
+const explicitAreas = new Set(['/shared', '/search', '/reports', '/publicity', '/finance', '/prism', '/mentoring', '/committee', '/reviews', '/work', '/event', '/team', '/desk', '/announcements', '/working-together/timeline', '/inventory', '/my-part', '/my-part/info'])
 
 // Search-param-only changes on the same page (filters, pagination, views) keep the
 // workspace context. A different `term` changes the context, so it still reloads.
@@ -141,26 +153,32 @@ function NotFoundPage() {
 
 export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGateway = createAuthGateway(environment, window.location.origin)): RouteObject[] {
   return [
-    { element: <AuthRevalidator gateway={gateway} />, errorElement: <RouteErrorPage />, hydrateFallbackElement: <main className="standalone-page"><LoadingState /></main>, children: [
+    { element: <ShellServicesProvider gateway={gateway}><AuthRevalidator gateway={gateway} /></ShellServicesProvider>, errorElement: <RouteErrorPage />, hydrateFallbackElement: <BootScreen />, children: [
       { path: '/login', loader: async ({ request }) => {
         const returnTo=safeReturnPath(new URL(request.url).searchParams.get('returnTo'))
         const result = await gateway.readContext(request.signal,new URL(returnTo,request.url).searchParams.get('term')??undefined)
         const returnPath=new URL(returnTo,request.url).pathname
-        return result.state === 'authorized' ? redirect(isGuest(result)&&!isDeliverablePath(returnPath)&&!isTaskPath(returnPath)&&!isAnnouncementPath(returnPath)&&!isPrivacyPath(returnPath)?'/shared':returnTo) : result
+        return result.state === 'authorized' ? redirect(isGuest(result)&&!isDeliverablePath(returnPath)&&!isTaskPath(returnPath)&&!isAnnouncementPath(returnPath)&&!isPrivacyPath(returnPath)&&!navigationItems.some(item=>item.href===returnPath&&item.audiences.includes('guest'))?'/my-part':returnTo) : result
       }, element: <LoginPage gateway={gateway} /> },
       { path: '/auth/callback', element: <CallbackPage gateway={gateway} /> },
       ...(gateway.files?.drive ? [{path:'/integrations/drive/callback',element:<DriveCallback api={gateway.files.drive}/>}]:[]),
       ...(gateway.calendar?.sync ? [{path:calendarCallback,element:<CalendarSyncCallback api={gateway.calendar.sync}/>}]:[]),
       { path: '/guest/redeem', loader:({request})=>gateway.readContext(request.signal), element: <RedeemPage gateway={gateway} /> },
-      ...(import.meta.env.DEV ? [{ path: '/preview', element: <AppShell />, children: [{ index: true, element: <FoundationPage environment={environment} /> }] }] : []),
+      ...(import.meta.env.DEV ? [{ path: '/preview', element: <AppShell />, children: [
+        { index: true, element: <FoundationPage environment={environment} /> },
+        // Development only: the new surfaces with sample data, without signing in.
+        { path: 'today', element: <SampleToday /> },
+        { path: 'work', element: <WorkHub /> }, { path: 'event', element: <EventHub /> }, { path: 'team', element: <TeamHub /> }, { path: 'desk', element: <DeskHub /> },
+      ] }] : []),
       { id:'workspace', path: '/', element: <ProtectedShell notifications={gateway.notifications} gateway={gateway}/>, loader: async ({ request }) => {
         const result = await gateway.readContext(request.signal,new URL(request.url).searchParams.get('term')??undefined)
         if (result.state === 'authorized') {
           rememberSession()
           const path=stripBase(new URL(request.url).pathname)
-          if(isGuest(result) && !isDeliverablePath(path) && !isTaskPath(path) && !isAnnouncementPath(path) && !isPrivacyPath(path) && !navigationItems.some(item=>item.href===path && item.audiences.includes('guest')))return redirect('/shared')
+          if(isGuest(result) && !isDeliverablePath(path) && !isTaskPath(path) && !isAnnouncementPath(path) && !isPrivacyPath(path) && !navigationItems.some(item=>item.href===path && item.audiences.includes('guest')))return redirect('/my-part')
           if (isMemberPreviewPath(path) && !canPreviewAsMember(result)) return redirect('/')
-          if(path==='/guests' && !result.capabilities.includes('roles.manage'))return redirect(isGuest(result)?'/shared':'/')
+          if(path==='/guests' && !result.capabilities.includes('roles.manage'))return redirect(isGuest(result)?'/my-part':'/')
+          if(path==='/desk' && !result.capabilities.some(capability=>(deskCapabilities as readonly string[]).includes(capability)))return redirect('/')
           const adminNeeds=adminCapabilities(path)
           if(adminNeeds && !adminNeeds.some(capability=>result.capabilities.includes(capability)))return redirect('/')
           return result
@@ -180,13 +198,33 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       // Page RPCs recheck scope themselves. Explicit focus/expiry checks and path changes still revalidate.
       }, shouldRevalidate: shouldRevalidateWorkspace, children: [
       {path:memberPreviewPath.slice(1)+'/*',element:<MemberPreview/>},
-      { index: true, element: gateway.overview?<><CurrentPhase api={gateway.process}/><Overview api={gateway.overview} announcements={gateway.announcements} canSearch={!!gateway.search} tasks={gateway.tasks} inventory={gateway.inventory} growth={gateway.growth} evaluations={gateway.evaluations} turnover={gateway.turnover}/></>:<><PageHeading title="Overview"/><EmptyState title="Overview unavailable" description="The workspace connection is unavailable."/></> },
+      { index: true, element: gateway.overview?<TodayPage/>:<><PageHeading title="Today"/><EmptyState title="Today is unavailable" description="The workspace connection is unavailable."/></> },
+      // The previous overview, with layouts, shortcuts and the phase banner. Linked from Today's Customize menu.
+      { path: 'overview', element: gateway.overview?<><CurrentPhase api={gateway.process}/><Overview api={gateway.overview} announcements={gateway.announcements} canSearch={!!gateway.search} tasks={gateway.tasks} inventory={gateway.inventory} growth={gateway.growth} evaluations={gateway.evaluations} turnover={gateway.turnover}/></>:<Unavailable title="Classic overview"/> },
+      { path: 'today', element: <MovedPage to="/"/> },
+      { path: 'work', element: <WorkHub/> },
+      { path: 'event', element: <EventHub/> },
+      { path: 'team', element: <TeamHub/> },
+      { path: 'desk', element: <DeskHub/> },
+      // Team and Event pages. Each page also checks the viewer itself; the loader gates Team setup.
+      { path: 'team/setup', element: gateway.teamSetup?<TeamSetupPage api={gateway.teamSetup}/>:<Unavailable title="Team setup"/> },
+      { path: 'team/ask', element: <WhoToAskPage api={gateway.whoToAsk}/> },
+      { path: 'team/committees', element: <CommitteeIndexPage api={gateway.committeePages}/> },
+      { path: 'team/committees/:code', element: <CommitteeOnePage api={gateway.committeePages}/> },
+      { path: 'my-part/:view?', element: <MyPartPage api={gateway.speakerPortal}/> },
+      { path: 'event/war-room', element: <WarRoomPage api={gateway.warRoom}/> },
+      { path: 'event/speakers', element: <SpeakerTrackerPage api={gateway.speakerPortal}/> },
+      { path: 'event/online-contest', element: <ContestBoardPage api={gateway.eventBoards}/> },
+      { path: 'event/tedify', element: <TedifyBoardPage api={gateway.eventBoards}/> },
+      { path: 'event/run-of-show', element: gateway.runOfShow?<RunOfShowPage api={gateway.runOfShow}/>:<Unavailable title="Run of show"/> },
+      { path: 'event/qr', element: <EventQrPage api={gateway.eventQr} inventory={gateway.inventory}/> },
+      { path: 'event/check-in/:token', element: gateway.eventQr?<CrewCheckInPage api={gateway.eventQr}/>:<Unavailable title="Crew check-in"/> },
       ...(gateway.turnover?[{path:'archive/:archivedWorkId?',element:<ArchivePage api={gateway.turnover}/>},{path:'handover/:turnoverCaseId?',element:<TurnoverPage api={gateway.turnover}/>}]:[]),
-      {path:'prism/:evaluationId?/:view?',element:gateway.evaluations?<EvaluationsPage api={gateway.evaluations}/>:<Unavailable title="PRISM desk"/>},
+      {path:'prism/:evaluationId?/:view?',element:gateway.evaluations?<EvaluationsPage api={gateway.evaluations}/>:<Unavailable title="Check-ins" description="Check-ins (PRISM) aren't switched on yet."/>},
       {path:'feedback',element:<MovedPage to="/prism"/>},
       {path:'department',element:<MovedPage to="/reviews"/>},
       {path:'committee',element:<CommitteePage tasks={gateway.tasks} deliverables={gateway.deliverables} handoffs={gateway.handoffs}/>},
-      {path:'mentoring',element:gateway.growth?<GrowthPage api={gateway.growth}/>:<Unavailable title="Mentoring"/>},
+      {path:'mentoring',element:gateway.growth?<GrowthPage api={gateway.growth}/>:<Unavailable title="Mentoring" description="Mentoring isn't switched on yet."/>},
       ...(gateway.inventory?[{path:'inventory/:inventoryLoanId?',element:<InventoryPage api={gateway.inventory}/>}]:[]),
       {path:'announcements',element:gateway.announcements?<Announcements api={gateway.announcements}/>:<EmptyState title="Announcements unavailable" description="Check the workspace connection."/>},
       {path:'privacy',element:gateway.privacy?<PrivacyPage api={gateway.privacy}/>:<EmptyState title="Privacy information unavailable" description="Check the workspace connection."/>},
@@ -198,21 +236,21 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       {path:'admin/privacy/recovery',element:gateway.privacy?.backupHealth?<BackupHealthPage read={gateway.privacy.backupHealth}/>:<EmptyState title="Recovery status unavailable" description="Check the workspace connection."/>},
       {path:'announcements/:announcementId',element:gateway.announcements?<AnnouncementDetail api={gateway.announcements} files={gateway.files}/>:<EmptyState title="Announcement unavailable" description="Check the workspace connection."/>},
       {path:'admin/announcements',element:gateway.announcements?<AnnouncementPublisher api={gateway.announcements}/>:<EmptyState title="Publishing unavailable" description="Check the workspace connection."/>},
-      {path:'shared',element:<><PageHeading title="Shared with me" description="Work and decisions explicitly shared with your guest account."/>
+      {path:'shared',element:<><PageHeading title="Shared with me" description="Work shared with you."/>
         <SharedWork api={gateway.guests}/><nav className="auth-actions" aria-label="Guest help"><Link className="button button--secondary" to="/account#guest-contacts">Find guest contacts</Link></nav><ContextAnnouncements api={gateway.announcements}/></>},
       {path:'admin/process',element:gateway.process?<ProcessPage api={gateway.process}/>:<EmptyState title="Process configuration unavailable" description="Current connection unavailable."/>},
-      {path:'search',element:gateway.search?<Search api={gateway.search}/>:<EmptyState title="Search unavailable" description="Current connection unavailable."/>},
+      {path:'search',element:gateway.search?<Search api={gateway.search}/>:<EmptyState title="Find unavailable" description="Current connection unavailable."/>},
       {path:'reports',element:gateway.reports?<Reports api={gateway.reports}/>:<EmptyState title="Reports unavailable" description="Current connection unavailable."/>},
       {path:'admin/imports',element:<CsvPreparation api={gateway.taskImports} rosterApi={gateway.rosterImports}/>},
       {path:'admin/layouts',element:gateway.layouts?<LayoutsPage api={gateway.layouts}/>:<EmptyState title="Layout settings unavailable" description="Current connection unavailable."/>},
       {path:'admin/access',element:gateway.access?<AccessPage api={gateway.access}/>:<EmptyState title="Access inspection unavailable" description="The connection is unavailable."/>},
-      {path:'admin/config/:configurationType?',element:gateway.configuration?<ConfigurationPage api={gateway.configuration}/>:<EmptyState title="Configuration unavailable" description="The connection is unavailable."/>},
+      {path:'admin/config/:configurationType?',element:gateway.configuration?<ConfigurationPage api={gateway.configuration} catalog={gateway.catalog}/>:<EmptyState title="Configuration unavailable" description="The connection is unavailable."/>},
       {path:'reviews',element:gateway.inbox?<ReviewInbox api={gateway.inbox}/>:<EmptyState title="Reviews unavailable" description="The connection is unavailable."/>},
-      {path:'publicity',element:gateway.publicity?<PublicityDesk api={gateway.publicity}/>:<EmptyState title="Publicity unavailable" description="The connection is unavailable."/>},
-      {path:'publicity/:publicityTerm/:publicityId',element:gateway.publicity&&gateway.requests?<PublicityPage api={gateway.publicity} requests={gateway.requests} forms={gateway.forms} files={gateway.files}/>:<EmptyState title="Publicity unavailable" description="The connection is unavailable."/>},
-      {path:'finance',element:gateway.finance?<><FinanceDesk api={gateway.finance}/>{gateway.finAuthority?<FinanceReviewQueue api={gateway.finAuthority}/>:null}</>:<EmptyState title="Finance unavailable" description="The connection is unavailable."/>},
+      {path:'publicity',element:gateway.publicity?<PublicityDesk api={gateway.publicity}/>:<EmptyState title="Publicity sign-off unavailable" description="The connection is unavailable."/>},
+      {path:'publicity/:publicityTerm/:publicityId',element:gateway.publicity&&gateway.requests?<PublicityPage api={gateway.publicity} requests={gateway.requests} forms={gateway.forms} files={gateway.files}/>:<EmptyState title="Publicity sign-off unavailable" description="The connection is unavailable."/>},
+      {path:'finance',element:gateway.finance?<><FinanceDesk api={gateway.finance}/>{gateway.finAuthority?<FinanceReviewQueue api={gateway.finAuthority}/>:null}</>:<EmptyState title="Budget unavailable" description="The connection is unavailable."/>},
       {path:'finance/reviews/:finTerm/:finId',element:gateway.finAuthority?<FinanceReviewPage api={gateway.finAuthority} files={gateway.files} ledger={gateway.ledger}/>:<EmptyState title="FIN review unavailable" description="The connection is unavailable."/>},
-      {path:'finance/:financeTermId/:financeId',element:gateway.finance&&gateway.requests?<FinanceCasePage api={gateway.finance} requests={gateway.requests} files={gateway.files}/>:<EmptyState title="Finance unavailable" description="The connection is unavailable."/>},
+      {path:'finance/:financeTermId/:financeId',element:gateway.finance&&gateway.requests?<FinanceCasePage api={gateway.finance} requests={gateway.requests} files={gateway.files}/>:<EmptyState title="Budget unavailable" description="The connection is unavailable."/>},
       {path:'reviews/:reviewTermId/:reviewId',element:gateway.inbox&&gateway.approvals?<ReviewPage api={gateway.approvals} inbox={gateway.inbox} files={gateway.files} roomBookings={gateway.roomBookings}/>:<EmptyState title="Review unavailable" description="The connection is unavailable."/>},
       {path:'requests/mine',element:gateway.requests?<MyRequestsPage api={gateway.requests}/>:<EmptyState title="Requests unavailable" description="The connection is unavailable."/>},
       {path:'requests/services/:typeId/new',element:gateway.requests&&gateway.catalog?<NewRequestPage api={gateway.requests} catalog={gateway.catalog}/>:<EmptyState title="Draft unavailable" description="The connection is unavailable."/>},
@@ -227,8 +265,8 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       {path:'deliverables/:deliverableId',element:gateway.deliverables?<DeliverablePage process={gateway.process} readiness={gateway.readiness} publicity={gateway.publicity} finance={gateway.finance} timeline={gateway.timeline} api={gateway.deliverables} commands={gateway.deliverableCommands} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<EmptyState title="Deliverable unavailable" description="The workspace connection is unavailable."/>},
       ...navigationItems.filter((item) => item.href !== '/' && !explicitAreas.has(item.href)).map((item) => ({
         path: item.href.slice(1),
-        element: item.id === 'admin' && gateway.organization ? <OrganizationPage api={gateway.organization}/> : item.id === 'resources' && gateway.resources ? <ResourcesPage api={gateway.resources} people={gateway.people}/> : item.id === 'calendar' && gateway.calendar ? <CalendarPage api={gateway.calendar}/> : item.id === 'notifications' ? <><Notifications/><ContextAnnouncements api={gateway.announcements}/></> : item.id === 'requests' && gateway.catalog ? <CatalogPage api={gateway.catalog} process={gateway.process}/> : item.href === '/working-together' && gateway.synergies ? <WorkingTogetherPage api={gateway.synergies}/> : item.id === 'tasks' && gateway.tasks ? <TasksPage api={gateway.tasks} exportCsv={gateway.exportOperationalWork} /> : item.id === 'deliverables' && gateway.deliverables ? <DeliverablesRoute api={gateway.deliverables} commands={gateway.deliverableCommands} exportCsv={gateway.exportOperationalWork} /> : item.id === 'people' && gateway.people ? <DirectoryPage api={gateway.people} /> : item.id === 'guests' && gateway.guests ? <SponsorPage api={gateway.guests} /> : item.id === 'account' ? <AccountPage gateway={gateway} /> : <Unavailable title={item.label} />,
-        errorElement: <ErrorState title="This page could not open" description="Return to the overview and try again. If it keeps happening, contact the workspace maintainer." action={<Link className="button" to="/">Return to overview</Link>} />,
+        element: item.id === 'admin' && gateway.organization ? <OrganizationPage api={gateway.organization} process={gateway.process}/> : item.id === 'resources' && gateway.resources ? <ResourcesPage api={gateway.resources} people={gateway.people}/> : item.id === 'calendar' && gateway.calendar ? <CalendarPage api={gateway.calendar}/> : item.id === 'notifications' ? <><Notifications/><ContextAnnouncements api={gateway.announcements}/></> : item.id === 'requests' && gateway.catalog ? <CatalogPage api={gateway.catalog} process={gateway.process}/> : item.href === '/working-together' && gateway.synergies ? <WorkingTogetherPage api={gateway.synergies}/> : item.id === 'tasks' && gateway.tasks ? <TasksPage api={gateway.tasks} exportCsv={gateway.exportOperationalWork} /> : item.id === 'deliverables' && gateway.deliverables ? <DeliverablesRoute api={gateway.deliverables} commands={gateway.deliverableCommands} exportCsv={gateway.exportOperationalWork} /> : item.id === 'people' && gateway.people ? <DirectoryPage api={gateway.people} /> : item.id === 'guests' && gateway.guests ? <SponsorPage api={gateway.guests} /> : item.id === 'account' ? <AccountPage gateway={gateway} /> : <Unavailable title={item.label} />,
+        errorElement: <ErrorState title="This page could not open" description="Go back to Today and try again. If it keeps happening, contact the workspace maintainer." action={<Link className="button" to="/">Back to Today</Link>} />,
       })),
       ] },
       { path: '*', element: <main className="standalone-page"><NotFoundPage /></main> },

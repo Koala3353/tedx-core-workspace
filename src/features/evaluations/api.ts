@@ -90,15 +90,15 @@ const sanitizeRecord=(r:EvaluationRecord):EvaluationRecord=>({
   releaseDrafts:r.releaseDrafts.map(({id,subjectId,summary,version,own,current,published})=>({id,subjectId,summary,version,own,current,published})),
 })
 const errorMessages:Record<string,string>={
-  command_evaluation_report_frozen:'This term report is frozen. It cannot be republished with a narrower or changed cohort.',
-  command_evaluation_report_suppressed:'The report needs closed collection and at least five distinct subjects with released summaries. No smaller count is disclosed.',
-  command_evaluation_policy_unavailable:'PRISM needs its approved custodian, basis and published retention policy before this action is available.',
+  command_evaluation_report_frozen:'This term report is already published and locked. It can\'t be published again.',
+  command_evaluation_report_suppressed:'The report needs every round closed and at least five people with released summaries.',
+  command_evaluation_policy_unavailable:'PRISM isn\'t fully set up yet, so this isn\'t available. Ask the person who runs PRISM.',
   command_evaluation_template_invalid:'Check the named questions and their text limits.',
-  command_evaluation_assignment_conflict:'This person cannot take that role in this case. Review subject, author and conflict assignments.',
-  command_evaluation_submission_closed:'Check the round dates and your current assignment before submitting.',
-  command_evaluation_release_stale:'Feedback or assignments changed. Review the current material and prepare a new summary.',
-  command_evaluation_release_not_ready:'Release requires the approved time and current submitted feedback.',
-  command_evaluation_feedback_required:'A summary needs current submitted feedback.',
+  command_evaluation_assignment_conflict:'This person can\'t take that role here. Check who is being reviewed, who is giving feedback and any conflicts.',
+  command_evaluation_submission_closed:'This round may be closed, or you\'re no longer assigned. Check the dates and try again.',
+  command_evaluation_release_stale:'Feedback or assignments changed. Read the latest feedback and write a new summary.',
+  command_evaluation_release_not_ready:'This summary can\'t be released yet. Wait for the release date and make sure feedback was submitted.',
+  command_evaluation_feedback_required:'Write a summary once some feedback has been submitted.',
 }
 
 export function createEvaluationsApi(ready:ReturnType<typeof createSupabaseClient>){

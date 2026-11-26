@@ -7,17 +7,19 @@ import {forgetRecordDrafts} from '../../auth/draftScope'
 import type {ArchivedCustody,TurnoverApi,TurnoverSetup,TurnoverState,TurnoverWorkspace} from './api'
 import {TurnoverEditor,categoryName,type TurnoverEdit} from './TurnoverEditor'
 import {archivePath,ArchiveFacts} from './ArchivePage'
+import {HowThisWorks} from '../../shared/HowThisWorks'
+import {formatDateTime,formatDay} from '../../shared/dates'
 import './turnover.css'
-const stateName:Record<TurnoverState,string>={preparing:'Review unit and item outcomes',frozen:'Frozen — arrange custody and export',exporting:'Archive operator action required',verified:'Verified — successor review required',rehearsal_verified:'Rehearsal verified — successor review required',complete:'Handover complete',rehearsal_complete:'Rehearsal complete'}
+const stateName:Record<TurnoverState,string>={preparing:'Review unit and item outcomes',frozen:'Frozen — name custodians and export the archive',exporting:'Archive export needs attention',verified:'Archive checked — waiting for successors to accept',rehearsal_verified:'Practice run checked — waiting for successors to accept',complete:'Handover complete',rehearsal_complete:'Practice run complete'}
 export function TurnoverLinks({api,term}:{api:TurnoverApi;term:string}){
   const [w,setW]=useState<TurnoverWorkspace|null>(null),sequence=useRef(0)
   useEffect(()=>{let live=true;const check=()=>{const n=++sequence.current;setW(null);void api.workspace(term).then(v=>{if(live&&sequence.current===n)setW(v)}).catch(()=>{})};check();window.addEventListener('focus',check);return()=>{live=false;window.removeEventListener('focus',check)}},[api,term])
   return <div className="auth-actions">{w&&(w.case||w.approvals.length)?<Link className="button button--secondary" to={'/handover'+(w.case?'/'+w.case.id:'')+'?term='+term}>Term handover</Link>:null}
-    {w?.hasArchive?<Link className="button button--secondary" to={archivePath(term)}>Find archived work</Link>:null}</div>
+    {w?.hasArchive?<Link className="button button--secondary" to={archivePath(term)}>Archived work</Link>:null}</div>
 }
 export function TurnoverPage({api}:{api:TurnoverApi}){
   const c=useRouteLoaderData('workspace')as WorkspaceContext,{turnoverCaseId}=useParams()
-  if(!('memberId'in c))return <EmptyState title="Handover unavailable" description="Current core workspace access is required."/>
+  if(!('memberId'in c))return <EmptyState title="Handover isn't available" description="Only core team members can open the term handover."/>
   return <TurnoverBody key={c.memberId+c.termId+turnoverCaseId} api={api} term={c.termId} membership={c.termMembershipId} caseId={turnoverCaseId}/>
 }
 function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;membership:string;caseId?:string}){
@@ -35,7 +37,7 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
       const old=previous.current,visible=new Set([...next.transfers,...next.custody].map(x=>x.id))
       for(const id of old?.records??[])if(!visible.has(id))forgetRecordDrafts(id)
       if(old?.caseId&&(!next.case||old.canManage&&!next.canManage)){forgetRecordDrafts(old.caseId);old.managerRecords.forEach(forgetRecordDrafts);choice.current=null;setEdit(null)}
-      if(q&&'id'in q&&!next.canManage&&!visible.has(q.id)){choice.current=null;setEdit(null);setNotice('Your handover scope changed. Ask the named custodian to review it.')}
+      if(q&&'id'in q&&!next.canManage&&!visible.has(q.id)){choice.current=null;setEdit(null);setNotice('What you can see in this handover changed. Ask the handover custodian if something is missing.')}
       previous.current={caseId:next.case?.id??null,canManage:next.canManage,records:[...visible],managerRecords:[...next.units,...next.work].map(r=>r.id)};setW(next);setSetup(settings);setCustody(details)
     }catch{if(sequence.current===n){setFailed(true);setW(null);setSetup(null);setCustody(null)}}finally{if(sequence.current===n)setChecking(false)}
   },[api,term,caseId,membership])
@@ -48,44 +50,44 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
   function saved(message:string){
     if(choice.current?.kind==='complete'){
       const synthetic=w?.case?.scope==='synthetic';completed.current=true;sequence.current++;close();setW(null);setSetup(null);setCustody(null);setChecking(false)
-      setNotice(synthetic?'Rehearsal handover completed. The original term is archived; real operational custody remains unverified.':'Handover completed. The original term is archived and selected outgoing scopes were revoked.');return
+      setNotice(synthetic?'Practice handover complete. The term is archived, but this was only a practice run.':'Handover complete. The term is archived and outgoing members\' access was removed as planned.');return
     }
     close();setNotice(message);void load()
   }
   const acceptedCurrent=(v:{accepted:boolean;acceptedRun:string|null})=>v.accepted&&v.acceptedRun===w?.runs[0]?.id
   const c=w?.case,done=c?.state==='complete'||c?.state==='rehearsal_complete',verified=c?.state==='verified'||c?.state==='rehearsal_verified'
   return <div className="turnover">
-    <PageHeading title="Term handover" description="Named responsibility, verified archives and explicit successor acceptance."/>
-    <div className="auth-actions"><Link className="button button--secondary" to={completed.current?'/':'/?term='+term}>Overview</Link>{w?.hasArchive?<Link className="button button--secondary" to={archivePath(term)}>Find archived work</Link>:null}{!completed.current?<button className="button button--secondary" disabled={checking} onClick={()=>void load()}>Refresh current access</button>:null}</div>
+    <PageHeading title="Term handover" description="Pass each committee's work to next term's team, archive the rest, and have successors accept it."/>
+    <div className="auth-actions"><Link className="button button--secondary" to={completed.current?'/':'/?term='+term}>Overview</Link>{w?.hasArchive?<Link className="button button--secondary" to={archivePath(term)}>Archived work</Link>:null}</div>
     {completed.current?<Panel title="Handover recorded"><p role="status">{notice}</p></Panel>:null}
-    {checking?<LoadingState title="Checking current handover scope"/>:null}
-    {failed?<ErrorState title="Handover could not be checked" description="Check your connection and verified session. Private records are hidden; safe entries stay in memory for an exact retry."/>:null}
-    {!checking&&!failed&&w&&!c&&!w.approvals.length?<EmptyState title="No handover assigned" description="Only authorized custodians and named successors see a term handover. Ask the process contact to review your scope."/>:null}
+    {checking?<LoadingState title="Loading handover"/>:null}
+    {failed?<ErrorState title="Couldn't load the handover" description="Check your connection and try again. Your entries are kept."/>:null}
+    {!checking&&!failed&&w&&!c&&!w.approvals.length?<EmptyState title="No handover for you yet" description="You'll see the handover here once you're named as its custodian or a successor. Ask an admin if you expected one."/>:null}
     {w?<div hidden={failed||checking}>
-      {c?<Panel title={c.term}><p><strong>{stateName[c.state]}</strong></p><p>Accountable custodian: {c.custodian}.</p>{c.scope==='synthetic'?<p role="note">Synthetic rehearsal only. This does not prove real account custody, provider recovery or participant acceptance.</p>:null}
-        {w.runs[0]?.failure&&!w.runs[0].restored?<p role="alert">Archive operator: the {w.runs[0].failure.phase==='files'?'file checks':w.runs[0].failure.phase==='restore'?'restore rehearsal':'record checks'} need attention. Recheck the approved source and resume the current generation; verification remains blocked.</p>:null}
+      {c?<Panel title={c.term}><p><strong>{stateName[c.state]}</strong></p><p>Handover custodian: {c.custodian}</p>{c.scope==='synthetic'?<p role="note">Practice run with sample data. Nothing real is handed over.</p>:null}
+        {w.runs[0]?.failure&&!w.runs[0].restored?<p role="alert">Archive operator: the {w.runs[0].failure.phase==='files'?'file checks':w.runs[0].failure.phase==='restore'?'restore rehearsal':'record checks'} need attention. Check the source, then resume the archive export. The archive can\'t be checked until this is fixed.</p>:null}
       </Panel>:null}
       <div ref={focus} tabIndex={-1}>{notice?<p role="status">{notice}</p>:null}
         {edit?<TurnoverEditor key={edit.kind+('id'in edit?edit.id:'')+('action'in edit?edit.action:'')} api={api} term={term} workspace={w} setup={setup} custody={custody} edit={edit} checking={checking} refresh={()=>void load()} saved={saved} close={close}/>:null}</div>
-      {!edit&&!c&&w.approvals.length?<button className="button" onClick={()=>void open({kind:'prepare'})}>Start authorized closure</button>:null}
+      {!edit&&!c&&w.approvals.length?<button className="button" onClick={()=>void open({kind:'prepare'})}>Start term handover</button>:null}
       {w.canManage&&c?<>
-        <Panel title="1. Review unit responsibility"><ul className="turnover-list">{w.units.map(u=><li key={u.id}><h3>{u.name}</h3><p>{u.checked?'Review recorded':'Review needed'} · {w.people.find(p=>p.id===u.owner)?.name??'Name a responsible person'}</p>{c.state==='preparing'&&!edit?<button className="button button--secondary" onClick={()=>void open({kind:'unit',id:u.id})}>Record review for {u.name}</button>:null}</li>)}</ul></Panel>
-        <Panel title="2. Resolve or carry each item"><ul className="turnover-list">{w.work.map(x=><li key={x.id}><h3>{x.reference?x.reference+' · ':''}{x.title}</h3><p>{categoryName(x.classification)} · {x.resolution==='carry'?'Carry forward':x.resolution==='resolved'?'Resolved':x.resolution==='cancelled'?'Cancelled':'Outcome needed'}{x.recordedVersion!==x.version&&x.resolution?' · Source changed; review again':''}</p><p>Responsible person: {w.people.find(p=>p.id===x.owner)?.name??'Not yet recorded'}{x.successor?' · Successor: '+(w.successors.find(p=>p.id===x.successor)?.name??'Review current successor'):''}</p>{c.state==='preparing'&&!edit?<button className="button button--secondary" onClick={()=>void open({kind:'obligation',id:x.id})}>Record outcome for {x.reference??x.title}</button>:null}</li>)}</ul></Panel>
-        <Panel title="3. Plan scopes and verify the archive"><div className="auth-actions">
-          {!edit&&c.state==='preparing'?<><button className="button button--secondary" onClick={()=>void open({kind:'transfer'})}>Plan ordinary handover</button><button className="button" onClick={()=>void open({kind:'freeze'})}>Review term freeze</button></>:null}
-          {!edit&&['preparing','frozen'].includes(c.state)?<button className="button button--secondary" onClick={()=>void open({kind:'nominate'})}>Name a private-record custodian</button>:null}
-          {!edit&&['frozen','exporting','verified','rehearsal_verified'].includes(c.state)?<button className="button" onClick={()=>void open({kind:'archive'})}>{c.state==='exporting'?'Resume archive generation':'Prepare archive generation'}</button>:null}
-          {!edit&&c.state==='exporting'?<button className="button button--secondary" onClick={()=>void open({kind:'verify'})}>Check archive verification</button>:null}
-          {!edit&&verified?<button className="button" onClick={()=>void open({kind:'complete'})}>Review handover completion</button>:null}
-        </div><p>The approved operator owns record/file export and isolated restore checks. Incoming-term activation and fresh role/custody grants are separate authorized administration actions.</p>
-          <details><summary>Scoped archive evidence</summary>{w.categories.map((r,i)=><p key={i}>{categoryName(r.category)} · {r.disposition==='hold'?'Held':r.disposition==='carry'?'Carried forward':r.disposition==='dispose'?'Disposal review':'Archived'} · {r.rows} rows · Review {r.reviewOn}</p>)}{w.runs.map(r=><p key={r.id}>{new Date(r.at).toLocaleString('en-PH',{timeZone:'Asia/Manila'})} (Manila) · {r.restored?'Restore evidence recorded':'Operator checks pending'}</p>)}</details>
+        <Panel title="1. Check each committee"><ul className="turnover-list">{w.units.map(u=><li key={u.id}><h3>{u.name}</h3><p>{u.checked?'Checked':'Needs a check'} · {w.people.find(p=>p.id===u.owner)?.name??'No one responsible yet'}</p>{c.state==='preparing'&&!edit?<button className="button button--secondary" onClick={()=>void open({kind:'unit',id:u.id})}>Check {u.name}</button>:null}</li>)}</ul></Panel>
+        <Panel title="2. Close or carry over each item"><ul className="turnover-list">{w.work.map(x=><li key={x.id}><h3>{x.reference?x.reference+' · ':''}{x.title}</h3><p>{categoryName(x.classification)} · {x.resolution==='carry'?'Carry forward':x.resolution==='resolved'?'Resolved':x.resolution==='cancelled'?'Cancelled':'Outcome needed'}{x.recordedVersion!==x.version&&x.resolution?' · Changed since you decided; check again':''}</p><p>Responsible person: {w.people.find(p=>p.id===x.owner)?.name??'Not yet recorded'}{x.successor?' · Successor: '+(w.successors.find(p=>p.id===x.successor)?.name??'Successor needs checking'):''}</p>{c.state==='preparing'&&!edit?<button className="button button--secondary" onClick={()=>void open({kind:'obligation',id:x.id})}>Record outcome for {x.reference??x.title}</button>:null}</li>)}</ul></Panel>
+        <Panel title="3. Plan access and check the archive"><div className="auth-actions">
+          {!edit&&c.state==='preparing'?<><button className="button button--secondary" onClick={()=>void open({kind:'transfer'})}>Plan a handover</button><button className="button" onClick={()=>void open({kind:'freeze'})}>Freeze the term</button></>:null}
+          {!edit&&['preparing','frozen'].includes(c.state)?<button className="button button--secondary" onClick={()=>void open({kind:'nominate'})}>Name a custodian for private records</button>:null}
+          {!edit&&['frozen','exporting','verified','rehearsal_verified'].includes(c.state)?<button className={verified?'button button--secondary':'button'} onClick={()=>void open({kind:'archive'})}>{c.state==='exporting'?'Resume archive export':'Export the archive'}</button>:null}
+          {!edit&&c.state==='exporting'?<button className="button button--secondary" onClick={()=>void open({kind:'verify'})}>Check the archive</button>:null}
+          {!edit&&verified?<button className="button" onClick={()=>void open({kind:'complete'})}>Complete handover</button>:null}
+        </div><HowThisWorks><p>The archive operator exports records and files and checks they can be restored. Starting next term and giving new roles happen separately in Administration.</p></HowThisWorks>
+          <details><summary>Archive details</summary>{w.categories.map((r,i)=><p key={i}>{categoryName(r.category)} · {r.disposition==='hold'?'Held':r.disposition==='carry'?'Carried forward':r.disposition==='dispose'?'Disposal review':'Archived'} · {r.rows} rows · Review {formatDay(r.reviewOn)}</p>)}{w.runs.map(r=><p key={r.id}>{formatDateTime(r.at)} · {r.restored?'Restore checked':'Checks pending'}</p>)}</details>
         </Panel>
       </>:null}
-      {c?<Panel title="4. Review named successor duties">
-        {!w.transfers.length&&!w.custody.length?<p>The custodian has not named a transfer or private-record custodian yet.</p>:null}
-        {w.transfers.map(t=><section key={t.id}><h3>{t.name} · {t.term}</h3><p>{t.reference}</p><p>{acceptedCurrent(t)?'Named records accepted':'Record acceptance pending'}</p><ul className="turnover-list">{t.work.map(x=><li key={x.id}><h3>{x.title}</h3><ArchiveFacts record={x}/><details><summary>Review retained record</summary><p className="record-text">{x.body}</p></details></li>)}</ul>{!edit&&verified&&!acceptedCurrent(t)&&t.successor===membership?<button className="button" onClick={()=>void open({kind:'acceptRecords',id:t.id})}>Review acceptance of named records</button>:null}</section>)}
-        {w.custody.map(n=><section key={n.id}><h3>{n.name} · {categoryName(n.category)}</h3><p>{n.reference}</p><p>{acceptedCurrent(n)?'Metadata custody accepted':'Custody acceptance pending'} · {n.qualified?'Current qualification':'Qualification needs review'} · Until {new Date(n.expiresAt).toLocaleDateString('en-PH',{timeZone:'Asia/Manila'})}</p><ul>{n.records.map((r,i)=><li key={r.id}>{r.reference??'Custody record '+(i+1)}</li>)}</ul>{!edit&&verified&&!acceptedCurrent(n)&&n.qualified&&n.recipient===membership?<button className="button" onClick={()=>void open({kind:'acceptCustody',id:n.id})}>Review acceptance of {categoryName(n.category)} custody</button>:null}
-          {!edit&&done&&n.recipient===membership&&n.qualified?<div className="auth-actions">{(['hold','correction','release_hold']as const).map(action=><button key={action} className="button button--secondary" onClick={()=>void open({kind:'custodyAction',id:n.id,action})}>{action==='hold'?'Place a preservation hold':action==='correction'?'Append a correction reference':'Review hold release'}</button>)}</div>:null}
+      {c?<Panel title="4. Successors accept their work">
+        {!w.transfers.length&&!w.custody.length?<p>No successors or custodians named yet.</p>:null}
+        {w.transfers.map(t=><section key={t.id}><h3>{t.name} · {t.term}</h3><p>{t.reference}</p><p>{acceptedCurrent(t)?'Accepted':'Waiting for acceptance'}</p><ul className="turnover-list">{t.work.map(x=><li key={x.id}><h3>{x.title}</h3><ArchiveFacts record={x}/><details><summary>View record</summary><p className="record-text">{x.body}</p></details></li>)}</ul>{!edit&&verified&&!acceptedCurrent(t)&&t.successor===membership?<button className="button" onClick={()=>void open({kind:'acceptRecords',id:t.id})}>Accept these records</button>:null}</section>)}
+        {w.custody.map(n=><section key={n.id}><h3>{n.name} · {categoryName(n.category)}</h3><p>{n.reference}</p><p>{acceptedCurrent(n)?'Accepted':'Waiting for acceptance'} · {n.qualified?'Eligible':'Eligibility needs checking'} · Until {formatDay(n.expiresAt)}</p><ul>{n.records.map((r,i)=><li key={r.id}>{r.reference??'Record '+(i+1)}</li>)}</ul>{!edit&&verified&&!acceptedCurrent(n)&&n.qualified&&n.recipient===membership?<button className="button" onClick={()=>void open({kind:'acceptCustody',id:n.id})}>Accept {categoryName(n.category)} records</button>:null}
+          {!edit&&done&&n.recipient===membership&&n.qualified?<div className="auth-actions">{(['hold','correction','release_hold']as const).map(action=><button key={action} className="button button--secondary" onClick={()=>void open({kind:'custodyAction',id:n.id,action})}>{action==='hold'?'Place a hold':action==='correction'?'Add a correction':'Release a hold'}</button>)}</div>:null}
         </section>)}
       </Panel>:null}
     </div>:null}

@@ -4,6 +4,7 @@ import { Link, useLoaderData, useNavigate, useRouteLoaderData } from 'react-rout
 import { PageHeading, Panel } from '../../components/Page'
 import { TextField } from '../../components/TextField'
 import { isGuest,type AuthGateway,type AuthResult,type WorkspaceContext } from '../auth/gateway'
+import { formatDateTime } from '../shared/dates'
 import { invitationUrl, readInvitationFragment, type GuestGateway, type GuestInvitation, type GuestWork } from './gateway'
 
 export function SharedWork({api}:{api?:GuestGateway}) {
@@ -35,16 +36,16 @@ function SharedWorkList({api,term}:{api:GuestGateway;term:string}) {
   },[])
   const current=loaded?.key===key?loaded:null
   return <Panel title="Shared work">
-    {!current?<p role="status">Checking your shared work…</p>:current.work?<>{current.work.items.length?
+    {!current?<p role="status">Loading your shared work…</p>:current.work?<>{current.work.items.length?
       <ul className="guest-list">{current.work.items.map(item=><li key={item.id}>
         <Link className="button button--secondary" to={(item.kind==='task'?'/tasks/':'/deliverables/')+item.id}>{item.title}</Link>
-      </li>)}</ul>:<p>Your sponsor has not shared any current tasks or deliverables on this page.</p>}
+      </li>)}</ul>:<p>Nothing has been shared with you yet. The organizer who invited you can share tasks or deliverables.</p>}
       {page>1||current.work.hasMore?<div className="auth-actions">
-        {page>1?<button className="button button--secondary" type="button" onClick={()=>setPage(page-1)}>Previous shared work</button>:null}
-        {current.work.hasMore?<button className="button button--secondary" type="button" onClick={()=>setPage(page+1)}>Next shared work</button>:null}
+        {page>1?<button className="button button--secondary" type="button" onClick={()=>setPage(page-1)}>Previous</button>:null}
+        {current.work.hasMore?<button className="button button--secondary" type="button" onClick={()=>setPage(page+1)}>Next</button>:null}
       </div>:null}
-    </>:<><p role="alert">Shared work could not be checked. Ask your sponsor if you expected access.</p>
-      <button className="button button--secondary" type="button" onClick={()=>setRevision(value=>value+1)}>Check shared work again</button>
+    </>:<><p role="alert">Couldn't load your shared work. Try again, or ask the organizer who invited you.</p>
+      <button className="button button--secondary" type="button" onClick={()=>setRevision(value=>value+1)}>Try again</button>
     </>}
   </Panel>
 }
@@ -62,13 +63,13 @@ export function SponsorPage({api}:{api:GuestGateway}) {
   const request=useRef<{key:string;id:string;expiry:string}|null>(null)
   useEffect(()=>{
     let active=true
-    void api.list(context.termId).then(rows=>{if(active)setItems(rows)}).catch(()=>{if(active)setError('Invitations could not load. Refresh this page to try again.')}).finally(()=>{if(active)setLoading(false)})
+    void api.list(context.termId).then(rows=>{if(active)setItems(rows)}).catch(()=>{if(active)setError('Couldn\'t load your invitations. Refresh the page to try again.')}).finally(()=>{if(active)setLoading(false)})
     return ()=>{active=false}
   },[api,context.termId])
   async function mutate(action:()=>Promise<void>) {
     setBusy(true);setError('');setNotice('');setLink('')
     try {await action();setItems(await api.list(context.termId))}
-    catch {setError('The change could not be confirmed. Refresh the list and retry. Your account may no longer have access.')}
+    catch {setError('We couldn\'t confirm that change. Refresh the page and try again. If it keeps failing, you may no longer be an access admin.')}
     finally {setBusy(false)}
   }
   async function create(event?:FormEvent,replaces?:GuestInvitation) {
@@ -80,30 +81,30 @@ export function SponsorPage({api}:{api:GuestGateway}) {
     await mutate(async()=>{
       const result=await api.create(context.termId,replaces?.email??email,current.id,current.expiry,replaces)
       if(result.token)setLink(invitationUrl(window.location.origin,result.token))
-      setNotice(result.token ? 'Invitation created. Copy the link now; it cannot be shown again after leaving this page.' : 'This request already succeeded. Its link cannot be recovered. Renew that invitation to issue a new link.')
+      setNotice(result.token ? 'Invitation created. Copy the link now. You won\'t be able to see it again after you leave this page.' : 'This invitation was already created, but its link can\'t be shown again. Renew it to get a new link.')
       request.current=null
     })
   }
   return <>
-    <PageHeading title="Guest invitations" description="Manage only the invitations you sponsor. Access requires your current term access-administrator grant." />
+    <PageHeading title="Guest invitations" description="Invite people outside the org to see specific tasks or deliverables. Only access admins can invite guests." />
     <Panel title="Invite a guest">
-      <p><strong>Scope preview: zero shared records.</strong> New invitations begin with no records. Each work record needs a separate sharing action. This invitation grants no full member directory, committee or organization-wide access.</p>
+      <p>A new guest starts with nothing shared. Share each task or deliverable with them separately. Guests can't see the member directory or committee pages.</p>
       <form className="guest-form" onSubmit={event=>void create(event)}>
-        <TextField id="guest-email" label="Guest Google email" type="email" required value={email} autoComplete="off" onChange={event=>setEmail(event.target.value)} hint="Use the exact email the guest will sign in with. External Google accounts are supported." />
-        <TextField id="guest-days" label="Access duration in days" type="number" min="1" max="14" required value={days} onChange={event=>setDays(event.target.value)} hint="Default 14 days; renewal replaces the old link and requires redemption again." />
-        <button className="button" disabled={busy||loading}>Create invitation link</button>
+        <TextField id="guest-email" label="Guest Google email" type="email" required value={email} autoComplete="off" onChange={event=>setEmail(event.target.value)} hint="The email they'll sign in with. It doesn't have to be a school account." />
+        <TextField id="guest-days" label="Days of access" type="number" min="1" max="14" required value={days} onChange={event=>setDays(event.target.value)} hint="Default 14 days. Renewing creates a new link and the old one stops working." />
+        <button className={link?'button button--secondary':'button'} disabled={busy||loading}>Create invitation link</button>
       </form>
-      <p className="muted">No email is sent. Share the copied link yourself. The guest must use the bound Google account.</p>
+      <p className="muted">No email is sent. Share the copied link yourself. The guest must sign in with this exact Google account.</p>
     </Panel>
     {error?<p role="alert">{error}</p>:null}
     {notice?<p role="status">{notice}</p>:null}
-    {link?<Panel title="Copy this invitation now"><div className="guest-link-copy"><p>The link remains only in this page’s memory.</p><button className="button" onClick={()=>void navigator.clipboard.writeText(link).then(()=>setNotice('Invitation link copied.')).catch(()=>setError('Clipboard access failed. Use the selectable invitation link below.'))}>Copy invitation link</button><TextField id="invite-link" label="Invitation link" value={link} readOnly onFocus={event=>event.target.select()} /><button className="button button--secondary" onClick={()=>setLink('')}>Hide invitation link</button></div></Panel>:null}
+    {link?<Panel title="Copy this invitation now"><div className="guest-link-copy"><p>This link disappears when you leave the page.</p><button className="button" onClick={()=>void navigator.clipboard.writeText(link).then(()=>setNotice('Invitation link copied.')).catch(()=>setError('Couldn\'t copy automatically. Select the link below and copy it.'))}>Copy invitation link</button><TextField id="invite-link" label="Invitation link" value={link} readOnly onFocus={event=>event.target.select()} /><button className="button button--secondary" onClick={()=>setLink('')}>Hide invitation link</button></div></Panel>:null}
     <Panel title="Your invitations">
-      <p>Check whether a guest has accepted, or when their access ends.</p>
-      {loading?<p role="status">Loading invitations…</p>:items.length===0?<p>No invitations are available.</p>:<ul className="guest-list">{items.map(item=><li key={item.id}>
-        <h3>{item.email}</h3><p>{item.revokedAt?'Revoked':Date.parse(item.expiresAt)<=Date.now()?'Expired':item.redeemedAt?'Redeemed':'Awaiting redemption'} · Ends {new Date(item.expiresAt).toLocaleString('en-PH',{timeZone:'Asia/Manila'})} (Manila)</p>
-        <p className="muted">{item.scopeMode === 'explicit_records' ? `${item.sharedRecordCount === undefined ? 'Explicitly shared' : item.sharedRecordCount + ' explicitly shared'} work records; no full directory access.` : 'Zero shared records; no directory access.'}</p>
-        {!item.revokedAt?<div className="auth-actions"><button className="button button--secondary" disabled={busy} onClick={()=>void create(undefined,item)}>Renew invitation for {item.email}</button><button className="button button--secondary" disabled={busy} onClick={()=>void mutate(async()=>{await api.revoke(item,crypto.randomUUID());setNotice('Guest access revoked. Current sessions can no longer use this invitation.')} )}>Revoke access for {item.email}</button></div>:null}
+      <p>See who has accepted and when their access ends.</p>
+      {loading?<p role="status">Loading invitations…</p>:items.length===0?<p>No invitations yet.</p>:<ul className="guest-list">{items.map(item=><li key={item.id}>
+        <h3>{item.email}</h3><p>{item.revokedAt?'Revoked':Date.parse(item.expiresAt)<=Date.now()?'Expired':item.redeemedAt?'Accepted':'Not accepted yet'} · Ends {formatDateTime(item.expiresAt)}</p>
+        <p className="muted">{item.scopeMode === 'explicit_records' ? (item.sharedRecordCount === undefined ? 'Some work shared' : `${item.sharedRecordCount} ${item.sharedRecordCount === 1 ? 'item' : 'items'} shared`) : 'Nothing shared yet'}</p>
+        {!item.revokedAt?<div className="auth-actions"><button className="button button--secondary" disabled={busy} onClick={()=>void create(undefined,item)}>Renew invitation for {item.email}</button><button className="button button--secondary" disabled={busy} onClick={()=>void mutate(async()=>{await api.revoke(item,crypto.randomUUID());setNotice('Access revoked. The guest is signed out of this invitation.')} )}>Revoke access for {item.email}</button></div>:null}
       </li>)}</ul>}
     </Panel>
   </>
@@ -121,9 +122,9 @@ export function RedeemPage({gateway}:{gateway:AuthGateway}) {
   async function redeem() {
     if(!token||!gateway.guests)return
     setBusy(true);setError('')
-    try {await gateway.guests.redeem(token);await navigate('/shared',{replace:true})}
+    try {await gateway.guests.redeem(token);await navigate('/my-part',{replace:true})}
     catch {
-      setError('This invitation could not be accepted. Check that you used the Google account your sponsor invited. If the link has expired or was already used, ask your sponsor to check your access or send a fresh link.')
+      setError('Couldn\'t accept this invitation. Make sure you\'re signed in with the Google account it was sent to. If the link expired or was already used, ask the organizer who invited you for a new one.')
       const current=await gateway.readContext().catch(()=>null)
       setOtherShared(current?.state==='authorized'&&isGuest(current))
       setBusy(false)
@@ -132,22 +133,22 @@ export function RedeemPage({gateway}:{gateway:AuthGateway}) {
   async function signIn() {
     setBusy(true);setError('')
     try {await gateway.signOut();await gateway.beginGoogle('/guest/redeem')}
-    catch {setError('Google sign-in could not start. Try again, or ask your sponsor for help if it stays unavailable.');setBusy(false)}
+    catch {setError('Couldn\'t start Google sign-in. Try again, or ask the organizer who invited you.');setBusy(false)}
   }
   return <main className="standalone-page auth-page">
     <h1>Accept your guest invitation</h1>
-    <p>Use the Google account your sponsor invited. It can be an account outside the school.</p>
-    <Panel title="What guest access covers"><p>You can open only the work your sponsor has shared with you and only until your invitation expires.</p></Panel>
-    <p>After signing in, reopen the original invitation link and accept it here. Ask your sponsor for a fresh link if you no longer have it.</p>
-    {auth.state==='unavailable'?<p role="status">Google sign-in is unavailable right now. Ask your sponsor for help.</p>:null}
+    <p>Sign in with the Google account the invite was sent to. It doesn't have to be a school account.</p>
+    <Panel title="What you'll be able to see"><p>Only the work shared with you, until your invitation ends.</p></Panel>
+    <p>After signing in, open the invite link again and accept it here. Lost the link? Ask the organizer who invited you for a new one.</p>
+    {auth.state==='unavailable'?<p role="status">Google sign-in isn't working right now. Ask the organizer who invited you.</p>:null}
     {error?<p role="alert">{error}</p>:null}
     <div className="auth-actions">
       {token?<button className="button" disabled={busy||!gateway.guests||['unavailable','signed_out','error'].includes(auth.state)}
-        onClick={()=>void redeem()}>Accept invitation with signed-in account</button>:null}
+        onClick={()=>void redeem()}>Accept invitation</button>:null}
       <button className="button button--secondary" disabled={busy||auth.state==='unavailable'} onClick={()=>void signIn()}>Sign in or switch Google account</button>
       {otherShared?<Link className="button button--secondary" to="/shared">Open work already shared with you</Link>:null}
     </div>
-    <p>Email sign-in is currently unavailable. If you cannot use the invited Google account, ask your sponsor for help.</p>
-    <Link className="button button--secondary" to="/login">Return to sign-in</Link>
+    <p>Can't use that Google account? Ask the organizer who invited you.</p>
+    <Link className="button button--secondary" to="/login">Back to sign-in</Link>
   </main>
 }

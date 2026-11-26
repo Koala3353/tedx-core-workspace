@@ -14,16 +14,16 @@ export function parseCsv(input: string): string[][] {
   const text=input.replace(/^\uFEFF/,'');if(!text) return []
   const rows:string[][]=[];let row:string[]=[], value='', quoted=false, closed=false
   const cell=()=>{row.push(value);value='';closed=false;if(row.length>32)throw Error('Use at most 32 columns.')}
-  const record=()=>{cell();rows.push(row);row=[];if(rows.length>501)throw Error('Use at most 500 data records.')}
+  const record=()=>{cell();rows.push(row);row=[];if(rows.length>501)throw Error('Use at most 500 rows.')}
   for(let i=0;i<text.length;i++){
     const c=text[i]
     if(quoted){if(c==='"'){if(text[i+1]==='"'){value+='"';i++}else{quoted=false;closed=true}}else value+=c;continue}
     if(c===','){cell();continue}
     if(c==='\r'||c==='\n'){record();if(c==='\r'&&text[i+1]==='\n')i++;continue}
-    if(closed)throw Error(`CSV record ${rows.length+1}: remove text after a closing quote.`)
-    if(c==='"'){if(value)throw Error(`CSV record ${rows.length+1}: quote the whole cell and double inner quotes.`);quoted=true}else value+=c
+    if(closed)throw Error(`Row ${rows.length+1}: remove text after a closing quote.`)
+    if(c==='"'){if(value)throw Error(`Row ${rows.length+1}: put quotes around the whole cell, and double any quotes inside it.`);quoted=true}else value+=c
   }
-  if(quoted)throw Error(`CSV record ${rows.length+1}: close the quoted cell.`)
+  if(quoted)throw Error(`Row ${rows.length+1}: a quoted cell is missing its closing quote.`)
   if(value||closed||row.length||!/[\r\n]$/.test(text))record()
   return rows
 }
@@ -40,24 +40,24 @@ function calendarDate(value:string){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Nu
 export function dryRun(kind: Kind, csv: string[][], mapping: Mapping) {
   const errors:string[]=[];const header=csv[0]??[];const allowed:readonly string[]=fields[kind]
   const required=kind==='tasks'?['source_key','title']:['source_key','display_name','email']
-  if(!header.length||csv.length<2)errors.push('Include a header and at least one data record.')
-  if(header.some(h=>!h.trim())||new Set(header.map(h=>h.trim().toLowerCase())).size!==header.length)errors.push('Give each source column a unique, non-empty name.')
+  if(!header.length||csv.length<2)errors.push('Include a header row and at least one data row.')
+  if(header.some(h=>!h.trim())||new Set(header.map(h=>h.trim().toLowerCase())).size!==header.length)errors.push('Give each column a unique name.')
   const forbidden=header.some(h=>/(^|[^a-z])(roles?|admin|permissions?|capabilit(y|ies)|privileges?|amount|cost|centavos|financial|money)([^a-z]|$)/i.test(h))
-  if(forbidden)errors.push('Remove authority or financial columns. They require separate reviewed workflows.')
-  if(Object.keys(mapping).some(k=>!allowed.includes(k)))errors.push('Unsupported destination field.')
+  if(forbidden)errors.push('Remove role, permission or money columns. Those can\'t be imported.')
+  if(Object.keys(mapping).some(k=>!allowed.includes(k)))errors.push('One of the fields can\'t be imported.')
   const selected=Object.values(mapping).filter(Boolean)
-  if(new Set(selected).size!==selected.length)errors.push('Map each source column to only one destination field.')
-  for(const field of required)if(!mapping[field]||!header.includes(mapping[field]))errors.push(`Choose a source column for ${field.replaceAll('_',' ')}.`)
-  for(const source of selected)if(!header.includes(source))errors.push(`Source column “${source}” is missing. Keep or repair your mapping.`)
+  if(new Set(selected).size!==selected.length)errors.push('Use each CSV column for only one field.')
+  for(const field of required)if(!mapping[field]||!header.includes(mapping[field]))errors.push(`Choose a column for ${field.replaceAll('_',' ')}.`)
+  for(const source of selected)if(!header.includes(source))errors.push(`The column “${source}” isn't in your CSV. Pick a different column.`)
   const rows=csv.slice(1).map((cells,i)=>{
     const rowErrors:string[]=[];const values:Record<string,string>={}
     if(cells.length!==header.length)rowErrors.push(`Expected ${header.length} cells; found ${cells.length}. Repair commas/quotes.`)
     for(const field of allowed){const source=mapping[field];values[field]=source&&header.includes(source)?cells[header.indexOf(source)]??'':''}
     for(const field of required)if(!values[field]?.trim())rowErrors.push(`Enter ${field.replaceAll('_',' ')}.`)
     if(values.source_key&&!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/.test(values.source_key))rowErrors.push('Use a source key of 1–100 letters, digits, dots, colons, hyphens or underscores.')
-    if(values.due_on&&!calendarDate(values.due_on))rowErrors.push('Use a real YYYY-MM-DD calendar date for due on.')
-    if(kind==='roster'&&values.email&&!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@student\.ateneo\.edu$/.test(values.email))rowErrors.push('Use an exact student.ateneo.edu school email; this does not approve membership.')
-    if(Object.values(values).some(v=>v.length>2000))rowErrors.push('Keep each mapped value within 2,000 characters.')
+    if(values.due_on&&!calendarDate(values.due_on))rowErrors.push('Use a real date in YYYY-MM-DD format for the due date.')
+    if(kind==='roster'&&values.email&&!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@student\.ateneo\.edu$/.test(values.email))rowErrors.push('Use a student.ateneo.edu school email.')
+    if(Object.values(values).some(v=>v.length>2000))rowErrors.push('Keep each cell under 2,000 characters.')
     return {record:i+2,values,errors:rowErrors}
   })
   for(const key of ['source_key',...(kind==='roster'?['email']:[])]){

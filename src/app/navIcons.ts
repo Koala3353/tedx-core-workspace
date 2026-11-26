@@ -1,34 +1,52 @@
-import { Bell, BookOpen, CalendarDays, ChartColumn, CircleUser, Contact, FileText, Handshake, Inbox, LayoutDashboard, ListChecks, Megaphone, MessageCircleHeart, Package, Search, Send, Settings, Share2, Sprout, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Boxes, BriefcaseBusiness, Building2, CalendarDays, ChartColumn, CircleHelp, CircleUser, Clapperboard, Contact, FileText, ChartGantt, Handshake, Inbox, LayoutList, ListChecks, MapPin, Megaphone, MessageCircleHeart, Mic, Newspaper, Package, Presentation, QrCode, Search, Send, Settings, Share2, Siren, Sprout, Stamp, Sun, Ticket, Trophy, UserCog, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import type { TabId } from './navigation'
 
 /** One icon per navigation item id; unknown ids fall back to a document. */
 const navIcons: Record<string, LucideIcon> = {
-  overview: LayoutDashboard,
-  deliverables: Package,
-  shared: Share2,
+  overview: Sun,
+  notifications: Bell,
+  announcements: Newspaper,
+  work: LayoutList,
   tasks: ListChecks,
+  deliverables: Package,
   working: Handshake,
   requests: Send,
+  department: Inbox,
+  search: Search,
+  event: Ticket,
   calendar: CalendarDays,
-  resources: BookOpen,
+  timeline: ChartGantt,
+  publicity: Megaphone,
+  inventory: Boxes,
+  guests: UserPlus,
+  team: Users,
   people: Contact,
   committee: Users,
-  department: Inbox,
-  publicity: Megaphone,
+  resources: BookOpen,
+  desk: BriefcaseBusiness,
   finance: Wallet,
+  signoff: Stamp,
   feedback: MessageCircleHeart,
   mentoring: Sprout,
   reports: ChartColumn,
   admin: Settings,
-  guests: UserPlus,
-  search: Search,
-  notifications: Bell,
+  shared: Share2,
   account: CircleUser,
+  'my-part': Mic,
+  'event-info': MapPin,
+  // Hub slots and pages without a navigation item.
+  'event.warRoom': Siren,
+  'event.runOfShow': Clapperboard,
+  'event.contestBoard': Trophy,
+  'event.tedifyBoard': Presentation,
+  'team.setup': UserCog,
+  'team.whoToAsk': CircleHelp,
+  'team.committeePages': Building2,
+  speakers: Mic,
+  qr: QrCode,
 }
+
+const tabIcons: Record<TabId, LucideIcon> = { today: Sun, work: LayoutList, event: Ticket, team: Users, desk: BriefcaseBusiness }
 
 export function navIcon(id: string): LucideIcon { return navIcons[id] ?? FileText }
-
-/** Short labels for the mobile bar; each is contained in the full label so the accessible name matches. */
-export const shortLabels: Record<string, string> = {
-  overview: 'Overview', deliverables: 'Deliverables', tasks: 'Tasks', working: 'Together',
-  shared: 'Shared', calendar: 'Calendar', resources: 'Resources',
-}
+export function tabIcon(id: TabId): LucideIcon { return tabIcons[id] }

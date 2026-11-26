@@ -7,8 +7,8 @@ import type {EvaluationCommand,EvaluationRecord,EvaluationsApi,EvaluationSetup} 
 export type EvaluationEdit={kind:'submit'|'note'|'prepareRelease';record:EvaluationRecord}|
   {kind:'publishRelease';record:EvaluationRecord;draft:EvaluationRecord['releaseDrafts'][number]}|
   {kind:'grantExport';caseRecord:EvaluationSetup['rounds'][number]['cases'][number];people:EvaluationSetup['people']}
-const title={submit:'Your feedback',note:'Add an attributed reviewer note',prepareRelease:'Prepare a subject summary',
-  publishRelease:'Review summary release',grantExport:'Approve a scoped export'}
+const title={submit:'Your feedback',note:'Add a reviewer note',prepareRelease:'Write a summary',
+  publishRelease:'Review and release summary',grantExport:'Approve a download'}
 
 export function EvaluationEditor({api,term,edit,checking,refresh,saved,close}:{api:EvaluationsApi;term:string;edit:EvaluationEdit;
   checking:boolean;refresh:()=>void;saved:(notice:string)=>void;close:()=>void}){
@@ -23,9 +23,9 @@ export function EvaluationEditor({api,term,edit,checking,refresh,saved,close}:{a
   async function send(command?:EvaluationCommand){
     if(running.current)return
     running.current=true
-    try{const result=await m.run(command);if(result)saved(edit.kind==='submit'?'Feedback revision saved.':
-      edit.kind==='note'?'Reviewer note saved.':edit.kind==='prepareRelease'?'Summary prepared. Independent release is pending.':
-      edit.kind==='publishRelease'?'Summary released to the named subject.':'Export approval recorded.');else refresh()}
+    try{const result=await m.run(command);if(result)saved(edit.kind==='submit'?'Feedback saved.':
+      edit.kind==='note'?'Reviewer note saved.':edit.kind==='prepareRelease'?'Summary saved. Another reviewer needs to release it.':
+      edit.kind==='publishRelease'?'Summary released.':'Download approved.');else refresh()}
     finally{running.current=false}
   }
   function submit(e:FormEvent){
@@ -45,40 +45,40 @@ export function EvaluationEditor({api,term,edit,checking,refresh,saved,close}:{a
   return <Panel title={title[edit.kind]}>
     {r?<p><strong>{r.subject}</strong> · {r.round}</p>:null}
     {m.error?<p role="alert">{m.error}</p>:null}
-    {m.pending?<p role="status">The save result is uncertain. Check the same attempt before changing it.</p>:null}
-    {m.pending?<button className="button" disabled={checking||m.busy} onClick={()=>void send()}>Check whether saved / try again</button>:null}
-    {stale&&!m.pending?<div role="alert"><p>Saved evidence changed. Your entries are kept. Review the latest record before sending.</p>
-      <button className="button button--secondary" onClick={()=>m.change({...fields,__base:String(version)})}>Keep entries and review latest</button></div>:null}
+    {m.pending?<p role="status">We couldn't confirm this was saved. Check before making changes.</p>:null}
+    {m.pending?<button className="button" disabled={checking||m.busy} onClick={()=>void send()}>Check and retry</button>:null}
+    {stale&&!m.pending?<div role="alert"><p>This record changed since you opened it. What you typed is kept. Check the latest version before sending.</p>
+      <button className="button button--secondary" onClick={()=>m.change({...fields,__base:String(version)})}>Keep my text and continue</button></div>:null}
     <form onSubmit={submit} data-unsaved-changes={fields.__dirty==='1'} data-pending-command={m.locked}>
       <fieldset disabled={m.locked||stale||checking}>
-        {edit.kind==='submit'&&r?<><p>This saves a new revision of your own evidence. Earlier submissions stay in history. Authorized reviewers see your name.</p>
+        {edit.kind==='submit'&&r?<><p>Saving creates a new version. Earlier versions are kept. Reviewers can see your name.</p>
           {r.template.map(p=><div className="form-field" key={p.key}><label htmlFor={id+p.key}>{p.label}{p.required?'':' (optional)'}</label>
             <textarea id={id+p.key} value={fields['answer_'+p.key]??''} required={p.required} maxLength={p.maxLength}
               onChange={e=>changed('answer_'+p.key,e.target.value)}/></div>)}</>:null}
         {edit.kind==='note'||edit.kind==='prepareRelease'?<div className="form-field">
-          <p>{edit.kind==='note'?'Your name stays on this internal note. Subjects do not receive it.':
-            'Write an appropriate subject-facing summary. Remove third-party identities and unnecessary private detail. A different assigned releaser must review it.'}</p>
-          <label htmlFor={id+'body'}>{edit.kind==='note'?'Reviewer note':'Subject-facing summary'}</label>
+          <p>{edit.kind==='note'?'Your name is shown on this note. The person being reviewed doesn\'t see it.':
+            'Write a summary for the person being reviewed. Leave out other people\'s names and private details. Another reviewer checks it before release.'}</p>
+          <label htmlFor={id+'body'}>{edit.kind==='note'?'Reviewer note':'Summary'}</label>
           <textarea id={id+'body'} required maxLength={edit.kind==='note'?4000:6000} value={fields.body} onChange={e=>changed('body',e.target.value)}/>
         </div>:null}
-        {edit.kind==='publishRelease'?<><p>Release this exact summary to <strong>{edit.record.subject}</strong>. Raw feedback and internal notes stay separate.</p>
-          <p className="record-text">{edit.draft.summary}</p><p>Confirm that this is the correct subject and current evidence, with no inappropriate third-party disclosure.</p></>:null}
+        {edit.kind==='publishRelease'?<><p>Release this summary to <strong>{edit.record.subject}</strong>. They won't see the individual feedback or reviewer notes.</p>
+          <p className="record-text">{edit.draft.summary}</p><p>Check it's the right person and that it doesn't reveal anything about anyone else.</p></>:null}
         {edit.kind==='grantExport'?<>
-          <p>The named recipient can download only their currently authorized projection for this exact case version. Copies need separate custody and retention.</p>
-          <div className="form-field"><label htmlFor={id+'member'}>Current recipient</label><select id={id+'member'} value={fields.member} required onChange={e=>changed('member',e.target.value)}>
-            <option value="">Choose a named participant</option>{edit.people.filter(p=>edit.caseRecord.assignments.some(a=>a.memberId===p.id&&a.active))
+          <p>The person you choose can download their own view of this record. They're responsible for keeping the copy private.</p>
+          <div className="form-field"><label htmlFor={id+'member'}>Who can download</label><select id={id+'member'} value={fields.member} required onChange={e=>changed('member',e.target.value)}>
+            <option value="">Choose a person</option>{edit.people.filter(p=>edit.caseRecord.assignments.some(a=>a.memberId===p.id&&a.active))
               .map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-          <div className="form-field"><label htmlFor={id+'purpose'}>Approved disclosure purpose</label><input id={id+'purpose'} required minLength={3} maxLength={500} value={fields.purpose} onChange={e=>changed('purpose',e.target.value)}/></div>
-          <div className="form-field"><label htmlFor={id+'expires'}>Approval ends (Manila)</label><input id={id+'expires'} type="datetime-local" required value={fields.expires} onChange={e=>changed('expires',e.target.value)}/></div>
+          <div className="form-field"><label htmlFor={id+'purpose'}>Reason for the download</label><input id={id+'purpose'} required minLength={3} maxLength={500} value={fields.purpose} onChange={e=>changed('purpose',e.target.value)}/></div>
+          <div className="form-field"><label htmlFor={id+'expires'}>Available until (Manila time)</label><input id={id+'expires'} type="datetime-local" required value={fields.expires} onChange={e=>changed('expires',e.target.value)}/></div>
         </>:null}
-        <button className="button">{edit.kind==='submit'?'Save feedback revision':edit.kind==='note'?'Save reviewer note':
-          edit.kind==='prepareRelease'?'Prepare summary for independent review':edit.kind==='publishRelease'?'Release this summary':'Approve this export'}</button>
+        <button className="button">{edit.kind==='submit'?'Save feedback':edit.kind==='note'?'Save note':
+          edit.kind==='prepareRelease'?'Save summary':edit.kind==='publishRelease'?'Release this summary':'Approve download'}</button>
       </fieldset>
     </form>
     <button className="button button--secondary" disabled={m.locked} onClick={()=>{
       if(fields.__dirty==='1'&&!window.confirm('Discard these unsaved entries?'))return
       forgetRecordDrafts(caseId);close()
-    }}>Close editor</button>
+    }}>Close</button>
   </Panel>
 }
 
@@ -93,5 +93,5 @@ export function EvaluationAction({api,id,command,label,notice,checking,saved,ref
     finally{running.current=false}
   }
   return <>{m.error?<p role="alert">{m.error}</p>:null}<button className="button button--secondary" disabled={checking||m.busy}
-    onClick={()=>void act()}>{m.pending?'Check whether saved / try again':label}</button></>
+    onClick={()=>void act()}>{m.pending?'Check and retry':label}</button></>
 }

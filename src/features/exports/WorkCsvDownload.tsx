@@ -23,18 +23,18 @@ function Download({ api, term, kind }: { api: OperationalExport; term: string; k
   async function download() {
     if (inFlight.current) return
     inFlight.current = true
-    setStatus({ busy: true, error: false, text: 'Checking current access and preparing the CSV…' })
+    setStatus({ busy: true, error: false, text: 'Preparing the CSV…' })
     try {
       const csv = await api(term, kind)
       if (!current.current) return
       if (csv === null) {
-        setStatus({ busy: false, error: false, text: 'No eligible records to download in this term.' })
+        setStatus({ busy: false, error: false, text: `No ${kind === 'task' ? 'tasks' : 'deliverables'} to download this term.` })
         return
       }
       downloadCsv(csv, 'tedx-' + kind + 's.csv')
-      setStatus({ busy: false, error: false, text: 'CSV download requested.' })
+      setStatus({ busy: false, error: false, text: 'Download started.' })
     } catch (error) {
-      if (current.current) setStatus({ busy: false, error: true, text: error instanceof Error && error.message ? error.message : 'The CSV could not be prepared. Try again.' })
+      if (current.current) setStatus({ busy: false, error: true, text: error instanceof Error && error.message ? error.message : 'Couldn\'t prepare the CSV. Try again.' })
     } finally {
       inFlight.current = false
     }
@@ -43,9 +43,9 @@ function Download({ api, term, kind }: { api: OperationalExport; term: string; k
   const label = kind === 'task' ? 'tasks' : 'deliverables'
   return <section aria-label={label + ' CSV export'}>
     <button type="button" className="button button--secondary" disabled={status.busy} onClick={() => void download()}>
-      Download permitted {label} CSV
+      Download {label} CSV
     </button>
-    <p className="muted">Ordinary {label} you can access in this term, across list filters.</p>
+    <p className="muted">All {label} you can see this term, ignoring filters.</p>
     {status.text && <p role={status.error ? 'alert' : 'status'}>{status.text}</p>}
   </section>
 }

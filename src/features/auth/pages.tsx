@@ -1,3 +1,4 @@
+import '../shared/shared.css'
 import { appPath } from '../../lib/basePath'
 import { TriangleAlert } from 'lucide-react'
 import { TedxLockup, licenseLine } from '../../components/TedxLockup'
@@ -23,6 +24,7 @@ import { LoadingState } from '../../components/FeedbackState'
 import { AppShell } from '../../app/AppShell'
 import { canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from '../../app/MemberPreview'
 import { InstallWorkspace } from '../../app/InstallWorkspace'
+import { ReplayTourButton } from '../tutorial/Tutorial'
 import { DriveConnection } from '../integrations/drive/DriveSource'
 import type { NavigationCapability } from '../../app/navigation'
 import type { AuthGateway, AuthResult, WorkspaceContext } from './gateway'
@@ -73,13 +75,12 @@ export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
       window.location.replace(appPath('/login'))
     } catch {
       setSigningOut(false)
-      setOfflineError('Sign-out could not be confirmed. Reconnect and try again.')
+      setOfflineError('Couldn\'t sign you out. Check your connection and try again.')
     }
   }
 
   return <FinDecisionMemory identity={draftIdentity}><FinanceMemory identity={draftIdentity}><ReviewMemory identity={draftIdentity}><RequestMemory identity={draftIdentity}><FormDrafts identity={draftIdentity}><ScheduleDrafts identity={draftIdentity}><HandoffDrafts identity={draftIdentity}><EditSafety key={draftIdentity}>
     {offline?<main className="standalone-page"><h1 ref={offlineHeading} tabIndex={-1}>You’re offline</h1><p role="status">Reconnect to check your current access and resume work. If you tried to save just before the connection dropped, check the result before trying again.</p>{workspace?<button className="button button--secondary" disabled={signingOut} onClick={()=>void leaveOffline()}>Sign out of this browser</button>:null}{offlineError?<p role="alert">{offlineError}</p>:null}</main>:null}
-    {!offline&&state==='loading'&&workspace?<p role="status">Checking current access. Your edits stay here while actions are paused.</p>:null}
     <div hidden={offline} inert={offline||state==='loading'&&!!workspace}>{state === 'loading' && !workspace && location.pathname !== '/auth/callback' ? <main className="standalone-page"><LoadingState /></main> : <Outlet />}</div>
   </EditSafety></HandoffDrafts></ScheduleDrafts></FormDrafts></RequestMemory></ReviewMemory></FinanceMemory></FinDecisionMemory>
 }
@@ -97,7 +98,7 @@ export function ProtectedShell({notifications,gateway}:{notifications?:Notificat
     return () => clearTimeout(timer)
   }, [member.expiresAt, revalidate])
   if (memberPreview) return <Outlet />
-  return <NotificationCenter api={notifications} term={member.termId} identity={'memberId'in member?member.memberId:member.guestAccessId}><AppShell context={{ audience: isGuest(member) ? 'guest' : 'core', capabilities: member.capabilities as NavigationCapability[], connected: gateway?.growth ? ['mentoring'] : [] }} identity={{ displayName: member.displayName }} preview={false} headerAction={canPreviewAsMember(member)?<Link className="button button--secondary" to={memberPreviewPath}>View as member</Link>:undefined} sitePresentation={site.presentation} siteUnavailable={site.unavailable} siteLogo={gateway?.site&&site.presentation?.logo?<SiteLogo api={gateway.site} term={member.termId} scope={siteScope} asset={site.presentation.logo.assetId} approval={site.presentation.logo.approvalId}/>:undefined} siteEditor={gateway?.siteWording?<SiteEditMode api={gateway.siteWording} context={member} onPublished={()=>setSiteEpoch(n=>n+1)}/>:undefined} content={gateway?<CurrentRecordScope gateway={gateway}><Outlet /></CurrentRecordScope>:undefined} /></NotificationCenter>
+  return <NotificationCenter api={notifications} term={member.termId} identity={'memberId'in member?member.memberId:member.guestAccessId}><AppShell context={{ audience: isGuest(member) ? 'guest' : 'core', capabilities: member.capabilities as NavigationCapability[], connected: [...(gateway?.growth ? ['mentoring'] : []), ...(gateway?.inventory ? ['inventory'] : [])] }} identity={{ displayName: member.displayName }} preview={false} headerAction={canPreviewAsMember(member)?<Link className="button button--secondary" to={memberPreviewPath}>View as member</Link>:undefined} sitePresentation={site.presentation} siteUnavailable={site.unavailable} siteLogo={gateway?.site&&site.presentation?.logo?<SiteLogo api={gateway.site} term={member.termId} scope={siteScope} asset={site.presentation.logo.assetId} approval={site.presentation.logo.approvalId}/>:undefined} siteEditor={gateway?.siteWording?<SiteEditMode api={gateway.siteWording} context={member} onPublished={()=>setSiteEpoch(n=>n+1)}/>:undefined} content={gateway?<CurrentRecordScope gateway={gateway}><Outlet /></CurrentRecordScope>:undefined} /></NotificationCenter>
 }
 
 export function LoginPage({ gateway }: { gateway: AuthGateway }) {
@@ -107,7 +108,7 @@ export function LoginPage({ gateway }: { gateway: AuthGateway }) {
   const [busy, setBusy] = useState(false)
   const denied = result.state === 'denied' || new URLSearchParams(location.search).get('reason') === 'denied'
   const returnTo=safeReturnPath(new URLSearchParams(location.search).get('returnTo'))
-  const guestEntry=returnTo==='/shared'||returnTo==='/guest/redeem'
+  const guestEntry=returnTo==='/shared'||returnTo==='/my-part'||returnTo==='/guest/redeem'
   async function start(switchAccount = false) {
     setBusy(true); setError('')
     try {
@@ -125,17 +126,17 @@ export function LoginPage({ gateway }: { gateway: AuthGateway }) {
     <div className="stage-panel auth-panel">
     <h1>Sign in to your workspace</h1>
     {new URLSearchParams(safeReturnPath(new URLSearchParams(location.search).get('returnTo')).split('?')[1]).has('term')?<p>The selected term could not be opened. You can <Link to="/search">return to current workspace search</Link> or retry sign-in for the selected term below.</p>:null}
-    {guestEntry?<p>Use the Google account your guest sponsor invited. If your access has expired, ask your sponsor for a fresh link.</p>:
-      <p>Use your approved <strong>student.ateneo.edu</strong> Google account. A school email alone does not grant access.</p>}
+    {guestEntry?<p>Use the Google account your invite was sent to. If your invite expired, ask the organizer who sent it for a new link.</p>:
+      <p>Sign in with your <strong>student.ateneo.edu</strong> Google account. Only organizers on this term's roster can get in. Not on it yet? Ask your committee head.</p>}
     {new URLSearchParams(location.search).get('reason') === 'expired' ? <p role="status">Your previous session has ended. Sign in again to continue where you left off.</p> : null}
-    {result.state === 'unavailable' ? <section className="feedback-state feedback-state--error"><TriangleAlert className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /><h2>Setup needed</h2><p>Sign-in is unavailable until Supabase and Google login are configured for this address. No member records are being loaded.</p></section> : <>
-      {denied ? <p role="alert">{guestEntry?'Guest access could not be confirmed. Check the invited Google account or ask your sponsor for help.':
-        'This account does not have active core access. Use another account or contact the roster custodian.'}</p> : null}
-      {result.state === 'error' ? <p role="alert">Access could not be checked. Please retry when the service is available.</p> : null}
+    {result.state === 'unavailable' ? <section className="feedback-state feedback-state--error"><TriangleAlert className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /><h2>Setup needed</h2><p>Sign-in isn't set up for this address yet.</p></section> : <>
+      {denied ? <p role="alert">{guestEntry?'We couldn\'t confirm your guest invite. Make sure you\'re using the Google account it was sent to, or ask the organizer who invited you.':
+        'This account isn\'t on this term\'s roster. Try another account or ask your committee head to add you.'}</p> : null}
+      {result.state === 'error' ? <p role="alert">We couldn't check your access. Try again in a moment.</p> : null}
       <button className="button" disabled={busy} onClick={() => void start(denied)}>{busy ? 'Opening Google…' : denied ? 'Use another Google account' : 'Continue with Google'}</button>
     </>}
     {error ? <p className="field-error" role="alert">{error}</p> : null}
-    <p className="muted">Invited guests may use an external Google account. Open the invitation link from your sponsor to continue.</p>
+    <p className="muted">Guest? Open the invite link an organizer sent you. Use the Google account it was sent for.</p>
     {import.meta.env.DEV ? <Link className="button button--secondary" to="/preview">View development shell preview</Link> : null}
     </div>
   </main>
@@ -163,7 +164,7 @@ export function CallbackPage({ gateway }: { gateway: AuthGateway }) {
     void gateway.exchange(code).then(() => { if (active) void navigate(consumeReturnPath(), { replace: true }) }).catch(fail)
     return () => { active = false }
   }, [gateway, location.search, navigate])
-  return <main className="standalone-page">{failed ? <><h1>Sign-in could not be completed</h1><p>Google sign-in may have been declined or expired. Try again. Guests can ask their sponsor for help.</p>
+  return <main className="standalone-page">{failed ? <><h1>Sign-in didn't finish</h1><p>Google sign-in was cancelled or timed out. Try again. Guests can ask the organizer who invited them.</p>
     <Link className="button" to={retryPath==='/'?'/login':'/login?returnTo='+encodeURIComponent(retryPath)}>Start sign-in again</Link></> : <LoadingState />}</main>
 }
 
@@ -174,15 +175,17 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
   async function leave(switchAccount: boolean) {
     setBusy(true); setError('')
     try { await gateway.signOut(); if (switchAccount) await gateway.beginGoogle('/'); else window.location.replace(appPath('/login')) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Sign-out could not be confirmed.'); setBusy(false) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t sign you out. Try again.'); setBusy(false) }
   }
-  return <><h1>Your account</h1><p>{context && isGuest(context) ? 'Access follows your current invitation and its expiry.' : 'Access follows your current roster membership and scoped grants.'}</p><div className="auth-actions">
-    <button className="button" disabled={busy} onClick={() => void leave(false)}>Sign out of this browser</button>
-    <button className="button button--secondary" disabled={busy} onClick={() => void leave(true)}>Switch Google account</button>
-  </div>{error ? <p role="alert">{error}</p> : null}
-  <p><Link className="button button--secondary" to="/privacy">Privacy notice and requests</Link></p>
-  <InstallWorkspace />
-  {context && !isGuest(context) && gateway.files?.drive ? <DriveConnection key={context.memberId+context.termId} api={gateway.files.drive} term={context.termId} /> : null}
+  return <><h1>Your account</h1><p className="muted">{context && isGuest(context) ? 'Your access comes from your invitation and ends when it expires.' : 'Your access comes from your committee role.'}</p>
   {context && !isGuest(context) && gateway.profile ? <ProfileEditor key={context.memberId + context.termId} api={gateway.profile} termId={context.termId} /> : null}
-  {context && isGuest(context) && gateway.guestContacts ? <GuestContactEditor key={context.guestAccessId} api={gateway.guestContacts} termId={context.termId} /> : null}</>
+  {context && isGuest(context) && gateway.guestContacts ? <GuestContactEditor key={context.guestAccessId} api={gateway.guestContacts} termId={context.termId} /> : null}
+  <InstallWorkspace />
+  {context && !isGuest(context) ? <section className="account-tour" aria-labelledby="account-tour-title"><h2 id="account-tour-title">Workspace tour</h2><p className="muted">A short walk through Today, Work, Event, Team and the search.</p><ReplayTourButton /></section> : null}
+  {context && !isGuest(context) && gateway.files?.drive ? <DriveConnection key={context.memberId+context.termId} api={gateway.files.drive} term={context.termId} /> : null}
+  <p><Link to="/privacy">Privacy notice and requests</Link></p>
+  <div className="auth-actions">
+    <button className="button button--quiet" disabled={busy} onClick={() => void leave(true)}>Switch Google account</button>
+    <button className="button button--quiet" disabled={busy} onClick={() => void leave(false)}>Sign out</button>
+  </div>{error ? <p role="alert">{error}</p> : null}</>
 }

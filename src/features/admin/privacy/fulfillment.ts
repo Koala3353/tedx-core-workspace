@@ -98,7 +98,7 @@ export function createFulfillmentApi(ready: ReturnType<typeof createSupabaseClie
       } catch (error) {
         const e = error as { message?: string }
         return { ok: false, error: e.message === 'privacy_identity_evidence_required'
-          ? { kind: 'dependency_blocked', message: 'Current verified identity evidence is required through the approved privacy channel.', retryable: false }
+          ? { kind: 'dependency_blocked', message: 'Confirm the requester\'s identity through the official privacy channel first.', retryable: false }
           : mapCommandError(error) }
       }
     },

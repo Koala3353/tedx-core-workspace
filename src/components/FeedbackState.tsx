@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from 'react'
 import { CircleDashed, TriangleAlert } from 'lucide-react'
+import { SkeletonRows } from './BrandLoader'
 
 type FeedbackProps = { title: string; description: string; action?: ReactNode }
 
@@ -13,16 +14,12 @@ export function ErrorState({ title, description, action }: FeedbackProps) {
   return <section className="feedback-state feedback-state--error" aria-labelledby={id} role="alert"><TriangleAlert className="icon" size={20} strokeWidth={1.5} aria-hidden="true" /><h2 id={id}>{title}</h2><p>{description}</p>{action}</section>
 }
 
-export function LoadingState({ title = 'Opening workspace page' }: { title?: string }) {
+/** In-page loading: a short red line drawing beside the label, then skeleton rows. */
+export function LoadingState({ title = 'Opening this page', rows = 3 }: { title?: string; rows?: number }) {
   return (
     <div className="feedback-state feedback-state--loading" role="status" aria-live="polite">
-      <p>{title}</p>
-      <p className="muted">Please wait while this page opens.</p>
-      <div className="skeleton-lines" aria-hidden="true">
-        <div className="skeleton-line skeleton-line--short" />
-        <div className="skeleton-line skeleton-line--mid" />
-        <div className="skeleton-line" />
-      </div>
+      <p className="loading-label"><span className="loading-line" aria-hidden="true" />{title}</p>
+      <SkeletonRows rows={rows} />
     </div>
   )
 }

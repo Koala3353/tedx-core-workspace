@@ -24,29 +24,26 @@ export function PeoplePage({ api, termId,focusId }: { api: PeopleGateway; termId
   const query = search.trim().toLocaleLowerCase()
   const people = data?.people.filter(person => (!focusId||person.id===focusId)&&[person.name, ...person.units, ...person.roles].some(text => text.toLocaleLowerCase().includes(query))) ?? []
   return <>
-    <PageHeading title="People" description="Find a process contact or a member by name, unit or role. Optional details appear only when shared." />
-    <p><Link to="/resources">Resources & Start Here</Link> · <Link to="/tasks">My tasks</Link></p>
-    <p className="muted">Affiliation and personal contact details are optional. You can find help and continue your work with these fields blank.</p>
-    {error ? <ErrorState title="Directory unavailable" description="Your access may have changed, or the service could not respond." action={<button className="button" onClick={() => { setError(false); setData(null); setAttempt(attempt + 1) }}>Try again</button>} /> : !data ? <LoadingState /> : <>
-      {focusId?<p><Link to="/people">Show all permitted people</Link></p>:null}<Panel title="Who to ask">
+    <PageHeading title="People" description="Who to ask for what, and everyone on the core team." />
+    {error ? <ErrorState title="Couldn't load People" description="Check your connection and try again." action={<button className="button button--secondary" onClick={() => { setError(false); setData(null); setAttempt(attempt + 1) }}>Try again</button>} /> : !data ? <LoadingState /> : <>
+      {focusId?<p><Link to="/people">Show everyone</Link></p>:null}<Panel title="Who to ask">
         {data.processes.length ? <ul className="guest-list">{data.processes.map(process => <li key={process.id} id={`process-${process.id}`}>
           <h3>{process.name}</h3>
-          <p>Primary: {process.primary.length ? process.primary.map(p => p.name).join(', ') : 'Not assigned — ask your unit head to confirm a contact.'}</p>
-          <p>Backup: {process.backup.length ? process.backup.map(p => p.name).join(', ') : 'Not assigned — ask the primary contact for cover.'}</p>
-        </li>)}</ul> : <p>No process contacts are available. The approved roster and contact assignments still need to be confirmed.</p>}
+          {process.primary.length || process.backup.length ? <p>{process.primary.length ? 'Contact: ' + process.primary.map(p => p.name).join(', ') : 'Contact: not assigned yet'}{process.backup.length ? ' · Backup: ' + process.backup.map(p => p.name).join(', ') : ''}</p> : <p className="muted">No contact yet. Ask your committee head.</p>}
+        </li>)}</ul> : <p className="muted">No contacts yet. Ask your committee head.</p>}
       </Panel>
       <Panel title="Member directory">
-        <TextField id="people-search" label="Search people" hint="Search by name, unit or role." type="search" value={search} onChange={event => setSearch(event.target.value)} />
+        <TextField id="people-search" label="Search people" hint="Search by name, committee or role." type="search" value={search} onChange={event => setSearch(event.target.value)} />
         <p role="status">{people.length} {people.length === 1 ? 'person' : 'people'} found</p>
         {people.length ? <ul className="guest-list">{people.map(person => <li key={person.id}>
-          <h3>{person.name}</h3><p>{person.units.join(' · ') || 'Unit not assigned'}</p>
-          <p>{person.roles.join(' · ') || 'Role not assigned'}</p>
+          <h3>{person.name}</h3><p>{person.units.join(' · ') || 'No committee yet'}</p>
+          <p>{person.roles.join(' · ') || 'No role yet'}</p>
           {person.contact ? <a className="button button--secondary" href={`mailto:${person.contact}`}>Email {person.name}</a> : <p>Organization contact not available</p>}
           {person.course ? <p>Course: {person.course}</p> : null}{person.year ? <p>Year: {person.year}</p> : null}
           {person.phone ? <p>Shared phone: {person.phone}</p> : null}{person.externalContact ? <p>Shared contact: {person.externalContact}</p> : null}
           {person.skills ? <p>Skills: {person.skills}</p> : null}{person.pronunciation ? <p>Name pronunciation: {person.pronunciation}</p> : null}
           {person.affiliation ? <p>Affiliation: {person.affiliation}</p> : null}
-        </li>)}</ul> : <EmptyState title="No people found" description="Try another name, unit or role. Only permitted active members appear here." />}
+        </li>)}</ul> : <EmptyState title="No people found" description="Try another name, committee or role." />}
       </Panel>
     </>}
   </>

@@ -1,10 +1,11 @@
+import {formatDateTime} from '../../shared/dates'
 import type {Action,AccessData,Values} from './api'
 
-const permissions:Record<string,string>={'workspace.read':'Read permitted workspace work','directory.read':'View the member directory','profile.edit_own':'Edit your own profile','committee.manage':'Manage committee work','department.review':'Review department requests','finance.review':'Review financial plans (FIN)','mcd.review':'Review final publicity (MCD)','feedback.review':'Review confidential feedback','mentoring.view':'View your mentoring records','reports.view':'View permitted reports','admin.configure':'Configure the workspace','roles.manage':'Manage roles and access'}
+const permissions:Record<string,string>={'workspace.read':'See workspace work','directory.read':'View the member directory','profile.edit_own':'Edit your own profile','committee.manage':'Manage committee work','department.review':'Review requests to their committee','finance.review':'Review budgets (FIN)','mcd.review':'Give publicity sign-off (MCD)','feedback.review':'Review confidential feedback (needs sign-off from a second admin)','mentoring.view':'View your mentoring records','reports.view':'View reports','admin.configure':'Configure the workspace','roles.manage':'Manage roles and access'}
 export const permissionName=(key:string)=>permissions[key]??'Permission unavailable'
-export const scopeName=(scope:string)=>({unit:'This committee',term:'This term',work:'This record',own:'Own records'} as Record<string,string>)[scope]??'Scope unavailable'
-export const actionName=(action:Action)=>({role_publish:'Publish a role revision',assignment_grant:'Assign a published role',assignment_expiry:'Change an assignment expiry',assignment_revoke:'Revoke an assignment',custodian_nominate:'Nominate a replacement custodian',custodian_accept:'Accept my custody nomination'})[action]
-export const accessDate=(value:string)=>Number.isFinite(Date.parse(value))?new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(value))+' (Manila)':'Date unavailable'
+export const scopeName=(scope:string)=>({unit:'One committee',term:'The whole term',work:'One work item',own:'Their own records'} as Record<string,string>)[scope]??'Scope unavailable'
+export const actionName=(action:Action)=>({role_publish:'Edit role permissions',assignment_grant:'Give someone a role',assignment_expiry:'Change when a role ends',assignment_revoke:'Remove a role',custodian_nominate:'Name a new workspace owner',custodian_accept:'Accept becoming workspace owner'})[action]
+export const accessDate=(value:string)=>Number.isFinite(Date.parse(value))?formatDateTime(value):'No date'
 export function namedScope(data:AccessData,scope:string,unitId:string|null,workId:string|null){
  if(scope==='unit'){const unit=data.units.find(u=>u.id===unitId);return unit?'This committee · '+unit.name:null}
  if(scope==='work'){const work=data.records.find(w=>w.id===workId);return work?'This record · '+work.name:null}
@@ -20,10 +21,24 @@ export function explainImpact(data:AccessData,action:Action,values:Values){
  if(action==='role_publish'){
   const selected=Array.isArray(values.permissions)?values.permissions:[]
   if(!scope||!selected.length||selected.some(p=>!permissions[p.capability]))return null
-  return {person:null,role:str('name'),scope,permissions:selected,from:null,to:null,previousExpiry:null,nominationExpiry:null,reference:null,impact:'Creates an immutable role revision. Existing assignments keep their published revision; this does not assign the role.'}
+  return {person:null,role:str('name'),scope,permissions:selected,from:null,to:null,previousExpiry:null,nominationExpiry:null,reference:null,impact:'Saves a new version of this role. People who already have the role keep the old version until they\'re given the new one.'}
  }
  if(!assignment&&action!=='assignment_grant'||!person||!role||!scope)return null
  if(action==='custodian_accept'&&(!nomination||nomination.candidateId!==assignment?.membershipId))return null
  if(role.permissions.some(p=>!permissions[p.capability]||!['unit','term','work','own'].includes(p.scope)))return null
- return {person:person.name,role:role.name,scope,permissions:role.permissions,from:assignment?.from??str('from'),to:action==='assignment_expiry'||action==='assignment_grant'?str('to'):assignment?.to??null,previousExpiry:action==='assignment_expiry'?assignment?.to??null:null,nominationExpiry:nomination?.expiresAt??null,reference:action.startsWith('custodian_')?str('reference'):null,impact:action==='assignment_grant'?'Assigns only this published role within the reviewed scope and dates, subject to current independently approved delegation limits.':action==='assignment_expiry'?'Changes only this assignment expiry. All current source, delegation and membership limits still apply.':action==='assignment_revoke'?'Revokes this exact assignment. Dependent access is rechecked; an independently confirmed replacement must remain before removing protected custody.':action==='custodian_nominate'?'The named candidate must sign in independently and accept the current nomination before counting as replacement custody. Nomination alone does not confirm a replacement.':'Records your own independent acknowledgment of the current nomination. This confirms application custody only; provider ownership and institutional approval remain separate.'}
+ return {person:person.name,role:role.name,scope,permissions:role.permissions,from:assignment?.from??str('from'),to:action==='assignment_expiry'||action==='assignment_grant'?str('to'):assignment?.to??null,previousExpiry:action==='assignment_expiry'?assignment?.to??null:null,nominationExpiry:nomination?.expiresAt??null,reference:action.startsWith('custodian_')?str('reference'):null,impact:action==='assignment_grant'?'Gives this role for these dates only.':action==='assignment_expiry'?'Changes only when this role ends.':action==='assignment_revoke'?'Removes this role now. If they\'re the workspace owner, a confirmed replacement has to be in place first.':action==='custodian_nominate'?'They have to sign in and accept before they become the new workspace owner.':'Confirms you\'re taking over as workspace owner in this app. Ownership of Supabase or Google accounts is handled separately.'}
+}
+
+/** One plain sentence: "Maria will be able to review budgets (FIN) for Finance until 30 Jun 2027, 11:59 PM." */
+export function plainSummary(data:AccessData,action:Action,values:Values):string|null{
+ const v=explainImpact(data,action,values);if(!v)return null
+ const can=v.permissions.map(p=>permissionName(p.capability).toLowerCase()).join(', ')
+ const where=v.scope.replace(/^This committee · /,'').replace(/^This record · /,'')
+ const until=v.to?' until '+accessDate(v.to):''
+ if(action==='role_publish')return `The ${v.role||'new'} role will let people ${can} (${where}). Nobody gets it until you give it to them.`
+ if(action==='assignment_grant')return `${v.person} will be able to ${can} for ${where}${until}.`
+ if(action==='assignment_expiry')return `${v.person}'s ${v.role} role will end on ${v.to?accessDate(v.to):'the new date'}${v.previousExpiry?' instead of '+accessDate(v.previousExpiry):''}.`
+ if(action==='assignment_revoke')return `${v.person} will lose the ${v.role} role for ${where} right away.`
+ if(action==='custodian_nominate')return `${v.person} will be asked to become the workspace owner. Nothing changes until they accept.`
+ return `You'll become the workspace owner in this app.`
 }

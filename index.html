@@ -2,16 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#111111" />
     <meta name="robots" content="noindex,nofollow" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/boot.css" />
     <script src="/theme.js"></script>
     <title>TEDxAteneodeManilaU Core Workspace</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><main class="boot-screen boot-screen--static"><div class="boot-loader" role="status" aria-label="Opening the workspace"><span class="boot-loader__mark" aria-hidden="true"><span class="boot-loader__x">TEDx</span></span><span class="boot-loader__line" aria-hidden="true"></span></div></main></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,13 +1,14 @@
 import { useEffect,useState } from 'react'
 import { Panel } from '../../../components/Page'
 import { useFinDecision } from '../../finance/DecisionMemory'
+import {RefreshButton} from '../../shared/RefreshButton'
 import type { EmailDigestApi,EmailDigestStatus } from './api'
 
 const activationText={
-  ready:'Email sender verified.',
-  sender:'Email delivery is unavailable until the workspace sender is approved and tested.',
+  ready:'Email is ready.',
+  sender:'Email isn\'t set up for this workspace yet.',
   domain:'Email delivery is paused while the sending domain is checked.',
-  quota:'Email delivery is paused until the sending allowance is verified.',
+  quota:'Email is paused while the sending limit is checked.',
 }
 const healthText={
   waiting:'The last email is waiting for another delivery attempt.',
@@ -39,9 +40,9 @@ export function EmailDigest({api,term,scopeReady}:{api:EmailDigestApi;term:strin
     refresh()
   }
   return <Panel title="Email digest">
-    <p>Optional email links back to this inbox for eligible unread updates from the previous day. Delivery can start at 8 am Manila time. Your required updates stay here.</p>
-    <p role="status">{status?activationText[status.activation]:read?.revision===revision?'Email settings are unavailable.':'Checking email settings…'}</p>
-    {status?.bounced?<p role="status">Email is paused for this address. Contact your workspace maintainer if the address is correct.</p>:
+    <p>Optional: get one email each morning (after 8 AM) listing yesterday\'s unread updates.</p>
+    <p role="status">{status?activationText[status.activation]:read?.revision===revision?'Couldn\'t load email settings. Try again.':'Loading…'}</p>
+    {status?.bounced?<p role="status">Emails to this address keep bouncing, so they\'re paused. If the address is right, tell an admin.</p>:
       status?.health?<p role="status">{healthText[status.health]}</p>:null}
     {saved?<p role="status">{saved}</p>:null}{preference.error?<p role="alert">{preference.error}</p>:null}
     <div className="auth-actions">
@@ -50,8 +51,8 @@ export function EmailDigest({api,term,scopeReady}:{api:EmailDigestApi;term:strin
         {status.enabled?'Turn off email digest':'Turn on daily email digest'}
       </button>:null}
       {preference.pending?<button type="button" className="button button--secondary" disabled={preference.busy}
-        onClick={()=>void update()}>Retry the same email preference change</button>:null}
-      <button type="button" className="button button--secondary" onClick={refresh}>Check email status</button>
+        onClick={()=>void update()}>Try again</button>:null}
+      <RefreshButton onRefresh={refresh}/>
     </div>
   </Panel>
 }

@@ -29,7 +29,7 @@ export function createDeliverableCommands(ready:ReturnType<typeof createSupabase
           ||!Array.isArray(r.units)||!r.units.every(u=>named(u)&&object(u)&&typeof u.canManage==='boolean')
           ||!Array.isArray(r.queue)||!r.queue.every(q=>object(q)&&typeof q.id==='string'&&uuid.test(q.id)&&typeof q.title==='string')||!(r.data===null||data(r.data)))throw new Error()
         return r as unknown as AuthoringContext
-      }catch{throw new Error('Authoring access could not be loaded. Reload to check access and connection.')}
+      }catch{throw new Error('Couldn\'t load the deliverable form. Refresh the page to try again.')}
     },
     async execute(input,key){
       try{

@@ -4,7 +4,7 @@ type InstallPrompt = Event & {
   prompt(): Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-// The install event can arrive before a user opens Account.
+// The install event can arrive before any screen that offers installation is open.
 let availablePrompt: InstallPrompt | null = null
 if (import.meta.env.PROD) {
   window.addEventListener('beforeinstallprompt', event => {
@@ -18,34 +18,63 @@ if (import.meta.env.PROD) {
   })
 }
 
-export function InstallWorkspace() {
+/** True when the workspace runs as an installed app (home-screen icon). */
+export function isStandalone(): boolean {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as Navigator & { standalone?: boolean }).standalone === true
+  } catch { return false }
+}
+
+export type InstallPlatform = 'prompt' | 'ios' | 'in-app' | 'manual'
+
+/** How this browser installs apps: native prompt, iOS Share sheet, or an in-app browser that cannot. */
+export function installPlatform(hasPrompt: boolean): InstallPlatform {
+  const agent = navigator.userAgent
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|MicroMessenger/i.test(agent)) return 'in-app'
+  if (hasPrompt) return 'prompt'
+  const ios = /iPad|iPhone|iPod/.test(agent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  return ios ? 'ios' : 'manual'
+}
+
+/** The captured native install prompt, if the browser offered one. */
+export function useInstallPrompt() {
   const [prompt, setPrompt] = useState(availablePrompt)
-  const [status, setStatus] = useState('')
   useEffect(() => {
     const update = () => setPrompt(availablePrompt)
     window.addEventListener('workspace-install-changed', update)
     return () => window.removeEventListener('workspace-install-changed', update)
   }, [])
-
-  async function install() {
-    if (!prompt || availablePrompt !== prompt) return
+  async function install(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
+    if (!prompt || availablePrompt !== prompt) return 'unavailable'
     availablePrompt = null
     setPrompt(null)
-    try {
-      const { outcome } = await prompt.prompt()
-      setStatus(outcome === 'accepted' ? 'Workspace installation accepted.' : 'You can install again from your browser menu when available.')
-    } catch {
-      setStatus('Installation could not start. Check your browser menu for an install or home screen option.')
-    }
+    try { return (await prompt.prompt()).outcome } catch { return 'unavailable' }
+  }
+  return { available: !!prompt, install }
+}
+
+/** Account page option. The Today banner (src/features/install) uses the same capture. */
+export function InstallWorkspace() {
+  const { available, install } = useInstallPrompt()
+  const [status, setStatus] = useState('')
+
+  async function start() {
+    const outcome = await install()
+    setStatus(outcome === 'accepted' ? 'Installing. Look for the TEDx icon on your home screen.'
+      : outcome === 'dismissed' ? 'No problem. You can install later from here or your browser menu.'
+        : 'Installation could not start. Check your browser menu for Install or Add to Home Screen.')
   }
 
-  if (!import.meta.env.PROD || window.matchMedia('(display-mode: standalone)').matches
-    || (navigator as Navigator & { standalone?: boolean }).standalone) return null
+  if (!import.meta.env.PROD || isStandalone()) return null
+  const platform = installPlatform(available)
   return <details className="panel">
-    <summary>Install workspace</summary>
-    <p>Install a shortcut for quick access. Work and approvals require an internet connection.</p>
-    {prompt?<button className="button" onClick={()=>void install()}>Install workspace</button>:
-      <p>Look for Install or Add to Home Screen in your browser menu. On iPhone or iPad, check Safari’s Share menu.</p>}
+    <summary>Install the app</summary>
+    <p>Add the workspace to your home screen. It opens faster and can send reminders. You still need a connection to load work.</p>
+    {platform === 'prompt' ? <button className="button" onClick={() => void start()}>Install the app</button>
+      : platform === 'ios' ? <p>In Safari, tap Share, then Add to Home Screen, then Add.</p>
+        : platform === 'in-app' ? <p>Open this page in Safari or Chrome first. In-app browsers cannot install apps.</p>
+          : <p>Look for Install or Add to Home Screen in your browser menu.</p>}
     <p role="status">{status}</p>
   </details>
 }

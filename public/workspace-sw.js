@@ -32,7 +32,7 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  const appNavigation = /^\/(?:$|(?:login|auth|shared|account|announcements|privacy|privacy-notice|tasks|deliverables|working-together|requests|reviews|finance|publicity|resources|calendar|people|committee|department|reports|search|notifications|guests|guest|admin|inventory|mentoring|prism|feedback|archive|handover)(?:\/[\w/-]*)?$)/
+  const appNavigation = /^\/(?:$|(?:login|auth|shared|account|announcements|privacy|privacy-notice|tasks|deliverables|working-together|requests|reviews|finance|publicity|resources|calendar|people|committee|department|reports|search|notifications|guests|guest|admin|inventory|mentoring|prism|feedback|archive|handover|work|event|team|desk|overview|today|member-preview)(?:\/[\w/-]*)?$)/
   const appPath = url.pathname.startsWith(base) ? '/' + url.pathname.slice(base.length) : null
   if (request.mode === 'navigate' && appPath !== null && appNavigation.test(appPath)) {
     event.respondWith(fetch(request, { cache: 'no-store' }).catch(async () =>

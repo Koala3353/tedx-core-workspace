@@ -1,0 +1,54 @@
+/* Command palette. No open/close animation: it is a keyboard tool used many times a day. */
+.palette {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding: min(14vh, 120px) 16px 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.palette__panel {
+  width: min(100%, 38rem);
+  max-height: min(72vh, 34rem);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  background: var(--color-surface-elevated);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+.palette__search { display: flex; align-items: center; gap: 10px; padding: 4px 6px 4px 16px; border-bottom: 1px solid var(--color-line); color: var(--color-muted); }
+.palette__input { flex: 1; min-width: 0; min-height: 52px; border: 0; background: transparent; color: var(--color-ink); font-size: 1.0625rem; }
+.palette__input:focus-visible { outline: none; }
+.palette__input::placeholder { color: var(--color-muted); }
+.palette__results { overflow-y: auto; overscroll-behavior: contain; padding: 6px; }
+.palette__group { padding: 10px 10px 4px; color: var(--color-muted); font-size: .75rem; font-weight: 600; }
+.palette__option { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: var(--control-min-size); padding: 8px 10px; border-radius: 6px; color: var(--color-ink-secondary); cursor: pointer; }
+.palette__option.is-active { background: var(--color-surface-subtle); color: var(--color-ink); }
+.palette__icon { display: grid; place-items: center; color: var(--color-muted); }
+.palette__option.is-active .palette__icon { color: var(--color-ink); }
+.palette__label { min-width: 0; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.palette__detail { display: block; color: var(--color-muted); font-size: .8125rem; font-weight: 400; }
+.palette__enter { color: var(--color-muted); }
+.palette__empty { margin: 0; padding: 16px 10px; color: var(--color-muted); }
+.palette__status { margin: 0; padding: 0 16px; color: var(--color-muted); font-size: .8125rem; line-height: 2; min-height: 0; }
+.palette__status:empty { display: none; }
+
+.palette__confirm { display: grid; gap: 14px; padding: 18px; overflow-y: auto; grid-row: 1 / -1; }
+.palette__confirm-title { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 1.125rem; }
+.palette__chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.palette__field { display: grid; gap: 6px; min-width: 0; font-size: .875rem; font-weight: 600; }
+.palette__field input, .palette__field select { min-height: var(--control-min-size); width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink); font-weight: 400; }
+.palette__hint { margin: 0; color: var(--color-muted); font-size: .8125rem; }
+.palette__error { margin: 0; color: var(--color-danger); font-weight: 600; font-size: .875rem; }
+.palette__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.palette__actions > :first-child { margin-right: auto; }
+
+@media (max-width: 40rem) {
+  .palette { padding: max(8px, env(safe-area-inset-top)) 8px 8px; }
+  .palette__panel { max-height: calc(100dvh - 16px); }
+  .palette__chips { grid-template-columns: minmax(0, 1fr); }
+}

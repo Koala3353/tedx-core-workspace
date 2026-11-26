@@ -7,10 +7,11 @@ import {forgetRecordDrafts} from '../auth/draftScope'
 import {privateAppointmentIcs} from '../calendar/ics'
 import {categoryLabels,type Assignment,type Assignments,type Checkin,type Goal,type GrowthApi,type GrowthWorkspace,type Relationship} from './api'
 import {GoalProgress,GrowthAction,GrowthEditor,type GrowthEdit} from './GrowthEditor'
+import {RefreshButton} from '../shared/RefreshButton'
+import {formatDateTime,formatDay,formatTime} from '../shared/dates'
 import './growth.css'
 
-const dates=new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Manila'})
-const during=(start:string,end:string)=>dates.formatRange(new Date(start),new Date(end))+' (Manila)'
+const during=(start:string,end:string)=>formatDateTime(start)+' – '+(formatDay(start)===formatDay(end)?formatTime(end):formatDateTime(end))
 const states={scheduled:'Scheduled',completed:'Completed',missed:'Missed',cancelled:'Cancelled',ended:'Mentorship ended'}
 type Choice={kind:'goal';id:string|null}|{kind:'share'|'schedule'|'reschedule'|'note';id:string}
 type Actions={api:GrowthApi;term:string;checking:boolean;refresh:()=>void;saved:(notice:string)=>void}
@@ -48,7 +49,7 @@ export function GrowthLink({api,term}:{api:GrowthApi;term:string}){
 
 export function GrowthPage({api}:{api:GrowthApi}){
   const workspace=useRouteLoaderData('workspace')as WorkspaceContext
-  if(!('memberId'in workspace))return <EmptyState title="Goals and mentoring unavailable" description="Current core workspace access is required."/>
+  if(!('memberId'in workspace))return <EmptyState title="Goals and mentoring aren't available" description="Only organizers on this term's roster can use goals and mentoring."/>
   return <GrowthBody key={workspace.termId+':'+workspace.memberId} term={workspace.termId} api={api}/>
 }
 
@@ -72,7 +73,7 @@ function GrowthBody({term,api}:{term:string;api:GrowthApi}){
       if(activeChoice.current&&(!next||!resolveEdit(next,activeChoice.current))){
         forgetRecordDrafts(activeChoice.current.id??'new-goal')
         activeChoice.current=null;setChoice(null)
-        setNotice(next?'The current assignment or sharing access changed.':'')
+        setNotice(next?'Your mentoring assignment or sharing changed, so that form was closed.':'')
       }
       if(!next)setNotice('')
       lastWorkspace.current=next
@@ -106,16 +107,16 @@ function GrowthBody({term,api}:{term:string;api:GrowthApi}){
   const next=workspace?.checkins.find(c=>c.state==='scheduled'&&Date.parse(c.endsAt)>Date.now())
   return <div className="growth">
     <PageHeading title="Goals and mentoring" description={workspace?.termLabel}/>
-    {failed?<ErrorState title="Learning workspace unavailable" description="Check your connection or current access. Your entries are kept in memory."
-      action={<button className="button" onClick={()=>void load()}>Check access again</button>}/>:null}
-    {!workspace&&checking?<LoadingState title="Checking learning workspace access"/>:null}
-    {!workspace&&!checking&&!failed?<EmptyState title="Goals and mentoring unavailable" description="For mentoring arrangements, ask your permitted process contact."
+    {failed?<ErrorState title="Couldn't load goals and mentoring" description="Check your connection and try again. What you typed is kept."
+      action={<button className="button button--secondary" onClick={()=>void load()}>Try again</button>}/>:null}
+    {!workspace&&checking?<LoadingState title="Loading goals and mentoring"/>:null}
+    {!workspace&&!checking&&!failed?<EmptyState title="Mentoring isn't switched on yet" description="Goals and mentoring aren't open for this term yet. Ask your committee head about mentoring."
       action={<Link className="button button--secondary" to="/people">Find a contact</Link>}/>:null}
     {workspace?<div hidden={failed}>
       <p>Set a private goal for yourself or share one with a current mentor. Check-ins are optional.</p>
       {next?<p><strong>Next check-in</strong> · {during(next.startsAt,next.endsAt)}</p>:null}
       {notice?<p ref={receipt} tabIndex={-1} role="status">{notice}</p>:null}
-      {checking?<p role="status">Checking current mentoring and sharing access…</p>:null}
+      {checking?<p role="status">Updating…</p>:null}
       <div inert={checking}>
         {edit?<div ref={editor} tabIndex={-1}><GrowthEditor key={choice?.kind+':'+choice?.id} edit={edit}
           {...actions} close={close}/></div>:null}
@@ -134,45 +135,44 @@ function GrowthBody({term,api}:{term:string;api:GrowthApi}){
             </div>:null}
           </li>)}</ul>
         </Panel>
-        {shared.length?<Panel title="Goals shared by assigned mentees"><ul className="growth-list">{shared.map(g=><li key={g.id}>
+        {shared.length?<Panel title="Goals your mentees shared"><ul className="growth-list">{shared.map(g=><li key={g.id}>
           <GoalDetails goal={g}/><p>{g.progress}% progress · Shared by {g.learner}</p>
         </li>)}</ul></Panel>:null}
-        <Panel title="Mentoring assignments">
-          {!workspace.relationships.length?<p>When a mentor is approved, you can choose whether to join here. <Link className="button button--secondary" to="/people">Find a contact</Link></p>:null}
+        <Panel title="Mentoring">
+          {!workspace.relationships.length?<p>No mentor yet. When one is set up for you, you can choose whether to join here. <Link className="button button--secondary" to="/people">Find a contact</Link></p>:null}
           <ul className="growth-list">{workspace.relationships.map(r=><li key={r.id}>
             <h3>{r.asMentor?'Mentee '+r.mentee:'Mentor '+r.mentor}</h3>
-            <p>{r.state==='offered'?'Awaiting your consent':r.state==='upcoming'?'Accepted · starts later':r.state==='active'?'Active assignment':'Assignment ended'} · {during(r.startsAt,r.endsAt)}</p>
+            <p>{r.state==='offered'?'Waiting for your answer':r.state==='upcoming'?'Accepted · starts later':r.state==='active'?'Active':'Ended'} · {during(r.startsAt,r.endsAt)}</p>
             {!edit?<div className="auth-actions">
-              {r.state==='offered'&&workspace.editable?<div><p>Joining lets both participants arrange check-ins. You choose each goal to share.</p>
+              {r.state==='offered'&&workspace.editable?<div><p>Joining lets you both set up check-ins. You choose which goals to share.</p>
                 <GrowthAction {...actions} command={{kind:'consent',term,id:r.id,version:r.version,accept:true}}
                   label="Join mentoring" notice="Mentoring accepted."/></div>:null}
               {r.state==='active'&&workspace.editable?<button className="button button--secondary" onClick={()=>open({kind:'schedule',id:r.id})}>
                 Schedule a check-in</button>:null}
               {r.state!=='ended'?<GrowthAction {...actions} command={{kind:'consent',term,id:r.id,version:r.version,accept:false}}
-                label={r.state==='offered'?'Decline assignment':'End mentoring assignment'}
-                notice="Assignment ended." confirm="End this assignment and remove shared mentoring access? You keep your personal goals."/>:null}
+                label={r.state==='offered'?'Decline':'End mentoring'}
+                notice="Mentoring ended." confirm="End mentoring? Your mentor will no longer see your shared goals. You keep your own goals."/>:null}
             </div>:null}
           </li>)}</ul>
         </Panel>
-        <Panel title="Private check-ins" id="check-ins">
-          {!workspace.checkins.length?<p>Check-ins appear here after you schedule one with a current mentor. You can use this page with your own calendar or on its own.</p>:null}
+        <Panel title="Check-ins" id="check-ins">
+          {!workspace.checkins.length?<p>No check-ins yet. Schedule one with your mentor and it shows up here.</p>:null}
           <ul className="growth-list">{workspace.checkins.map(c=><li key={c.id}>
             <CheckinDetails checkin={c} relationship={workspace.relationships.find(r=>r.id===c.relationship)}
               {...actions} open={edit?undefined:open}/>
           </li>)}</ul>
         </Panel>
         {workspace.canManage?<MentoringAssignments {...actions}/>:null}
-        <details className="work-section"><summary>Who can access learning records?</summary>
-          <p>Goal access follows the audience shown on each goal. Check-in history stays available to the learner. Authorized database operators can access stored records for custody and recovery.</p>
+        <details className="work-section"><summary>Who can see my goals and notes?</summary>
+          <p>Each goal shows who can see it. You can always see your own check-in history. The app's database admins can access stored records for backups and recovery.</p>
           <Link className="button button--secondary" to="/privacy">Privacy information</Link>
         </details>
-        <details className="work-section"><summary>Export my learning record</summary>
-          <p>Download a private JSON file with your goals and notes you wrote.</p>
-          <DownloadAction label="Download my learning record" disabled={checking}
+        <details className="work-section"><summary>Download my goals and notes</summary>
+          <p>Download a file (JSON) with your goals and the notes you wrote.</p>
+          <DownloadAction label="Download my goals and notes" disabled={checking}
             download={async()=>({name:'my-learning-record.json',type:'application/json;charset=utf-8',data:JSON.stringify(await api.exportOwn(term),null,2)+'\n'})}/>
         </details>
       </div>
-      <button className="button button--secondary" disabled={checking} onClick={()=>void load()}>Refresh learning workspace</button>
     </div>:null}
   </div>
 }
@@ -180,7 +180,7 @@ function GrowthBody({term,api}:{term:string;api:GrowthApi}){
 function GoalDetails({goal,relationship}:{goal:Goal;relationship?:Relationship}){
   return <>
     <h3>{goal.title}</h3>
-    <p>{categoryLabels[goal.category]}{goal.own?' · '+(relationship?'Shared with '+relationship.mentor:'Private to you in the workspace'):''}</p>
+    <p>{categoryLabels[goal.category]}{goal.own?' · '+(relationship?'Shared with '+relationship.mentor:'Only you can see this'):''}</p>
     {goal.target?<p className="record-text">{goal.target}</p>:null}
   </>
 }
@@ -200,17 +200,17 @@ function CheckinDetails({checkin:c,relationship:r,open,...actions}:Actions&{
         action==='completed'&&date<=now||action==='missed'&&Date.parse(c.endsAt)<=now).map(action=><GrowthAction key={action} {...actions}
         command={{kind:'checkin',term:actions.term,id:c.id,version:c.version,relationship:c.relationship,action,startsAt:null,endsAt:null,title:null}}
         label={action==='completed'?'Mark completed':action==='missed'?'Mark missed':'Cancel check-in'}
-        notice={'Check-in '+action+'.'} confirm={action==='cancelled'?'Cancel this private check-in?':undefined}/>):null}
+        notice={'Check-in '+action+'.'} confirm={action==='cancelled'?'Cancel this check-in?':undefined}/>):null}
     </div>:null}
     {c.notes.length?<details className="work-section"><summary>Check-in notes</summary>
       <ul className="growth-list">{c.notes.map(n=><li key={n.id}>
-        <strong>{n.author}</strong> · {dates.format(new Date(n.at))}
+        <strong>{n.author}</strong> · {formatDateTime(n.at)}
         {n.body?<p className="record-text">{n.body}</p>:null}
         {n.nextAction?<p className="record-text">Next action · {n.nextAction}</p>:null}
       </li>)}</ul></details>:null}
-    {c.canExport?<details className="work-section"><summary>Private calendar copy</summary>
-      <p>The file includes the time and the label “Private appointment”. Imported copies stay in your calendar. Future changes are handled here.</p>
-      <DownloadAction label="Download private calendar copy" disabled={actions.checking}
+    {c.canExport?<details className="work-section"><summary>Add to my calendar</summary>
+      <p>The calendar file only shows the time and “Private appointment”. If the check-in changes later, update it here and download a new file.</p>
+      <DownloadAction label="Add to my calendar (.ics)" disabled={actions.checking}
         download={async()=>({name:'private-appointment.ics',type:'text/calendar;charset=utf-8',
           data:privateAppointmentIcs(await actions.api.calendar(actions.term,c.id,c.version))})}/>
     </details>:null}
@@ -227,7 +227,7 @@ function DownloadAction({label,disabled,download}:{label:string;disabled:boolean
       if(!mounted.current)return
       const url=URL.createObjectURL(new Blob([file.data],{type:file.type})),link=document.createElement('a')
       link.href=url;link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
-    }catch{if(mounted.current)setError('Current access or version could not be confirmed. Refresh and try again.')}
+    }catch{if(mounted.current)setError('Couldn\'t download the file. Refresh the page and try again.')}
     finally{if(mounted.current)setBusy(false)}
   }
   return <>{error?<p role="alert">{error}</p>:null}
@@ -249,21 +249,21 @@ function MentoringAssignments(actions:Actions){
   const latest=data&&typeof choice==='object'&&choice?data.assignments.find(r=>r.id===choice.id):undefined
   return <details className="work-section" onToggle={event=>setOpen(event.currentTarget.open)}>
     <summary>Manage mentor assignments</summary>
-    {open?<Panel title="Approved mentoring assignments">
-      {failed?<p role="alert">Check your coordinator access and verified session.</p>:null}
-      <button className="button button--secondary" onClick={()=>setVersion(v=>v+1)}>Refresh assignments</button>
-      {data?<><p>Approval opens a voluntary offer. Replacement closes the previous assignment and starts a new consent decision.</p>
+    {open?<Panel title="Mentor assignments">
+      {failed?<p role="alert">Couldn't load assignments. Sign in again, then try again.</p>:null}
+      <RefreshButton onRefresh={()=>setVersion(v=>v+1)}/>
+      {data?<><p>Approving sends the mentee an offer they can accept or decline. Replacing a mentor ends the old assignment and sends a new offer.</p>
         {choice?<GrowthEditor key={latest?.id??'new'} {...actions} edit={{kind:'assignment',data,previous:latest}}
           close={()=>setChoice(null)} saved={saved} refresh={()=>{setVersion(v=>v+1);actions.refresh()}}/>:
-          <button className="button" onClick={()=>setChoice(true)}>Approve a new assignment</button>}
+          <button className="button" onClick={()=>setChoice(true)}>New assignment</button>}
         <ul className="growth-list">{data.assignments.map(r=><li key={r.id}>
           <strong>{r.mentee} · {r.mentor}</strong><p>{r.state} · {during(r.startsAt,r.endsAt)}</p>
           {!choice?<div className="auth-actions"><button className="button button--secondary" onClick={()=>setChoice(r)}>Replace {r.mentee}’s mentor</button>
             {!r.revoked?<GrowthAction {...actions} command={{kind:'consent',term,id:r.id,version:r.version,accept:false}}
-              label="End assignment" notice="Assignment ended." confirm="End this mentoring assignment and remove its sharing access?" saved={saved}/>:null}
+              label="End assignment" notice="Assignment ended." confirm="End this mentoring assignment? The mentor will lose access to shared goals." saved={saved}/>:null}
           </div>:null}
         </li>)}</ul>
-      </>:!failed?<LoadingState title="Checking assignment authority"/>:null}
+      </>:!failed?<LoadingState title="Loading assignments"/>:null}
     </Panel>:null}
   </details>
 }

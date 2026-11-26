@@ -1,0 +1,121 @@
+/* Run of show: plan list (themed by tokens) and the live stage display (always black). */
+.ros { --ros-ease-out: cubic-bezier(0.23, 1, 0.32, 1); min-width: 0; }
+
+.ros-offline { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--color-warn); font-weight: 600; }
+.ros-notice { margin: 0 0 16px; color: var(--color-ink-secondary); }
+.ros-late { color: var(--color-danger); font-weight: 700; }
+
+.ros-summary { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 24px; margin-bottom: 24px; }
+.ros-summary dl { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 0; }
+.ros-summary dt { color: var(--color-muted); font-size: .875rem; }
+.ros-summary dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+
+.ros-start { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 32px; }
+.ros-start .form-field { min-width: 0; flex: 0 1 200px; }
+
+.ros-select, .ros-textarea, .ros-editor input[type='time'] {
+  width: 100%; min-width: 0; min-height: var(--control-min-size); padding: 8px 12px; border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink); font: inherit;
+}
+.ros-start input[type='time'] { min-height: var(--control-min-size); width: 100%; padding: 8px 12px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink); }
+.ros-textarea { min-height: 88px; resize: vertical; }
+
+.ros-list { list-style: none; margin: 0 0 24px; padding: 0; }
+.ros-row {
+  display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) auto; grid-template-areas: 'time main status' '. actions actions';
+  gap: 8px 16px; padding: 16px 0; border-bottom: 1px solid var(--color-line); align-items: start;
+}
+.ros-row--current { box-shadow: inset 3px 0 0 var(--color-accent); padding-left: 12px; }
+.ros-row--editing { display: block; }
+.ros-row__time { grid-area: time; margin: 0; font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ros-row__main { grid-area: main; min-width: 0; }
+.ros-row__title { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.ros-row__meta { margin: 2px 0 0; color: var(--color-muted); font-size: .9375rem; }
+.ros-row__notes { margin: 6px 0 0; color: var(--color-ink-secondary); white-space: pre-line; overflow-wrap: anywhere; }
+.ros-row__status { grid-area: status; }
+.ros-row__actions { grid-area: actions; display: flex; flex-wrap: wrap; gap: 4px; }
+.ros-icon {
+  display: inline-grid; place-items: center; min-width: var(--control-min-size); min-height: var(--control-min-size);
+  border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: transparent; color: var(--color-ink);
+  cursor: pointer; transition: transform 120ms var(--ros-ease-out), border-color 150ms ease;
+}
+.ros-icon:active:not(:disabled) { transform: scale(0.96); }
+.ros-icon:disabled { opacity: .4; cursor: not-allowed; }
+@media (hover: hover) and (pointer: fine) { .ros-icon:hover:not(:disabled) { border-color: var(--color-ink); } }
+
+.ros-editor { border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); padding: 16px; margin: 0 0 24px; background: var(--color-surface); }
+.ros-editor h3 { margin: 0 0 16px; font-size: 1.0625rem; }
+.ros-editor__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ros-editor__wide { grid-column: 1 / -1; }
+.ros-editor__length { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ros-editor__length legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+.ros-editor__length label { font-weight: 400; color: var(--color-muted); }
+.ros-editor__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .ros-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'time status' 'main main' 'actions actions'; }
+  .ros-editor__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Live stage display. Black in both themes so it reads the same backstage. */
+.ros-live {
+  --live-bg: #000; --live-ink: #fff; --live-muted: #a3a39e; --live-line: #2a2a28; --live-red: #ff4d64;
+  position: fixed; inset: 0; z-index: 1000; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--live-bg); color: var(--live-ink); padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+  max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); overflow: auto;
+  animation: ros-fade 200ms var(--ros-ease-out) both;
+}
+.ros-live__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.ros-live__phase { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; font-size: 1.125rem; }
+.ros-live__phase[data-phase='held'] { color: #fbbf24; }
+.ros-live__delay { margin: 0; color: var(--live-red); font-family: var(--font-display); font-weight: 800; font-size: clamp(1.25rem, 3vw, 2rem); font-variant-numeric: tabular-nums; }
+.ros-live__ontime { margin: 0; color: var(--live-muted); font-weight: 600; }
+.ros-live__exit {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: var(--control-min-size); padding: 8px 14px;
+  border: 1px solid var(--live-line); border-radius: var(--radius-control); background: transparent; color: var(--live-ink); font-weight: 600; cursor: pointer;
+}
+.ros-live :focus-visible { outline: 2px solid var(--live-ink); outline-offset: 3px; }
+
+.ros-live__body { display: grid; align-content: center; gap: clamp(24px, 5vh, 56px); padding-block: 24px; min-width: 0; }
+.ros-live__label { margin: 0 0 8px; color: var(--live-muted); font-size: 1rem; font-weight: 600; }
+.ros-live__kind { margin: 0; color: var(--live-muted); font-size: clamp(1rem, 2vw, 1.375rem); }
+.ros-live__title { margin: 4px 0 0; font-family: var(--font-display); font-weight: 800; line-height: 1.02; font-size: clamp(2.5rem, 8vw, 7rem); overflow-wrap: anywhere; }
+.ros-live__title--quiet { color: var(--live-muted); font-size: clamp(2rem, 5vw, 4rem); }
+.ros-live__clock { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; margin: 12px 0 0; font-variant-numeric: tabular-nums; }
+.ros-live__elapsed { font-family: var(--font-display); font-weight: 800; font-size: clamp(3rem, 10vw, 8rem); line-height: 1; }
+.ros-live__remaining { color: var(--live-muted); font-size: clamp(1.25rem, 3vw, 2.25rem); font-weight: 700; }
+.ros-live__remaining--over { color: var(--live-red); }
+.ros-live__notes { margin: 8px 0 0; max-width: 60ch; color: var(--live-ink); font-size: clamp(1rem, 2vw, 1.375rem); white-space: pre-line; }
+.ros-live__next { border-top: 1px solid var(--live-line); padding-top: clamp(16px, 3vh, 32px); }
+.ros-live__next-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(1.5rem, 4vw, 3rem); line-height: 1.1; overflow-wrap: anywhere; }
+.ros-live__tabular { font-variant-numeric: tabular-nums; }
+
+/* Segment changes slide up and fade in; interruptible because each swap is a fresh element. */
+.ros-live__swap { animation: ros-enter 240ms var(--ros-ease-out) both; }
+
+.ros-live__foot { display: grid; gap: 12px; }
+.ros-live__controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 12px; }
+.ros-live__control {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 88px; padding: 12px;
+  border: 1px solid #4a4a46; border-radius: var(--radius-panel); background: #141414; color: var(--live-ink);
+  font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; cursor: pointer;
+  transition: transform 140ms var(--ros-ease-out), background-color 150ms ease, opacity 150ms ease;
+  touch-action: manipulation;
+}
+.ros-live__control--primary { background: #eb0028; border-color: #eb0028; color: #fff; }
+.ros-live__control:active:not(:disabled) { transform: scale(0.97); }
+.ros-live__control:disabled { opacity: .35; cursor: not-allowed; }
+.ros-live__control[aria-busy='true'] { opacity: .7; }
+.ros-live__error { margin: 0; color: var(--live-red); font-weight: 700; }
+.ros-live__meta { margin: 0; color: var(--live-muted); font-size: .9375rem; }
+.ros-live__meta strong { color: #fbbf24; }
+
+@keyframes ros-fade { from { opacity: 0; } }
+@keyframes ros-enter { from { opacity: 0; transform: translateY(8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ros-live { animation: ros-fade 120ms ease both; }
+  .ros-live__swap { animation: ros-fade 150ms ease both; }
+  .ros-icon, .ros-live__control { transition: none; }
+  .ros-icon:active:not(:disabled), .ros-live__control:active:not(:disabled) { transform: none; }
+}

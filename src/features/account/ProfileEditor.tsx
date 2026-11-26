@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import '../shared/shared.css'
 import { Panel } from '../../components/Page'
 import { TextField } from '../../components/TextField'
 import { LoadingState } from '../../components/FeedbackState'
@@ -9,7 +9,7 @@ const fields = [
   { value: 'course', share: 'shareCourse', label: 'Course', max: 200 },
   { value: 'yearLevel', share: 'shareYearLevel', label: 'Year level', max: 80 },
   { value: 'phone', share: 'sharePhone', label: 'Personal phone', max: 80 },
-  { value: 'externalContact', share: 'shareExternalContact', label: 'Other contact route', max: 320 },
+  { value: 'externalContact', share: 'shareExternalContact', label: 'Other contact (e.g. Telegram)', max: 320 },
   { value: 'skills', share: 'shareSkills', label: 'Skills', max: 1000 },
   { value: 'pronunciation', share: 'sharePronunciation', label: 'Name pronunciation', max: 200 },
   { value: 'affiliation', share: 'shareAffiliation', label: 'Affiliation', max: 80 },
@@ -28,50 +28,48 @@ export function ProfileEditor({ api, termId }: { api: ProfileGateway; termId: st
     void api.read(termId).then(result => {
       if (!active) return
       setCurrent(result); setValues(result); setVisibility(result); pending.current = null
-    }).catch(() => { if (active) setError('Your profile could not load. Check access and reload the profile.') })
+    }).catch(() => { if (active) setError('Couldn\'t load your profile. Check your connection and try again.') })
     return () => { active = false }
   }, [api, termId, reload])
-  async function save(event: FormEvent, command: 'values' | 'visibility') {
-    event.preventDefault()
-    if (!current || busy) return
-    setBusy(true); setError(''); setNotice('')
+  const dirtyValues = !!current && fields.some(field => (current[field.value] ?? null) !== (values[field.value] ?? null))
+  const dirtySharing = !!current && fields.some(field => current[field.share] !== visibility[field.share])
+  async function send(command: 'values' | 'visibility', base: OwnProfile): Promise<OwnProfile> {
     // Explicit whitelists keep server identity/version fields out of payloads.
     const privateValues: ProfileValues = { course: values.course, yearLevel: values.yearLevel, phone: values.phone, externalContact: values.externalContact, skills: values.skills, pronunciation: values.pronunciation, affiliation: values.affiliation }
     const choices: ProfileVisibility = { shareCourse: visibility.shareCourse, shareYearLevel: visibility.shareYearLevel, sharePhone: visibility.sharePhone, shareExternalContact: visibility.shareExternalContact, shareSkills: visibility.shareSkills, sharePronunciation: visibility.sharePronunciation, shareAffiliation: visibility.shareAffiliation }
-    const signature = JSON.stringify([termId, command, current.version, command === 'values' ? privateValues : choices])
+    const signature = JSON.stringify([termId, command, base.version, command === 'values' ? privateValues : choices])
     if (pending.current?.signature !== signature) pending.current = { signature, id: crypto.randomUUID() }
+    const result = command === 'values' ? await api.save(termId, privateValues, base.version, pending.current.id) : await api.share(termId, choices, base.version, pending.current.id)
+    pending.current = null
+    return result
+  }
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    if (!current || busy) return
+    if (!dirtyValues && !dirtySharing) { setNotice('No changes to save.'); return }
+    setBusy(true); setError(''); setNotice('')
     try {
-      const result = command === 'values' ? await api.save(termId, privateValues, current.version, pending.current.id) : await api.share(termId, choices, current.version, pending.current.id)
-      setCurrent(result)
-      if (command === 'values') setValues(result); else setVisibility(result)
-      pending.current = null
-      setNotice(command === 'values' ? 'Private details saved. Your sharing choices were kept.' : 'Sharing choices saved. Unchecked details are hidden from the directory.')
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'The save could not be confirmed. Try again.') }
+      let latest = current
+      if (dirtyValues) { latest = await send('values', latest); setCurrent(latest) }
+      if (dirtySharing) { latest = await send('visibility', latest); setCurrent(latest) }
+      setValues(latest); setVisibility(latest)
+      setNotice('Saved.')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t save. Try again.') }
     finally { setBusy(false) }
   }
-  return <Panel title="Your private profile">
-    <p>All fields are optional. You can continue your work and find help with these blank. Heads cannot change your sharing choices.</p>
-    <p><Link to="/resources">Resources & Start Here</Link> · <Link to="/people">Find a process contact</Link></p>
+  return <Panel title="Your profile">
+    <p className="muted">Everything here is optional. Tick "Show in directory" to let other core members see a field.</p>
     {error ? <p role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
     {!current && !error ? <LoadingState /> : null}
-    {current ? <>
-      <form onSubmit={event => void save(event, 'values')}>
+    {current ? <form onSubmit={event => void save(event)}>
         <fieldset className="profile-fields" disabled={busy}>
-          <legend>Private details</legend>
-          <p className="muted">Saving changes to a shared field updates what directory members can see. Use sharing choices below to hide it.</p>
-          {fields.map(field => <TextField key={field.value} id={`profile-${field.value}`} label={field.label} hint={field.value === 'affiliation' ? 'Optional description for this term. MEAn affiliation does not change your role or access.' : undefined} maxLength={field.max} value={values[field.value] ?? ''} onChange={event => setValues({ ...values, [field.value]: event.target.value || null })} autoComplete="off" />)}
-          <button className="button" type="submit">Save private details</button>
+          <legend className="visually-hidden">Profile details</legend>
+          {fields.map(field => <div className="paired-field" key={field.value}>
+            <TextField id={`profile-${field.value}`} label={field.label} hint={field.value === 'affiliation' ? 'A short note about yourself for this term. It doesn\'t change your role.' : undefined} maxLength={field.max} value={values[field.value] ?? ''} onChange={event => setValues({ ...values, [field.value]: event.target.value || null })} autoComplete="off" />
+            <label className="share-toggle"><input type="checkbox" checked={visibility[field.share]} onChange={event => setVisibility({ ...visibility, [field.share]: event.target.checked })} aria-describedby={`profile-${field.value}`} />Show in directory</label>
+          </div>)}
+          <div className="auth-actions"><button className="button" type="submit">{busy ? 'Saving…' : 'Save'}</button>{dirtyValues || dirtySharing ? <button className="button button--quiet" type="button" onClick={() => { setValues(current); setVisibility(current); setNotice(''); setError('') }}>Discard changes</button> : null}</div>
         </fieldset>
-      </form>
-      <form onSubmit={event => void save(event, 'visibility')}>
-        <fieldset className="profile-fields profile-sharing" disabled={busy}>
-          <legend>Directory sharing</legend>
-          <p className="muted">Checked fields are shared with permitted core directory members. Uncheck and save to withdraw sharing.</p>
-          {fields.map(field => <label key={field.share}><input type="checkbox" checked={visibility[field.share]} onChange={event => setVisibility({ ...visibility, [field.share]: event.target.checked })} />Share {field.label.toLowerCase()}</label>)}
-          <button className="button" type="submit">Save sharing choices</button>
-        </fieldset>
-      </form>
-    </> : null}
-    <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setCurrent(null); setError(''); setNotice(''); setReload(reload + 1) }}>Reload profile and discard unsaved edits</button>
+      </form> : error ? <button className="button button--secondary" type="button" onClick={() => { setError(''); setReload(reload + 1) }}>Try again</button> : null}
   </Panel>
 }

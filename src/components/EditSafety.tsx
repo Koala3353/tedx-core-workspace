@@ -18,7 +18,7 @@ export function EditSafety({children}:{children:ReactNode}){
   const form=target instanceof Element?target.closest('[data-edit-form]'):null
   if(form)dirty.current.add(form)
  }
- return <div ref={root} onChangeCapture={e=>changed(e.target)} onInputCapture={e=>changed(e.target)} onClickCapture={e=>{
+ return <div ref={root} className="edit-safety" onChangeCapture={e=>changed(e.target)} onInputCapture={e=>changed(e.target)} onClickCapture={e=>{
   if(!(e.target instanceof Element)||!e.target.closest('[data-discard-edits]'))return
   if(pending()||unsaved()&&!window.confirm('Discard unsaved edits and refresh this work?')){e.preventDefault();e.stopPropagation();return}
   dirty.current=new WeakSet()

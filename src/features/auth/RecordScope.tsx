@@ -22,7 +22,7 @@ export function CurrentRecordScope({gateway,children}:{gateway:AuthGateway;child
  if(parts.length===3&&parts[0]==='publicity'&&gateway.publicity)read=async()=>{const r=await gateway.publicity!.read(parts[1],id);if(!r)return null;const request=gateway.requests?await gateway.requests.read(parts[1],id):null;return recordAuthority(r.state,['publicity',r.isOwner],[r.canAssign,r.canDecide,r.canRevoke,request?.canEdit??false,request?.canSubmit??false])}
  if(parts.length===3&&parts[0]==='reviews'&&gateway.inbox)read=async()=>{const r=await gateway.inbox!.read(parts[1],id);return r?recordAuthority(r.state,['review',r.package!==null],[r.canAssign,r.canNote,r.canTriage,r.canComplete,r.actions]):null}
  const task=parts[0]==='tasks',deliverable=parts[0]==='deliverables',guest=workspace&&isGuest(workspace)
- const denied=task||deliverable?<><Link className="button button--secondary" to={guest?'/shared':task?'/tasks':'/deliverables'}>{task?'Back to permitted tasks':guest?'Back to shared with me':'Back to deliverables'}</Link><h1>{task?'Task cannot be shown':'Deliverable unavailable'}</h1></>:<h1>Record unavailable</h1>
+ const denied=task||deliverable?<><Link className="button button--secondary" to={guest?'/shared':task?'/tasks':'/deliverables'}>{task?'Back to my tasks':guest?'Back to shared with me':'Back to deliverables'}</Link><h1>{task?'Task cannot be shown':'Deliverable unavailable'}</h1></>:<h1>Record unavailable</h1>
  return read?<RecordScope key={pathname} id={id} read={read} denied={denied} onView={(task||deliverable)&&gateway.reports&&!guest?()=>gateway.reports!.recordView(id):undefined}>{children}</RecordScope>:children
 }
 

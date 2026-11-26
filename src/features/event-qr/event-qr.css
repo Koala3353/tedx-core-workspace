@@ -1,0 +1,74 @@
+/* Event QR codes: label sheet, crew door sign, arrivals, and the check-in page. */
+.eqr { min-width: 0; }
+.eqr-muted { color: var(--color-muted); }
+.eqr-print-note { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 20px; color: var(--color-ink-secondary); }
+
+.eqr-switch { display: inline-flex; flex-wrap: wrap; gap: 0; margin: 0 0 32px; padding: 0; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); max-width: 100%; }
+.eqr-switch__option { position: relative; display: inline-flex; align-items: center; min-height: var(--control-min-size); padding: 8px 16px; font-weight: 600; cursor: pointer; color: var(--color-ink-secondary); transition: background-color 150ms ease, color 150ms ease; }
+.eqr-switch__option + .eqr-switch__option { border-left: 1px solid var(--color-line-strong); }
+.eqr-switch__option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.eqr-switch__option--on { background: var(--color-surface-subtle); color: var(--color-ink); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.eqr-switch__option:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.eqr-filter { max-width: 420px; margin-bottom: 16px; }
+.eqr-filter input { width: 100%; }
+.eqr-picks { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 0 24px; }
+.eqr-pick { display: flex; align-items: center; gap: 10px; min-height: var(--control-min-size); cursor: pointer; overflow-wrap: anywhere; }
+.eqr-pick input { width: 20px; height: 20px; flex: none; accent-color: var(--color-accent); }
+
+/* Label sheet: three across on A4 or Letter; two across on phones. */
+.eqr-sheet { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 40px; }
+.eqr-label { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px; border: 1px dashed var(--color-line-strong); border-radius: var(--radius-control); background: #fff; color: #111; break-inside: avoid; }
+.eqr-label .qr-code { width: 96px; height: 96px; display: block; }
+.eqr-label__text { min-width: 0; }
+.eqr-label__name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: .9375rem; line-height: 1.2; overflow-wrap: anywhere; }
+.eqr-label__place { margin: 2px 0 0; font-size: .8125rem; color: #3d3d3a; overflow-wrap: anywhere; }
+.eqr-label__hint { margin: 4px 0 0; font-size: .75rem; color: #5f5f5b; }
+@media (max-width: 720px) { .eqr-sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .eqr-sheet { grid-template-columns: minmax(0, 1fr); } }
+
+.eqr-door { display: grid; justify-items: center; gap: 8px; max-width: 420px; padding: 24px; margin-bottom: 16px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); background: #fff; color: #111; text-align: center; }
+.eqr-door__qr { width: min(100%, 320px); height: auto; display: block; }
+.eqr-door__title { margin: 8px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 1.75rem; }
+.eqr-door__hint { margin: 0; color: #3d3d3a; }
+.eqr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.eqr-actions p { flex-basis: 100%; margin: 0; }
+
+.eqr-count { font-size: 1.125rem; }
+.eqr-count strong { font-family: var(--font-display); font-size: 1.5rem; }
+.eqr-group { margin-top: 24px; }
+.eqr-group h3 { margin: 0 0 8px; font-size: 1rem; }
+.eqr-group ul { list-style: none; margin: 0; padding: 0; }
+.eqr-group li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-height: var(--control-min-size); padding: 6px 0; border-bottom: 1px solid var(--color-line); overflow-wrap: anywhere; }
+
+/* Check-in page: one big target, reachable with a thumb. */
+.eqr-checkin { max-width: 520px; }
+.eqr-checkin__button { width: 100%; min-height: 96px; font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease; }
+.eqr-checkin__done { display: grid; justify-items: start; gap: 8px; color: var(--color-ink); animation: eqr-enter 240ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+.eqr-checkin__done svg { color: var(--color-ok); }
+.eqr-checkin__done h2 { margin: 0; font-size: 1.5rem; }
+.eqr-checkin__done h2:focus { outline: none; }
+.eqr-checkin__done p { margin: 0 0 8px; color: var(--color-ink-secondary); }
+@keyframes eqr-enter { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .eqr-checkin__done { animation: eqr-fade 150ms ease both; }
+  .eqr-checkin__button { transition: none; }
+}
+@keyframes eqr-fade { from { opacity: 0; } }
+
+/* Printing: only the visible label sheet or door sign prints, and only while this page is open. */
+@media print {
+  body:has(.eqr-print) * { visibility: hidden; }
+  body:has(.eqr-print) .eqr-print, body:has(.eqr-print) .eqr-print * { visibility: visible; }
+  body:has(.eqr-print) .eqr-print { position: absolute; left: 0; top: 0; width: 100%; margin: 0; }
+  .eqr-noprint { display: none !important; }
+  .eqr-sheet { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4mm; }
+  .eqr-label { border: 1px dashed #999; background: #fff; color: #000; }
+  .eqr-label .qr-code { width: 28mm; height: 28mm; }
+  .eqr-label { grid-template-columns: 28mm minmax(0, 1fr); }
+  .eqr-door { max-width: none; border: 0; padding: 0; margin-top: 20mm; }
+  .eqr-door__qr { width: 140mm; }
+  .eqr-door__title { font-size: 28pt; }
+  .eqr-door__hint { font-size: 14pt; }
+}
+.eqr-print-note svg { flex: none; margin-top: 4px; }

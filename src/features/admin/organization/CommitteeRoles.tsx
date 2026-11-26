@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../shared/dates'
 import { useState, type FormEvent } from 'react'
 import { Panel } from '../../../components/Page'
 import { TextField } from '../../../components/TextField'
@@ -7,7 +8,7 @@ import type { Position, Seat, SeatChange } from './positions'
 
 type Selection = { seat: Seat | null; remove: boolean }
 const manilaInput = (date: string) => new Date(Date.parse(date) + 8 * 3_600_000).toISOString().slice(0, 16)
-const manilaDisplay = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })
+const manilaDisplay = { format: (date: Date) => formatDateTime(date) }
 const roleLabel = (role: Position) => role.name + (role.administrator ? ' · Admin access' : '') + (!role.available ? ' · Archived' : '')
 
 export function CommitteeRoles({ api, data, term, identity, refresh }: {
@@ -17,7 +18,7 @@ export function CommitteeRoles({ api, data, term, identity, refresh }: {
   const [roleFilter, setRoleFilter] = useState('')
   const roster = data.positionRoster
   if (!api.saveSeat || roster === undefined) return null
-  if (!roster) return <Panel title="Committee roles"><p role="status">Roles could not be loaded. Refresh organization to try again.</p></Panel>
+  if (!roster) return <Panel title="Committee roles"><p role="status">Couldn't load roles. Refresh the page to try again.</p></Panel>
   if (!roster.positions.length) return null
 
   const { positions, seats } = roster
@@ -34,7 +35,7 @@ export function CommitteeRoles({ api, data, term, identity, refresh }: {
         {positions.map(role => <option key={role.id} value={role.id}>{roleLabel(role)}</option>)}
       </select></label>
     </div>
-    {!hasMembers && <p>Add a member to the approved roster below before assigning their first role.</p>}
+    {!hasMembers && <p>Add the person to the roster below first, then give them a role.</p>}
     {selection && data.canPublish && <RoleEditor key={selection.seat?.id ?? 'new'} save={api.saveSeat}
       data={data} positions={positions} selection={selection} term={term} identity={identity} initialRole={roleFilter}
       close={() => setSelection(null)} saved={() => { setSelection(null); refresh() }} />}
@@ -48,7 +49,7 @@ export function CommitteeRoles({ api, data, term, identity, refresh }: {
         {seat.managed ? <div className="auth-actions">
           <button className="button button--secondary" disabled={!canEdit} onClick={() => setSelection({ seat, remove: false })}>Edit role</button>
           <button className="button button--secondary" disabled={!canEdit} onClick={() => setSelection({ seat, remove: true })}>Remove role</button>
-        </div> : <p>Another administrator can edit this administrator assignment.</p>}
+        </div> : <p>Another admin has to change this admin's role.</p>}
       </li>
     })}</ul> : <p>No assignments for this selection.</p>}
   </Panel>
@@ -102,7 +103,7 @@ function RoleEditor({ save, data, positions, selection, term, identity, initialR
     <fieldset disabled={command.locked} className="organization-editor">
       {remove ? <p>Remove {role?.name} from {member?.name}. Their other roles stay in place.</p> : <>
         <label>Member<select required value={f.member} disabled={!!seat} onChange={event => chooseMember(event.target.value)}>
-          <option value="">Choose an approved member</option>
+          <option value="">Choose a person</option>
           {members.map(person => <option key={person.id} value={person.id}>{person.name} ({person.email})</option>)}
         </select></label>
         <label>Role<select required value={f.role} onChange={event => change({ role: event.target.value })}>
@@ -114,13 +115,13 @@ function RoleEditor({ save, data, positions, selection, term, identity, initialR
         <TextField id="seat-to" label="Ends · Manila time" type="datetime-local" required value={f.to} onChange={event => change({ to: event.target.value })} />
         {role?.administrator && <p>This role grants access to workspace Administration and role assignment.</p>}
       </>}
-      <TextField id="seat-reason" label="Reason for change" required maxLength={1000} value={f.reason} onChange={event => change({ reason: event.target.value })} />
+      <TextField id="seat-reason" label="Why are you changing this?" required maxLength={1000} value={f.reason} onChange={event => change({ reason: event.target.value })} />
       <label><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /> I reviewed this assignment change.</label>
     </fieldset>
     {command.error && <p role="alert">{command.error}</p>}
     <div className="auth-actions">
       <button className="button" type="submit" disabled={command.busy || !command.pending && (!reviewed || !canSave || !f.reason.trim())}>
-        {command.pending ? 'Retry the same change' : remove ? 'Remove assignment' : 'Save assignment'}
+        {command.pending ? 'Try again' : remove ? 'Remove assignment' : 'Save assignment'}
       </button>
       <button className="button button--secondary" type="button" disabled={command.locked} onClick={close}>Cancel</button>
     </div>

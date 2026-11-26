@@ -65,11 +65,11 @@ const loanShape=(b:Loan)=>b&&uuid(b.id)&&uuid(b.itemId)&&text(b.item)&&text(b.lo
 const inventoryProblems:Record<string,string>={
   command_inventory_unavailable:'Inventory borrowing is unavailable for the current term.',
   command_inventory_shortage:'There is less stock available than you entered. Your entries are kept. Check the current quantity.',
-  command_inventory_custodian_unavailable:'A current custodian is required. Keep your entries while the inventory steward assigns someone.',
+  command_inventory_custodian_unavailable:'This item needs someone in charge first. Your entries are kept while Logistics assigns someone.',
   command_inventory_state_changed:'This booking changed. Review its current quantities and condition before continuing.',
-  command_inventory_pickup_unavailable:'Check the pickup date and the borrower’s current workspace access.',
-  command_inventory_finance_unavailable:'The approved FIN request path is unavailable. Contact the finance service.',
-  command_inventory_finance_exists:'A FIN request has already been started for this incident. Refresh its history.',
+  command_inventory_pickup_unavailable:'Check the pickup date and that the borrower is still on the roster.',
+  command_inventory_finance_unavailable:'FIN requests aren\'t set up yet. Ask a FIN head.',
+  command_inventory_finance_exists:'A FIN request was already started for this incident. Check the booking history.',
 }
 
 export function createInventoryApi(ready:ReturnType<typeof createSupabaseClient>){

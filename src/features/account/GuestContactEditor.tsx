@@ -19,7 +19,7 @@ export function GuestContactEditor({ api, termId }: { api: GuestContactGateway; 
     void api.read(termId).then(result => {
       if (!active) return
       setData(result); setName(result.own.displayName); setContact(result.own.contactRoute ?? ''); pending.current = null
-    }).catch(() => { if (active) setError('Your contacts could not load. Check your invitation access and reload.') })
+    }).catch(() => { if (active) setError('Couldn\'t load your contacts. Check your connection and try again.') })
     return () => { active = false }
   }, [api, termId, attempt])
   async function save(event: FormEvent) {
@@ -32,18 +32,18 @@ export function GuestContactEditor({ api, termId }: { api: GuestContactGateway; 
     try {
       const result = await api.save(termId, values, data.own.version, pending.current.id)
       setData(result); setName(result.own.displayName); setContact(result.own.contactRoute ?? '')
-      pending.current = null; setNotice('Your contact details were saved. They have not been shared with other people.')
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'The save could not be confirmed. Please retry.') }
+      pending.current = null; setNotice('Saved. Only you can see these.')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t save. Try again.') }
     finally { setBusy(false) }
   }
   return <Panel title="Your contacts" id="guest-contacts">
-    <p>Your guest access includes your own contact details and any contacts explicitly shared with your invitation.</p>
+    <p>You can see your own contact details and any contacts the organizer shared with you.</p>
     <p><Link to="/shared">Shared with me</Link> · <Link to="/resources">Resources & Start Here</Link></p>
     {error ? <p role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
     {!data && !error ? <LoadingState /> : null}
     {data ? <>
       <p>Verified Google email: {data.own.verifiedEmail}</p>
-      <p>Only you can view these saved details here. Saving does not share them. Both fields are optional.</p>
+      <p>Only you can see these. Both fields are optional.</p>
       <form onSubmit={event => void save(event)}>
         <fieldset className="profile-fields" disabled={busy}>
           <legend>Your own details</legend>
@@ -54,9 +54,9 @@ export function GuestContactEditor({ api, termId }: { api: GuestContactGateway; 
       </form>
       <h3>Shared contacts</h3>
       {data.sharedContacts.length ? <ul className="guest-list shared-contact-list">{data.sharedContacts.map(person => <li key={person.id}>
-        <h4>{person.name}</h4>{person.organizationContact ? <a className="button button--secondary" href={`mailto:${encodeURIComponent(person.organizationContact)}`}>Email {person.name}</a> : <p>Organization contact not available</p>}
+        <h4>{person.name}</h4>{person.organizationContact ? <a className="button button--secondary" href={`mailto:${encodeURIComponent(person.organizationContact)}`}>Email {person.name}</a> : <p>No contact details shared</p>}
       </li>)}</ul> : <p>No other contacts are shared with this invitation. Ask the person who gave you the link for help.</p>}
     </> : null}
-    <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setData(null); setError(''); setNotice(''); setAttempt(attempt + 1) }}>Reload contacts and discard unsaved edits</button>
+    <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setData(null); setError(''); setNotice(''); setAttempt(attempt + 1) }}>Discard changes</button>
   </Panel>
 }

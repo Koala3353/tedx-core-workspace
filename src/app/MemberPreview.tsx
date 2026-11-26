@@ -2,9 +2,13 @@ import { Link, useLocation } from 'react-router'
 import { PageHeading, Panel } from '../components/Page'
 import type { WorkspaceContext } from '../features/auth/gateway'
 import type { OverviewRow } from '../features/overview/api'
-import { OverviewLane } from '../features/overview/OverviewViews'
+import { buildSections } from '../features/today/model'
+import { TodaySection } from '../features/today/TodayList'
+import { CountdownChip } from '../components/Countdown'
+import { formatDayLabel } from '../lib/format'
 import { AppShell } from './AppShell'
-import { getVisibleNavigation, type NavigationContext } from './navigation'
+import { getVisibleNavigation, tabs, type NavigationContext } from './navigation'
+import '../features/today/today.css'
 
 export const memberPreviewPath = '/member-preview'
 export const isMemberPreviewPath = (path: string) => {
@@ -16,39 +20,50 @@ export function canPreviewAsMember(context: WorkspaceContext) {
 }
 
 const memberNavigation: NavigationContext = { audience: 'core', capabilities: [] }
-const sampleTask: OverviewRow = {
-  id: '307b8bad-6ac9-46ad-aca7-76ef4ea0b006',
-  source: 'task',
-  title: 'Confirm the stage rehearsal checklist',
-  owner: 'Sample member',
-  lane: 'actionable',
-  action: 'Check the list with your committee head',
-  person: 'Sample member',
-  state: 'in_progress',
-  committee: 'Stage Management',
-  dueOn: '2027-04-14',
-  dueAt: null,
-  overdue: false,
+
+// Fixed sample rows, dated relative to today so the preview always reads naturally.
+function sampleRows(): OverviewRow[] {
+  const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10)
+  const base = { owner: 'Sample member', person: 'Sample member', lane: 'actionable' as const, dueAt: null, overdue: false, state: 'in_progress' }
+  return [
+    { ...base, id: '307b8bad-6ac9-46ad-aca7-76ef4ea0b006', source: 'task', title: 'Confirm the stage rehearsal checklist', action: 'Check the list with your committee head', committee: 'Stage Management', dueOn: day(2) },
+    { ...base, id: '307b8bad-6ac9-46ad-aca7-76ef4ea0b007', source: 'task', title: 'Upload your profile photo', action: 'Upload a photo', committee: 'Documentation', dueOn: day(-1), overdue: true },
+    { ...base, id: '307b8bad-6ac9-46ad-aca7-76ef4ea0b008', source: 'deliverable', title: 'Rehearsal cue sheet', action: 'Draft the cue sheet', committee: 'Programs & Activities', dueOn: day(12), lane: 'waiting' },
+  ]
 }
 
 const examples: Record<string, { title: string; detail: string }> = {
   deliverables: { title: 'Stage rehearsal plan', detail: 'Stage Management · In progress' },
   working: { title: 'Rehearsal cue sheet handoff', detail: 'Stage Management → Programs & Activities' },
-  requests: { title: 'Request logistics support', detail: 'See the service details before starting a request.' },
-  calendar: { title: 'Stage rehearsal', detail: 'April 14, 2027 · 3:00 PM Manila time' },
+  requests: { title: 'Ask Logistics for a room', detail: 'See what the service needs before you start.' },
+  calendar: { title: 'Stage rehearsal', detail: 'Thursday, 3 PM' },
   resources: { title: 'New member guide', detail: 'Start with your committee’s checklist and contact.' },
   people: { title: 'Stage Management', detail: 'Sample member · Core' },
-  publicity: { title: 'Final publicity', detail: 'No publicity items in this example.' },
-  search: { title: 'Search permitted work', detail: 'Tasks, deliverables, and requests appear here when they match a search.' },
+  publicity: { title: 'Publicity sign-off', detail: 'No publicity items in this example.' },
+  search: { title: 'Find', detail: 'Tasks, deliverables and requests appear here when they match.' },
   notifications: { title: 'Task assigned', detail: 'Confirm the stage rehearsal checklist.' },
   account: { title: 'Sample member', detail: 'Stage Management Core' },
 }
 
+/** Today with fixed sample rows. Used by the member preview and the development shell preview. */
+export function SampleToday() {
+  const sections = buildSections(sampleRows(), [], [])
+  return <div className="today">
+    <header className="today-head"><div><h1>Today</h1><p className="today-head__summary"><span>{formatDayLabel(new Date())} · {sections.count} things need you</span><CountdownChip className="today-head__countdown" /></p></div></header>
+    <div data-tour="today-list">
+      <TodaySection title="Overdue" items={sections.overdue} illustrative tourFirstVerb />
+      <TodaySection title="Due this week" items={sections.week} illustrative />
+      <TodaySection title="Waiting on others" items={sections.waiting} illustrative collapsible />
+    </div>
+  </div>
+}
+
 export function MemberPreview() {
   const path = useLocation().pathname.toLowerCase().slice(memberPreviewPath.length).replace(/\/$/, '') || '/'
-  const active = getVisibleNavigation(memberNavigation).find(item => item.href === path)
-  const overview = path === '/'
-  const tasks = active?.id === 'tasks'
+  const navigation = getVisibleNavigation(memberNavigation)
+  const active = navigation.find(item => item.href === path)
+  const tab = tabs.find(item => item.href === path)
+  const today = path === '/'
   const example = active ? examples[active.id] : undefined
   return <AppShell
     context={memberNavigation}
@@ -56,20 +71,10 @@ export function MemberPreview() {
     preview={false}
     memberPreviewPath={memberPreviewPath}
     headerAction={<Link className="button" replace to="/admin">Return to admin view</Link>}
-    content={<>
-      <PageHeading title={active?.label ?? 'Preview page unavailable'} description={overview
-        ? 'Your next actions and work waiting on someone else.' : active?.description} />
-      {overview && <>
-        <OverviewLane items={[sampleTask]} lane="actionable" illustrative />
-        <div className="auth-actions">
-          <Link className="button button--secondary" to={memberPreviewPath + '/tasks'}>My tasks</Link>
-          <Link className="button button--secondary" to={memberPreviewPath + '/requests'}>Find a request service</Link>
-          <Link className="button button--secondary" to={memberPreviewPath + '/resources'}>Resources &amp; Start Here</Link>
-        </div>
-      </>}
-      {tasks && <Panel title="Assigned to me"><h3>{sampleTask.title}</h3><p>Stage Management · In progress · Due April 14, 2027</p></Panel>}
+    content={today ? <SampleToday /> : <>
+      <PageHeading title={active?.label ?? tab?.label ?? 'Preview page unavailable'} description={active?.description ?? tab?.description} />
       {example && <Panel title={example.title}><p>{example.detail}</p></Panel>}
-      {!active && <Link className="button button--secondary" to={memberPreviewPath}>Return to preview overview</Link>}
+      {!active && !tab && <Link className="button button--secondary" to={memberPreviewPath}>Back to the preview</Link>}
     </>}
   />
 }

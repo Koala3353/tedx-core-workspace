@@ -15,22 +15,44 @@ export function callbackUrl(origin: string, configuredOrigin?: string): string |
   return allowed ? `${origin}${basePath}/auth/callback` : null
 }
 
+// Every in-app area a signed-out deep link may return to. Anything else falls back to the overview.
+const knownRoots = new Set(['admin', 'requests', 'reviews', 'finance', 'publicity', 'prism', 'inventory', 'handover', 'archive', 'working-together', 'guests', 'guest', 'shared', 'account', 'notifications', 'calendar', 'people', 'resources', 'search', 'reports', 'committee', 'mentoring', 'privacy', 'tasks', 'deliverables', 'announcements', 'feedback', 'department', 'member-preview', 'work', 'event', 'team', 'desk', 'my-part', 'overview'])
+const safeSegment = /^[A-Za-z0-9_~-][A-Za-z0-9._~-]{0,127}$/
+// Crew door QR codes: /event/check-in/<token>. Only this exact shape may survive sign-in.
+const checkInPath = /^\/event\/check-in\/[A-Za-z0-9_-]{16,128}$/
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// Paths that keep a validated `term` (and, for People/Resources, one focus id) across sign-in.
+function keepsQuery(path: string): boolean {
+  const parts = path.split('/')
+  const requestPath = parts.length === 4 && parts[1] === 'requests' && uuidPattern.test(parts[2]) && uuidPattern.test(parts[3])
+  const inventoryPath = path === '/inventory' || parts.length === 3 && parts[1] === 'inventory' && uuidPattern.test(parts[2])
+  return path === '/search' || path === '/reports' || path === '/people' || path === '/resources' || path === '/mentoring' || isTaskPath(path) || isDeliverablePath(path) || isAnnouncementPath(path) || isPrivacyPath(path) || requestPath || inventoryPath
+}
+function isKnownRoute(path: string): boolean {
+  if (path === '/') return true
+  if (path.length > 512) return false
+  const segments = path.slice(1).split('/')
+  if (segments.length > 6 || segments.some(segment => !safeSegment.test(segment) || segment === '.' || segment === '..')) return false
+  if (path.endsWith('/')) return false
+  const root = segments[0]
+  if (root === 'guest') return path === '/guest/redeem'
+  if (segments[1] === 'check-in') return root === 'event' && checkInPath.test(path)
+  if (root === 'my-part') return path === '/my-part' || path === '/my-part/info'
+  if (root === 'work' || root === 'desk' || root === 'overview') return segments.length === 1
+  return knownRoots.has(root) || navigationItems.some(item => item.href !== '/' && (item.href === path || path.startsWith(item.href + '/')))
+}
+
 export function safeReturnPath(value: string | null): string {
   if(value?.startsWith('/working-together/timeline?')&&!/[\\#]/.test(value)&&!hasControl(value))return '/working-together/timeline'+timelineSearch(parseTimelineQuery(value.slice(value.indexOf('?'))))
-  if(value==='/working-together/timeline')return value
-  if (!value?.startsWith('/') || value.startsWith('//') || /[\\%]/.test(value) || hasControl(value)) return '/'
+  if (!value?.startsWith('/') || value.startsWith('//') || /[\\%@]/.test(value) || hasControl(value)) return '/'
   const path = value.split(/[?#]/, 1)[0]
-  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const requestParts=path.split('/'),requestPath=requestParts.length===4&&requestParts[1]==='requests'&&uuid.test(requestParts[2])&&uuid.test(requestParts[3])
-  const inventoryPath=path==='/inventory'||requestParts.length===3&&requestParts[1]==='inventory'&&uuid.test(requestParts[2])
-  if(path==='/search'||path==='/reports'||path==='/people'||path==='/resources'||path==='/mentoring'||isTaskPath(path)||isDeliverablePath(path)||isAnnouncementPath(path)||isPrivacyPath(path)||requestPath||inventoryPath){
-    const input=new URLSearchParams(value.split('?')[1]?.split('#')[0]),kept=new URLSearchParams()
-    const focus=path==='/resources'?'resource':path==='/people'?'contact':null
-    if(focus&&input.getAll(focus).length===1&&uuid.test(input.get(focus)!))kept.set(focus,input.get(focus)!)
-    if(input.getAll('term').length===1&&uuid.test(input.get('term')!))kept.set('term',input.get('term')!)
-    return path+(kept.size?'?'+kept.toString():'')
-  }
-  return /^\/publicity\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || path === '/reviews' || path === '/department' || path === '/feedback' || /^\/finance\/reviews\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || /^\/finance\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || /^\/reviews\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(path) || path === '/guest/redeem' || isDeliverablePath(path) || isTaskPath(path) || isAgreementPath(path) || isHandoffPath(path) || navigationItems.some((item) => item.href === path) ? path : '/'
+  if (!isKnownRoute(path)) return '/'
+  if (!keepsQuery(path)) return path
+  const input=new URLSearchParams(value.split('?')[1]?.split('#')[0]),kept=new URLSearchParams()
+  const focus=path==='/resources'?'resource':path==='/people'?'contact':path==='/inventory'?'item':null
+  if(focus&&input.getAll(focus).length===1&&uuidPattern.test(input.get(focus)!))kept.set(focus,input.get(focus)!)
+  if(input.getAll('term').length===1&&uuidPattern.test(input.get('term')!))kept.set('term',input.get('term')!)
+  return path+(kept.size?'?'+kept.toString():'')
 }
 
 // A content-free marker that this browser held a workspace session, so the sign-in page

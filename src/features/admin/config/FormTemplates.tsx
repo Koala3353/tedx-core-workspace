@@ -7,9 +7,9 @@ const templates={
   {...newQuestion('date_time',section),label:'When is it needed?',help:'Leave blank if the schedule is not yet known.'},
   {...newQuestion('short_text',section),label:'Where is it needed?',help:'Name the place or online location. Leave blank if it is not yet known.'}
  ]},
- items:{label:'Items to prepare',size:3,description:'Repeatable item descriptions and quantities. No prices, financial decisions or approval information.',create:(section:string)=>{
+ items:{label:'Items to prepare',size:3,description:'Items and quantities. Leave prices and approvals out.',create:(section:string)=>{
   const rows=newQuestion('line_items',section)
-  return[{...rows,label:'Items to prepare',help:'Add only the items needed for this request. Money and approvals belong in their protected workflows.',itemFields:[
+  return[{...rows,label:'Items to prepare',help:'Add only what this request needs. Money goes in the Budget form.',itemFields:[
    {...rows.itemFields![0],label:'Item or activity',help:'Describe the item or activity in this row.',required:true},
    {...newQuestion('number',section),label:'Quantity',help:'Enter the number needed.',required:true,min:1}
   ]}]

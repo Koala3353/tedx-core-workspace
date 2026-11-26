@@ -39,7 +39,7 @@ export type BookingOutcome =
   {outcome:'blocked';reason:'room_unsuitable';booking:Booking|null}|
   {outcome:'conflict';reason:'slot_unavailable';booking:Booking|null}
 export const bookingStateLabel:Record<Booking['state'],string>={
-  requested:'Requested',held:'Held',confirmed:'Officially confirmed',cancelled:'Cancelled',
+  requested:'Requested',held:'Held',confirmed:'Confirmed',cancelled:'Cancelled',
 }
 export const bookingProblem:Record<Extract<BookingOutcome,{reason:string}>['reason'],string>={
   room_unsuitable:'Choose a room that fits the group and its accessibility and equipment needs.',
@@ -79,10 +79,10 @@ function bookingShape(v:unknown,term:string,request:string):v is Booking {
 const bookingErrors:Record<string,string>={
   command_booking_invalid_slot:'Choose a valid start and end time.',
   command_booking_state_changed:'Refresh the request and check its current reservation status.',
-  command_booking_request_unavailable:'A current submitted Logistics request and approved room policy are required.',
+  command_booking_request_unavailable:'Room booking needs a submitted Logistics request and room rules set up by Logistics.',
   command_booking_policy_changed:'The room policy changed. Refresh and review the current requirements.',
   command_booking_request_slot_changed:'Ask the requester to update the proposed room or time before confirming.',
-  command_booking_official_evidence_required:'Attach the official reservation evidence and enter its school reference.',
+  command_booking_official_evidence_required:'Attach the school reservation record and enter its reference number.',
   command_booking_slot_unavailable:'This slot is no longer available. Choose a different room or time. Your entries are kept.',
   command_booking_room_unsuitable:'Choose a room that fits the group and its accessibility and equipment needs.',
 }

@@ -1,3 +1,4 @@
+import {formatDateTime} from '../shared/dates'
 import type {FormDefinition,FormField} from '../requests/catalog/api'
 import {evaluateCondition,parseCentavos,type FormOptions,type FormValues} from './validation'
 
@@ -7,7 +8,7 @@ export function FormAnswerReview({definition,sections,values,money,options,locke
   if(v===undefined||v===null||v===''||Array.isArray(v)&&v.length===0)return 'Not provided'
   if(f.type==='checkbox')return v===true?'Yes':'No'
   if(['single_choice','multi_choice','member','unit','file'].includes(f.type)){const choices=f.type==='member'?options.members:f.type==='unit'?options.units:f.type==='file'?options.files:f.options??[];return(Array.isArray(v)?v:[v]).map(id=>choices.find(o=>o.id===id)?.label??'Selection unavailable').join(', ')}
-  if(f.type==='date_time'&&typeof v==='string'&&Number.isFinite(Date.parse(v)))return new Date(v).toLocaleString('en-PH',{timeZone:'Asia/Manila'})+' · Asia/Manila'
+  if(f.type==='date_time'&&typeof v==='string'&&Number.isFinite(Date.parse(v)))return formatDateTime(v)+' · Asia/Manila'
   return typeof v==='string'||typeof v==='number'?String(v):'Not provided'
  }
  const visible=(f:FormField)=>!f.visibleWhen||evaluateCondition(f.visibleWhen,values)

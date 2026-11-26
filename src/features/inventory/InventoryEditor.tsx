@@ -4,6 +4,8 @@ import {Panel} from '../../components/Page'
 import {TextField} from '../../components/TextField'
 import {forgetRecordDrafts} from '../auth/draftScope'
 import {useFinDecision} from '../finance/DecisionMemory'
+import {RefreshButton} from '../shared/RefreshButton'
+import {formatDay,formatDateTime} from '../shared/dates'
 import type {InventoryApi,InventoryCommand,InventoryEvidence,InventoryReceipt,InventoryWorkspace,Loan,Movement,StockItem} from './api'
 
 export type InventoryAction=
@@ -13,13 +15,12 @@ export type InventoryAction=
   {kind:'replacement';loan:string;incident:string}
 
 export const movementLabel:Record<Movement,string>={
-  issue:'Confirm physical checkout',return:'Record return',damage:'Record damaged items',loss:'Record lost items',cancel:'Cancel reservation',
+  issue:'Confirm handover',return:'Record return',damage:'Record damaged items',loss:'Record lost items',cancel:'Cancel reservation',
 }
 const label={
-  reserve:'Reserve inventory',register:'Register item',reassign:'Assign custodian',
+  reserve:'Reserve an item',register:'Add an item',reassign:'Change who\'s in charge',
   finance:'Start FIN purchase request',replacement:'Start FIN replacement request',
 }
-const timestamp=new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Manila'})
 const conditionValue=(v:string)=>v==='usable'||v==='worn'?v:null
 const incident=(action:InventoryAction)=>action.kind==='movement'&&(action.action==='damage'||action.action==='loss')
 const focusReview=(heading:HTMLHeadingElement|null)=>{heading?.focus()}
@@ -83,7 +84,7 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
         setLocalError('Enter a quantity from the units still out.');return
       }
       if(recordEvidence&&!evidence?.rows?.some(file=>file.id===fields.evidence)){
-        setLocalError('Choose finalized evidence you can access.');return
+        setLocalError('Choose a photo or document for this incident.');return
       }
       void send({kind:'movement',term,loan:loan.id,version:base,action:choice.action,quantity:
         choice.action==='issue'||choice.action==='cancel'?loan.quantity:quantity,
@@ -92,7 +93,7 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
       void send({kind:'reassign',term,item:item.id,version:base,custodian:fields.custodian,note})
     }else if((choice.kind==='finance'||choice.kind==='replacement')&&item){
       void send({kind:'finance',term,item:item.id,version:base,incident:choice.kind==='replacement'?choice.incident:null})
-    }else setLocalError('Check the required inventory fields.')
+    }else setLocalError('Fill in the required fields.')
   }
   const input=(name:string,nameLabel:string,options:Omit<ComponentProps<typeof TextField>,'id'|'label'|'value'|'onChange'>={})=>
     <TextField id={id+name} label={nameLabel} value={fields[name]} onChange={e=>field(name,e.target.value)} {...options}/>
@@ -108,12 +109,12 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
     {itemName?<p><strong>{itemName}</strong>{loan?' · '+loan.reference:''}{item?' · '+item.location:''}</p>:null}
     {localError||m.error?<p role="alert">{localError||m.error}</p>:null}
     {m.pending?<div data-pending-command="true">
-      <p>Checking the result. Retry the same entries to recover this action.</p>
-      <button className="button" disabled={m.busy} onClick={()=>void send()}>Check whether inventory saved</button>
+      <p>We couldn't confirm this was saved. Retry to finish it.</p>
+      <button className="button" disabled={m.busy} onClick={()=>void send()}>Retry</button>
     </div>:null}
-    {!allowed&&!m.pending?<p role="status">The current stock, booking or your access changed. Check the latest details.</p>:null}
+    {!allowed&&!m.pending?<p role="status">The stock or booking changed, or you can no longer do this. Check the latest details.</p>:null}
     {allowed&&stale&&!m.pending?<div role="alert"><p>This record changed. Review the latest quantities before sending.</p>
-      <button className="button button--secondary" disabled={checking} onClick={()=>{setBase(recordVersion);setReview(false);setLocalError('');m.change(fields)}}>Keep entries and review latest</button>
+      <button className="button button--secondary" disabled={checking} onClick={()=>{setBase(recordVersion);setReview(false);setLocalError('');m.change(fields)}}>Keep my entries and continue</button>
     </div>:null}
     <form onSubmit={submit} data-unsaved-changes={dirty} data-pending-command={m.locked}>
       <fieldset disabled={checking||m.locked||stale||!allowed}>
@@ -122,19 +123,19 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
           <div className="form-field"><label htmlFor={id+'kind'}>Item type</label><select id={id+'kind'} value={fields.kind} onChange={e=>field('kind',e.target.value)}>
             <option value="returnable">Returnable equipment</option><option value="consumable">Consumable supplies</option>
           </select></div>
-          {input('quantity','Counted opening quantity',{type:'number',required:true,min:0,max:100000})}{conditionFields}
+          {input('quantity','How many you have now',{type:'number',required:true,min:0,max:100000})}{conditionFields}
         </>:null}
-        {choice.kind==='register'||choice.kind==='reassign'?<div className="form-field"><label htmlFor={id+'custodian'}>Current eligible custodian</label>
+        {choice.kind==='register'||choice.kind==='reassign'?<div className="form-field"><label htmlFor={id+'custodian'}>Person in charge</label>
           <select id={id+'custodian'} required value={fields.custodian} onChange={e=>field('custodian',e.target.value)}>
-            <option value="">Choose a custodian</option>{workspace.custodians.filter(person=>choice.kind==='register'||person.id!==item?.custodianId)
+            <option value="">Choose a person</option>{workspace.custodians.filter(person=>choice.kind==='register'||person.id!==item?.custodianId)
               .map(person=><option key={person.id} value={person.id}>{person.name}</option>)}
           </select>
         </div>:null}
-        {choice.kind==='reserve'&&item?<><p role="status">{item.available} available · {item.custodian??'Custodian assignment needed'}</p>
+        {choice.kind==='reserve'&&item?<><p role="status">{item.available} available · {item.custodian?'In charge: '+item.custodian:'Needs someone in charge'}</p>
           {review?<div>
             <h3 tabIndex={-1} ref={focusReview}>Review your reservation</h3>
-            <p>{fields.quantity} × {item.name} · Pickup {fields.startsOn}
-              {item.kind==='returnable'?' · Return by '+fields.dueOn:' · Consumable'}</p>
+            <p>{fields.quantity} × {item.name} · Pickup {formatDay(fields.startsOn)}
+              {item.kind==='returnable'?' · Return by '+formatDay(fields.dueOn):' · Used up, no return'}</p>
             {fields.work?<p>{workspace.work.find(w=>w.id===fields.work)?.label??'Previously selected work'}</p>:null}
             <p>Stock is set aside when you send this reservation. Collect it from {item.custodian}.</p>
             <button type="button" className="button button--secondary" onClick={()=>setReview(false)}>Back to change reservation</button>
@@ -142,41 +143,41 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
             {input('quantity','Quantity',{required:true,type:'number',min:1,max:Math.max(1,item.available)})}
             {input('startsOn','Pickup date (Manila)',{type:'date',required:true})}
             {item.kind==='returnable'?input('dueOn','Return by (Manila)',{type:'date',required:true,min:fields.startsOn}):
-              <p>Consumed stock is recorded at pickup.</p>}
+              <p>This item gets used up, so there's no return date.</p>}
             {workspace.work.length?<div className="form-field"><label htmlFor={id+'work'}>Related work (optional)</label>
               <select id={id+'work'} value={fields.work} onChange={e=>field('work',e.target.value)}>
               <option value="">Choose related work</option>{workspace.work.map(w=><option key={w.id} value={w.id}>{w.label}</option>)}</select></div>:null}
           </>}
         </>:null}
-        {action==='issue'&&loan?<><p>Confirm only after handing {loan.quantity} {loan.quantity===1?'unit':'units'} to {loan.borrower} at {loan.location}.</p>{conditionFields}</>:null}
+        {action==='issue'&&loan?<><p>Confirm only after you've handed {loan.quantity} {loan.quantity===1?'unit':'units'} to {loan.borrower} at {loan.location}.</p>{conditionFields}</>:null}
         {action==='return'&&loan?<><p>{loan.outstanding} still out. Check the quantity and condition before restoring stock.</p>
           {input('quantity','Units returned',{type:'number',required:true,min:1,max:loan.outstanding})}{conditionFields}</>:null}
-        {action==='cancel'&&loan?<p>Release all {loan.quantity} reserved units. The reference and reason stay in the booking history.</p>:null}
+        {action==='cancel'&&loan?<p>This frees up all {loan.quantity} reserved units. The booking history keeps the reference and your reason.</p>:null}
         {recordEvidence&&loan?<><p>{loan.outstanding} still out. Damaged and lost units stay out of available stock.</p>
           {input('quantity',action==='loss'?'Units lost':'Units damaged',{type:'number',required:true,min:1,max:loan.outstanding})}
-          <div className="form-field"><label htmlFor={id+'evidence'}>Finalized evidence (required)</label>
+          <div className="form-field"><label htmlFor={id+'evidence'}>Photo or document (required)</label>
             <select id={id+'evidence'} required value={fields.evidence} onChange={e=>field('evidence',e.target.value)}>
             <option value="">Select a document</option>{evidence?.rows?.map(e=>
-              <option key={e.id} value={e.id}>{e.work} · {e.files.join(', ')} · {timestamp.format(new Date(e.at))}</option>)}
+              <option key={e.id} value={e.id}>{e.work} · {e.files.join(', ')} · {formatDateTime(e.at)}</option>)}
           </select></div>
-          {!evidence?<p role="status">Checking finalized evidence…</p>:null}
-          {evidence?.failed?<p role="alert">Evidence could not be checked.</p>:null}
-          {evidence?.rows?.length===0?<p>Finalize the incident record in permitted work, then refresh the evidence choices.</p>:null}
+          {!evidence?<p role="status">Loading files…</p>:null}
+          {evidence?.failed?<p role="alert">Couldn't load the files. Use the refresh button to try again.</p>:null}
+          {evidence?.rows?.length===0?<p>No files yet. Add a photo or document to the related task, finalize it, then refresh this list.</p>:null}
           <div className="auth-actions">
             <Link className="button button--secondary" target="_blank" rel="noopener"
               to={loan.relatedWork?'/'+(loan.relatedWork.kind==='task'?'tasks':'deliverables')+'/'+loan.relatedWork.id:'/search'}>
-              {loan.relatedWork?'Open related work in a new tab':'Find work for evidence in a new tab'}</Link>
-            <button type="button" className="button button--secondary" onClick={()=>setEvidenceRefresh(n=>n+1)}>Refresh evidence</button>
+              {loan.relatedWork?'Open related work in a new tab':'Find a task in a new tab'}</Link>
+            <RefreshButton onRefresh={()=>setEvidenceRefresh(n=>n+1)}/>
           </div>
         </>:null}
         {recordEvidence||action==='cancel'||choice.kind==='reassign'?input('note',
-          recordEvidence?'Incident details':action==='cancel'?'Why are you cancelling?':'Custody change reason',
+          recordEvidence?'Incident details':action==='cancel'?'Why are you cancelling?':'Reason for the change',
           {required:true,maxLength:2000}):null}
-        {isFinance?<p>Open a private FIN draft. Enter the costs there for independent review before committing money.</p>:null}
+        {isFinance?<p>This opens a FIN draft. Enter the costs there. FIN has to approve them before anyone spends money.</p>:null}
         <button className="button" type="submit">{choice.kind==='reserve'?(review?'Send reservation':'Review reservation'):
           action==='cancel'?'Confirm cancellation':title}</button>
       </fieldset>
-      <button className="button button--secondary" type="button" disabled={m.locked} onClick={discard}>Close action</button>
+      <button className="button button--secondary" type="button" disabled={m.locked} onClick={discard}>Close</button>
     </form>
   </Panel>
 }

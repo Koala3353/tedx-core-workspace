@@ -3,13 +3,14 @@ import { Panel } from '../../../components/Page'
 import { TextField } from '../../../components/TextField'
 import { useFinDecision } from '../../finance/DecisionMemory'
 import type { NotificationPage,NotificationsApi } from '../../notifications/api'
+import {RefreshButton} from '../../shared/RefreshButton'
 import { telegramConfirmCode,telegramProofHash,telegramStartCode,TelegramUiError,type TelegramApi,type TelegramCommand,type TelegramStatus } from './api'
 
 type PendingLink={command:TelegramCommand;startCode?:string}
 const deliveryModes=[
-  ['immediate','As updates arrive'],
+  ['immediate','Right away'],
   ['digest','Daily digest'],
-  ['mute','Mute optional alerts'],
+  ['mute','Off'],
 ] as const
 const savedMode=(mode:string)=>deliveryModes.find(([value])=>mode===value)?.[1]
 const codeOf=(error:unknown)=>error&&typeof error==='object'&&'code'in error?error.code:undefined
@@ -39,7 +40,7 @@ export function TelegramPreferences({api,notifications,term,preference,refresh}:
     }).catch(error=>{
       if(!live)return
       setStatus(null)
-      setLoadError('Telegram settings could not be checked.')
+      setLoadError('Couldn\'t load Telegram settings. Try again.')
       if(codeOf(error)==='permission'){
         setPending(null);setUrl('');setConfirmation('')
       }
@@ -82,16 +83,16 @@ export function TelegramPreferences({api,notifications,term,preference,refresh}:
       if(code==='permission'||code==='restart')setPending(null)
       if(code==='permission'){setStatus(null);setUrl('');setConfirmation('')}
       if(code==='restart')setConfirmation('')
-      setLinkError(code==='permission'?'Current permission to change this Telegram connection could not be confirmed.':
+      setLinkError(code==='permission'?'You don\'t have permission to change this Telegram connection.':
         code==='restart'?'This code did not match or has expired. Start a fresh link and use the new code from your private chat.':
-        'The connection change could not be confirmed. Retry the same request.')
+        'We couldn\'t confirm the change. Choose Try again.')
       if(code==='restart')check()
     } finally{setBusy(false)}
   }
 
   return <Panel title="Delivery preferences">
-    <p>Required updates stay in this workspace. Telegram can send a brief alert that opens this inbox after sign-in.</p>
-    {preference?<p>Saved preference <strong>{savedMode(preference.mode)}</strong></p>:<p>Checking the saved alert preference…</p>}
+    <p>All updates stay here. Telegram can also send you a short alert with a link back.</p>
+    {preference?<p>Telegram alerts: <strong>{savedMode(preference.mode)}</strong></p>:<p>Loading…</p>}
     <div className="auth-actions" aria-label="Optional alerts">
       {deliveryModes.map(([mode,label])=><button type="button" key={mode} className="button button--secondary"
         aria-pressed={preference?.mode===mode} disabled={settings.locked||!preference||preference.mode===mode}
@@ -100,36 +101,36 @@ export function TelegramPreferences({api,notifications,term,preference,refresh}:
     {settingsNotice?<p role="status">{settingsNotice}</p>:null}
     {settings.error?<p role="alert">{settings.error}</p>:null}
     {settings.pending?<button type="button" className="button button--secondary" disabled={settings.busy}
-      onClick={()=>void editPreference()}>Retry saving this preference</button>:null}
-    <p>Quiet hours are 8 pm–8 am Manila time. A daily digest combines eligible unread updates and can arrive after 8 am the next day.</p>
+      onClick={()=>void editPreference()}>Try again</button>:null}
+    <p>No alerts between 8 PM and 8 AM. The daily digest arrives after 8 AM.</p>
     <h3>Telegram connection</h3>
     {loadError?<p role="status">{loadError}</p>:null}
     {linkError?<p role="alert">{linkError}</p>:null}
     {status?<p role="status">{status.state==='linked'?'Telegram linked.':
-      status.state==='relink'?'Telegram cannot receive alerts. Link your private chat again if you want alerts.':
-      status.attempt==='expired'?'Your link has expired. Start a fresh link when you are ready.':'Telegram is optional and currently disconnected.'}</p>:null}
-    {status?.issue?<p role="status">{status.issue==='retry'?'Telegram asked the workspace to wait before the next delivery attempt.':
-      status.issue==='uncertain'?'Delivery could not be confirmed. Check this inbox for the update.':
-      'A Telegram alert could not be delivered. Your workspace updates are still available here.'}</p>:null}
+      status.state==='relink'?'Telegram can\'t receive alerts. Link it again if you want them.':
+      status.attempt==='expired'?'Your link expired. Start a new one when you\'re ready.':'Telegram isn\'t linked. It\'s optional.'}</p>:null}
+    {status?.issue?<p role="status">{status.issue==='retry'?'Telegram asked us to wait before sending the next alert.':
+      status.issue==='uncertain'?'We couldn\'t confirm delivery. Check here for the update.':
+      'A Telegram alert couldn\'t be delivered. Your updates are still here.'}</p>:null}
     {pending?<button type="button" className="button button--secondary" disabled={busy}
-      onClick={()=>void command(pending.command.action)}>Retry the same connection request</button>:null}
+      onClick={()=>void command(pending.command.action)}>Try again</button>:null}
     {!pending&&(status?.state==='linked'||loadError)?<div className="auth-actions">
-      <button type="button" className="button button--secondary" disabled={busy} onClick={check}>Check Telegram connection</button>
-      {status?.state==='linked'?<button type="button" className="button button--secondary" disabled={busy||!preference}
+      <RefreshButton onRefresh={check} disabled={busy}/>
+      {status?.state==='linked'?<button type="button" className="button button--quiet" disabled={busy||!preference}
         onClick={()=>void command('unlink')}>Unlink Telegram</button>:null}
     </div>:null}
     {status&&status.state!=='linked'&&!pending?<div>
       <div className="auth-actions">
         <button type="button" className="button button--secondary" disabled={busy||!preference} onClick={()=>void command('start')}>
-          {url||status.attempt?'Start a fresh Telegram link':status.state==='relink'?'Relink Telegram':'Link Telegram'}
+          {url||status.attempt?'Start a new link':status.state==='relink'?'Relink Telegram':'Link Telegram'}
         </button>
         {status.attempt?<button type="button" className="button button--secondary" disabled={busy||!preference}
           onClick={()=>void command('cancel')}>Cancel linking</button>:null}
       </div>
-      {url?<p><a className="button button--secondary" href={url} target="_blank" rel="noopener noreferrer">Open private Telegram bot chat</a></p>:null}
+      {url?<p><a className="button button--secondary" href={url} target="_blank" rel="noopener noreferrer">Open the Telegram bot</a></p>:null}
       {url||status.attempt==='confirm'||status.attempt==='start'?<form onSubmit={event=>{event.preventDefault();void command('confirm')}}>
-        <p>Press Start in your private bot chat. Enter the code the bot gives you here within eight minutes.</p>
-        <TextField id="telegram-confirmation" label="Code from your private Telegram chat" value={confirmation}
+        <p>Press Start in the bot chat, then enter the code it gives you here within 8 minutes.</p>
+        <TextField id="telegram-confirmation" label="Code from Telegram" value={confirmation}
           onChange={event=>setConfirmation(event.target.value)} maxLength={24} autoComplete="off" spellCheck={false} disabled={busy||!preference}/>
         <button type="submit" className="button button--secondary" disabled={busy||!preference||!telegramConfirmCode.test(confirmation.trim())}>Confirm Telegram link</button>
       </form>:null}

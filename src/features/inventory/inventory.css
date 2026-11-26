@@ -19,3 +19,4 @@
 .inventory-balance dd { margin: 0; font-weight: 700; }
 .inventory-result { margin-block: 0; font-weight: 600; }
 @media (max-width: 800px) { .inventory-sections { grid-template-columns: minmax(0, 1fr); } }
+.inventory-item--focused { outline: 2px solid var(--color-accent); outline-offset: 4px; border-radius: 4px; }

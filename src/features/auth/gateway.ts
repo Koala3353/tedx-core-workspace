@@ -41,6 +41,15 @@ import {createOverviewApi,type OverviewApi} from '../overview/api'
 import {createFilesApi,type FilesApi} from '../files/api'
 import {createDriveApi} from '../integrations/drive/api'
 import {createCommentsApi,type CommentsApi} from '../comments/api'
+import {createClientStateApi,type ClientStateApi} from '../../lib/clientState'
+import {createTeamSetupApi,type TeamSetupApi} from '../team-setup'
+import {createWarRoomApi,type WarRoomApi} from '../war-room'
+import {createWhoToAskApi,type WhoToAskApi} from '../who-to-ask'
+import {createCommitteePagesApi,type CommitteePagesApi} from '../committee-pages'
+import {createSpeakerPortalApi,type SpeakerPortalApi} from '../speaker-portal'
+import {createEventBoardsApi,type EventBoardsApi} from '../event-boards'
+import {createRunOfShowApi,type RunOfShowApi} from '../run-of-show'
+import {createEventQrApi,type EventQrApi} from '../event-qr'
 import type { ClientEnvironment } from '../../lib/env'
 import { createSupabaseClient } from '../../lib/supabase'
 import { callbackUrl, forgetSession, safeReturnPath } from './redirects'
@@ -65,6 +74,15 @@ export type WorkspaceContext = MemberContext | GuestContext
 export const isGuest = (value: WorkspaceContext): value is GuestContext => 'audience' in value && value.audience === 'guest'
 export type AuthResult = WorkspaceContext | { state: 'unavailable' | 'signed_out' | 'denied' | 'error' }
 export interface AuthGateway {
+  clientState?: ClientStateApi
+  teamSetup?: TeamSetupApi
+  warRoom?: WarRoomApi
+  whoToAsk?: WhoToAskApi
+  committeePages?: CommitteePagesApi
+  speakerPortal?: SpeakerPortalApi
+  eventBoards?: EventBoardsApi
+  runOfShow?: RunOfShowApi
+  eventQr?: EventQrApi
   turnover?: TurnoverApi
   privacy?: PrivacyApi
   exportOperationalWork?: OperationalExport
@@ -142,6 +160,15 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
   let exchangePromise: Promise<void> | undefined
   return {
     privacy,
+    clientState: createClientStateApi(clientReady),
+    teamSetup: createTeamSetupApi(clientReady),
+    warRoom: createWarRoomApi(clientReady),
+    whoToAsk: createWhoToAskApi(clientReady),
+    committeePages: createCommitteePagesApi(clientReady),
+    speakerPortal: createSpeakerPortalApi(clientReady),
+    eventBoards: createEventBoardsApi(clientReady),
+    runOfShow: createRunOfShowApi(clientReady),
+    eventQr: createEventQrApi(clientReady),
     turnover: createTurnoverApi(clientReady),
     announcements: createAnnouncementsApi(clientReady),
     site: createPublishedSiteApi(clientReady),

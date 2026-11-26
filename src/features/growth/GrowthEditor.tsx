@@ -19,9 +19,9 @@ export type GrowthEdit=
   {kind:'schedule';relationship:Relationship;checkin?:Checkin}|{kind:'note';checkin:Checkin}|
   {kind:'assignment';data:Assignments;previous?:Assignment}
 
-const titleFor=(q:GrowthEdit)=>q.kind==='goal'?q.goal?'Edit goal details':'Add a personal goal':
+const titleFor=(q:GrowthEdit)=>q.kind==='goal'?q.goal?'Edit goal':'Add a goal':
   q.kind==='share'?'Choose a mentor to share with':q.kind==='schedule'?q.checkin?'Change check-in':'Schedule a check-in':
-  q.kind==='note'?'Add a check-in note':q.previous?'Approve a replacement mentor':'Approve a mentorship'
+  q.kind==='note'?'Add a check-in note':q.previous?'Replace mentor':'New mentor assignment'
 
 export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
   api:GrowthApi;term:string;edit:GrowthEdit;checking:boolean;refresh:()=>void;saved:(notice:string)=>void;close:()=>void
@@ -42,7 +42,7 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
   })
   const fields=m.fields,stale=base!==currentVersion
   const success=edit.kind==='goal'?'Goal saved.':edit.kind==='share'?'Goal sharing saved.':
-    edit.kind==='schedule'?'Check-in scheduled.':edit.kind==='note'?'Check-in note saved.':'Mentorship approved. Member consent is pending.'
+    edit.kind==='schedule'?'Check-in scheduled.':edit.kind==='note'?'Check-in note saved.':'Assignment approved. Waiting for the mentee to accept.'
   function change(name:string,value:string){m.change({...fields,[name]:value});setDirty(true);setError('')}
   const input=(name:string,label:string,options:InputOptions={})=><TextField id={id+name} label={label}
     value={fields[name]} onChange={event=>change(name,event.target.value)} {...options}/>
@@ -59,21 +59,21 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
       void send({kind:'goal',term,id:goal?.id??null,version:base,title:fields.title,category:fields.category as Category,target:clean(fields.target),
         progress:goal?.progress??0})
     }else if(edit.kind==='share'){
-      if(!edit.choices.some(r=>r.id===fields.sharing)){setError('Choose a current mentor.');return}
+      if(!edit.choices.some(r=>r.id===fields.sharing)){setError('Choose a mentor.');return}
       void send({kind:'share',term,id:edit.goal.id,version:base,relationship:fields.sharing})
     }else if(edit.kind==='note'){
       const body=clean(fields.body),next=clean(fields.next)
-      if(!body&&!next){setError('Enter a note or an agreed next action.');return}
+      if(!body&&!next){setError('Enter a note or a next step.');return}
       void send({kind:'note',term,id:edit.checkin.id,version:base,body,next})
     }else if(edit.kind==='schedule'){
       const startsAt=manilaTime(fields.startsAt),duration=Number(fields.duration)
-      if(!startsAt||!Number.isInteger(duration)||duration<1||duration>120){setError('Choose a valid start and duration in Manila.');return}
+      if(!startsAt||!Number.isInteger(duration)||duration<1||duration>120){setError('Choose a start time and a duration up to 120 minutes.');return}
       const endsAt=new Date(Date.parse(startsAt)+duration*60000).toISOString()
       void send({kind:'checkin',term,relationship:edit.relationship.id,id:checkin?.id??null,version:checkin?base:0,
         action:'schedule',startsAt,endsAt,title:clean(fields.title)})
     }else if(edit.kind==='assignment'){
       const startsAt=manilaTime(fields.startsAt),endsAt=manilaTime(fields.endsAt)
-      if(!startsAt||!endsAt||startsAt>=endsAt||fields.mentor===fields.mentee){setError('Use an eligible pair and valid Manila dates.');return}
+      if(!startsAt||!endsAt||startsAt>=endsAt||fields.mentor===fields.mentee){setError('Choose two different people and an end date after the start date.');return}
       void send({kind:'assignment',term,previous:previous?.id??null,version:previous?base:null,mentor:fields.mentor,mentee:fields.mentee,
         startsAt,endsAt,approval:fields.approval})
     }
@@ -83,9 +83,9 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
     {relationship?<p>Check-in with {relationship.asMentor?relationship.mentee:relationship.mentor}</p>:null}
     {error||m.error?<p role="alert">{error||m.error}</p>:null}
     <Retry busy={m.busy||checking} pending={!!m.pending} retry={()=>void send()}/>
-    {stale&&!m.pending?<div role="alert"><p>Current details changed. Review them before using the entries below.</p>
+    {stale&&!m.pending?<div role="alert"><p>This changed since you opened it. Check the latest details before saving.</p>
       <button className="button button--secondary" disabled={checking} onClick={()=>{setBase(currentVersion);m.change(fields);setError('')}}>
-        Keep entries and review latest</button></div>:null}
+        Keep my entries and continue</button></div>:null}
     <form onSubmit={submit} data-unsaved-changes={dirty} data-pending-command={m.locked}>
       <fieldset disabled={m.locked||stale||checking}>
         {edit.kind==='goal'?<>
@@ -97,14 +97,14 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
           {input('target','What would progress look like? (optional)',{maxLength:1000})}
         </>:null}
         {edit.kind==='share'?<>
-          <p>This mentor will see the goal, target and progress during the active assignment. You can stop sharing anytime.</p>
-          <div className="form-field"><label htmlFor={id+'sharing'}>Current mentor</label>
+          <p>Your mentor will see this goal, its target and progress while you're paired. You can stop sharing anytime.</p>
+          <div className="form-field"><label htmlFor={id+'sharing'}>Mentor</label>
             <select id={id+'sharing'} value={fields.sharing} required onChange={e=>change('sharing',e.target.value)}>
               <option value="">Choose a mentor</option>{edit.choices.map(r=><option key={r.id} value={r.id}>{r.mentor}</option>)}
             </select></div>
         </>:null}
         {edit.kind==='schedule'?<>
-          {input('startsAt','Start in Manila',{required:true,type:'datetime-local'})}
+          {input('startsAt','Start (Manila time)',{required:true,type:'datetime-local'})}
           <div className="form-field"><label htmlFor={id+'duration'}>Duration</label>
             <select id={id+'duration'} value={fields.duration} onChange={e=>change('duration',e.target.value)}>
               {[...new Set([15,30,45,60,90,120,Number(fields.duration)])].sort((a,b)=>a-b)
@@ -113,24 +113,24 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
           {input('title','Check-in title (optional)',{maxLength:160})}
         </>:null}
         {edit.kind==='note'?<>
-          <p>Both participants can read this note during the assignment. It stays in the learner’s history with your name attached.</p>
+          <p>You and your mentor or mentee can both read this note. It's kept in the mentee's history with your name on it.</p>
           <div className="form-field"><label htmlFor={id+'body'}>Note (optional)</label>
             <textarea id={id+'body'} value={fields.body} onChange={e=>change('body',e.target.value)} maxLength={2000} rows={3}/></div>
-          {input('next','Agreed next action (optional)',{maxLength:1000})}
+          {input('next','Next step (optional)',{maxLength:1000})}
         </>:null}
         {edit.kind==='assignment'?<>
-          {previous?<p>{previous.mentee} · Previous mentor {previous.mentor}. The replacement needs the member’s consent and new sharing choices.</p>:
+          {previous?<p>{previous.mentee} · Current mentor {previous.mentor}. The mentee has to accept the new mentor and choose what to share again.</p>:
             <div className="form-field"><label htmlFor={id+'mentee'}>Member</label>
               <select id={id+'mentee'} value={fields.mentee} required onChange={e=>change('mentee',e.target.value)}>
                 <option value="">Choose a member</option>{edit.data.people.map(person=><option key={person.id} value={person.id}>{person.name}</option>)}
               </select></div>}
-          <div className="form-field"><label htmlFor={id+'mentor'}>Approved mentor</label>
+          <div className="form-field"><label htmlFor={id+'mentor'}>Mentor</label>
             <select id={id+'mentor'} value={fields.mentor} required onChange={e=>change('mentor',e.target.value)}>
-              <option value="">Choose an eligible mentor</option>{edit.data.people.filter(p=>p.mentor&&p.id!==fields.mentee&&p.id!==previous?.mentorId)
+              <option value="">Choose a mentor</option>{edit.data.people.filter(p=>p.mentor&&p.id!==fields.mentee&&p.id!==previous?.mentorId)
                 .map(person=><option key={person.id} value={person.id}>{person.name}</option>)}
             </select></div>
-          {input('startsAt','Effective from in Manila',{type:'datetime-local',required:true})}
-          {input('endsAt','Effective until in Manila',{type:'datetime-local',required:true})}
+          {input('startsAt','Starts (Manila time)',{type:'datetime-local',required:true})}
+          {input('endsAt','Ends (Manila time)',{type:'datetime-local',required:true})}
           {input('approval','School approval reference',{required:true,minLength:3,maxLength:500})}
         </>:null}
         <button className="button" type="submit">{edit.kind==='goal'?'Save goal':edit.kind==='share'?'Share goal':edit.kind==='schedule'?
@@ -138,14 +138,14 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
       </fieldset>
       <button className="button button--secondary" disabled={m.locked} type="button" onClick={()=>{
         if(!dirty||window.confirm('Discard these entries?')){forgetRecordDrafts(entity);close()}
-      }}>Close editor</button>
+      }}>Close</button>
     </form>
   </Panel>
 }
 
 function Retry({busy,pending,retry}:{busy:boolean;pending:boolean;retry:()=>void}){
-  return pending?<div data-pending-command="true"><p>Checking the result. Recover the same saved action.</p>
-    <button className="button" disabled={busy} onClick={retry}>Check whether saved</button></div>:null
+  return pending?<div data-pending-command="true"><p>We couldn't confirm this was saved.</p>
+    <button className="button" disabled={busy} onClick={retry}>Retry</button></div>:null
 }
 
 export function GrowthAction({api,command,label,notice,checking,saved,refresh,confirm}:{
@@ -183,7 +183,7 @@ export function GoalProgress({goal,api,term,checking,refresh,saved}:{
     {m.error?<p role="alert">{m.error}</p>:null}
     <Retry busy={m.busy||checking} pending={!!m.pending} retry={()=>void update(true)}/>
     {stale&&!m.pending?<p role="alert">The goal changed. <button className="button button--secondary" disabled={checking}
-      onClick={()=>{setBase(goal.version);m.change(m.fields)}}>Keep progress and review latest</button></p>:null}
+      onClick={()=>{setBase(goal.version);m.change(m.fields)}}>Keep my progress and continue</button></p>:null}
     <form className="growth-inline" onSubmit={event=>{event.preventDefault();void update()}}>
       <TextField id={id} type="number" label={'Progress for '+goal.title+' (%)'} min={0} max={100}
         disabled={checking||m.locked||stale} value={base===null?String(goal.progress):m.fields.progress}

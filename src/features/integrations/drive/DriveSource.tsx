@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import {RefreshButton} from '../../shared/RefreshButton'
 import { type DriveApi, type DriveState, DriveUiError, takeDriveConsentTerm } from './api'
 
 const messages: Record<string,string> = {
-  denied:'Drive access was declined or blocked. You can still paste a working link or upload a private file.',
-  reconnect:'Connect Drive again to continue. You can also paste a working link or upload a private file.',
-  file_unavailable:'Google could not verify access to that file. Choose another file or ask its custodian for access.',
-  stale:'The work or selection changed. Reload the files before choosing again.',
-  unavailable:'Drive is temporarily unavailable. Your other file options are still available.',
+  denied:'Drive access was declined or blocked. You can still paste a link or upload a file.',
+  reconnect:'Connect Drive again to continue, or paste a link or upload a file instead.',
+  file_unavailable:'Google couldn\'t confirm you can open that file. Choose another, or ask its owner for access.',
+  stale:'The work or your selection changed. Reload the page, then choose again.',
+  unavailable:'Drive isn\'t responding right now. You can still paste a link or upload a file.',
 }
 
 function driveMessage(error: unknown) {
@@ -36,7 +37,7 @@ export function DriveSource({api,term,work,version,onSaved}: {
       setRetry(selection)
       const saved=await api.attach(term,work,selection)
       if (active.signal.aborted) return
-      setRetry(null);setNotice('Working source saved · '+saved.name);onSaved()
+      setRetry(null);setNotice('Link saved · '+saved.name);onSaved()
     } catch (cause) {
       if (active.signal.aborted) return
       const code=cause instanceof DriveUiError?cause.code:'unavailable'
@@ -50,21 +51,21 @@ export function DriveSource({api,term,work,version,onSaved}: {
   }
 
   return <div>
-    <button type="button" className="button button--secondary" disabled={busy||!!retry} onClick={()=>void run()}>Choose a Drive working source</button>
-    {busy?<p role="status">Checking the Drive source…</p>:null}
+    <button type="button" className="button button--secondary" disabled={busy||!!retry} onClick={()=>void run()}>Choose a file from Drive</button>
+    {busy?<p role="status">Checking the file…</p>:null}
     {notice?<p role="status">{notice}</p>:null}
     {error?<p role="alert">{error}</p>:null}
-    {retry&&!busy?<div className="auth-actions"><button className="button" type="button" onClick={()=>void run(retry)}>Retry saving this source</button>
-      <button className="button button--secondary" type="button" onClick={()=>{setRetry(null);setError('')}}>Clear Drive selection</button></div>:null}
+    {retry&&!busy?<div className="auth-actions"><button className="button" type="button" onClick={()=>void run(retry)}>Try again</button>
+      <button className="button button--quiet" type="button" onClick={()=>{setRetry(null);setError('')}}>Clear selection</button></div>:null}
     {manage?<Link to={'/account?term='+encodeURIComponent(term)+'#drive-connection'}>Manage your Drive connection</Link>:null}
   </div>
 }
 
 const states: Record<DriveState,string> = {
-  disconnected:'No Drive consent is stored for this term.',
+  disconnected:'Drive isn\'t connected this term.',
   awaiting_consent:'Waiting for Google consent. You can start again.',
-  consent_saved:'Drive consent is saved. Google checks access again when you choose a file.',
-  revocation_pending:'Drive use is paused in this workspace. Retry disconnecting to finish revocation at Google.',
+  consent_saved:'Drive is connected.',
+  revocation_pending:'Drive is paused here. Disconnect again to finish removing access at Google.',
 }
 
 export function DriveConnection({api,term}: {api: DriveApi; term: string}) {
@@ -97,14 +98,14 @@ export function DriveConnection({api,term}: {api: DriveApi; term: string}) {
 
   return <details className="work-section" id="drive-connection" open={window.location.hash==='#drive-connection'||undefined}
     onToggle={event=>{if(event.currentTarget.open&&!busy&&!state) void refresh()}}>
-    <summary>Optional Google Drive connection</summary>
-    <p>Connect separately from workspace sign-in. You choose individual files. Google controls who can open them. Working links and private uploads are also available.</p>
+    <summary>Google Drive connection (optional)</summary>
+    <p>Connect Drive to pick files directly. You choose each file, and Google still controls who can open it.</p>
     {state?<p role="status">{states[state]}</p>:null}
     {error?<p role="alert">{error}</p>:null}
     <div className="auth-actions">
       {state!=='consent_saved'&&state!=='revocation_pending'?<button type="button" className="button" disabled={busy} onClick={()=>void start()}>Connect Drive in a new tab</button>:null}
-      {state==='consent_saved'||state==='revocation_pending'?<button type="button" className="button" disabled={busy} onClick={()=>void disconnect()}>Disconnect Drive</button>:null}
-      <button type="button" className="button button--secondary" disabled={busy} onClick={()=>void refresh()}>Check Drive connection</button>
+      {state==='consent_saved'||state==='revocation_pending'?<button type="button" className="button button--quiet" disabled={busy} onClick={()=>void disconnect()}>Disconnect Drive</button>:null}
+      <RefreshButton onRefresh={()=>void refresh()} disabled={busy}/>
     </div>
   </details>
 }
@@ -124,15 +125,15 @@ export function DriveCallback({api}: {api: DriveApi}) {
     }
     let live=true
     void attempt.current.then(
-      ()=>{if(live)setResult('Drive consent saved. Return to the workspace tab to choose a file.')},
+      ()=>{if(live)setResult('Drive connected. Go back to the workspace tab to choose a file.')},
       error=>{if(live)setResult(error instanceof DriveUiError&&error.code==='stale'
-        ?'This connection attempt ended. Return to the workspace tab to start again.':driveMessage(error))},
+        ?'This connection attempt ended. Go back to the workspace tab to try again.':driveMessage(error))},
     )
     return ()=>{live=false}
   },[api])
   return <main className="standalone-page">
     <h1>Connect Google Drive</h1>
-    <p role="status">{result||'Checking your Drive consent…'}</p>
+    <p role="status">{result||'Connecting Drive…'}</p>
     {result?<button className="button button--secondary" onClick={()=>window.close()}>Close this tab</button>:null}
   </main>
 }
