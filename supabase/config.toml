@@ -290,10 +290,12 @@ max_frequency = "5s"
 # Email one-time-code sign-in: Auth hands every auth email to the send-auth-email function, which only
 # sends sign-in codes to @student.ateneo.edu through the Apps Script relay. Local dev only; production is
 # set in the dashboard (Authentication -> Hooks).
-[auth.hook.send_email]
-enabled = true
-uri = "http://host.docker.internal:54321/functions/v1/send-auth-email"
-secrets = "env(SEND_EMAIL_HOOK_SECRET)"
+# Commented out so `supabase functions deploy` does not require the secret locally. To test locally,
+# uncomment and export SEND_EMAIL_HOOK_SECRET first.
+# [auth.hook.send_email]
+# enabled = true
+# uri = "http://host.docker.internal:54321/functions/v1/send-auth-email"
+# secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
