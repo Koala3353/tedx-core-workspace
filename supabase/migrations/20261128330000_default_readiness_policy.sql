@@ -160,7 +160,10 @@ begin
   return r || jsonb_build_object(
     'fingerprint', s->>'fingerprint', 'submittedEvidence', d.final_evidence,
     'canAccept', d.workflow_state = 'submitted' and not (s->>'reviewRequired')::boolean and (s->>'ready')::boolean,
-    'canReopen', d.workflow_state in ('accepted', 'submitted'), 'canDeclare', true);
+    'canReopen', d.workflow_state in ('accepted', 'submitted'),
+    -- Match the commands: declare_deliverable_work_types allows the owner and lead-committee heads;
+    -- scope exceptions stay with the pinned acceptor, so canExcept and exceptionChoices are left as read.
+    'canDeclare', coalesce((r->>'canDeclare')::boolean, false) or app_private.manage_deliverable(w.term_id, w.lead_unit_id));
 end;
 $$;
 

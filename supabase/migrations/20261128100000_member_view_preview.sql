@@ -6,12 +6,20 @@
 -- to the member's auth user (the pattern from app_private.telegram_as_member), calls one existing
 -- read RPC, keeps the JSON in a variable and then always raises to roll the subtransaction back.
 -- The rollback undoes the claims and any row the read wrote, so nothing the preview does persists.
--- (A read-only transaction is not used: the readers record a restricted_access_events row, which
--- would name the member as the reader. The rollback drops that row; member_view_audit below
--- records the real reader.) The caller's saved claims are then set again explicitly on every path. Only the Today, Work and notification readers are reachable;
--- no evaluation, finance-private or privacy-request reader is called.
+-- (A read-only transaction is not used.) The readers record restricted_access_events rows naming
+-- the member; those rows are captured before the rollback and written again afterwards with the
+-- viewing admin as the reader, so every restricted read stays audited against the real reader.
+-- The caller's saved claims are then set again explicitly on every path. Only the Today, Work and
+-- notification readers are reachable; no evaluation, finance-private or privacy-request reader is called.
 --
--- Every call writes one row to app_private.member_view_audit. Additive only.
+-- The returned data is redacted before the admin sees it: restricted items (every request, FIN and
+-- MCD cases, restricted tasks and deliverables, and finance, privacy or evaluation links) keep their
+-- id, state and counts, but titles become a generic label ("Restricted finance plan", the
+-- read_privacy_emergency wording) and other text (tracking id, people, committee, summary) becomes
+-- "Hidden".
+--
+-- Every call writes one row to app_private.member_view_audit, listing the redacted item ids.
+-- Additive only.
 begin;
 
 create table app_private.member_view_audit (
@@ -22,6 +30,8 @@ create table app_private.member_view_audit (
   view text not null check(view in ('today','work','notifications')),
   outcome text not null check(outcome in ('shown','not_signed_in_yet','unavailable')),
   target_is_admin boolean not null default false,
+  redacted_items uuid[] not null default '{}',
+  restricted_reads integer not null default 0,
   at timestamptz not null default statement_timestamp()
 );
 create index member_view_audit_term_at on app_private.member_view_audit(term_id,at desc);
@@ -64,11 +74,60 @@ begin
 end;
 $$;
 
+-- Generic label for a restricted item, or null when the item is not restricted.
+create function app_private.preview_sensitive_label(p_item uuid) returns text
+language sql stable security definer set search_path='' as $$
+  select case
+    when t.governed_kind='fin' or exists(select 1 from public.finance_revisions f where f.request_id=w.id) then 'Restricted finance plan'
+    when t.governed_kind='mcd' or exists(select 1 from public.publicity_reviews p where p.request_id=w.id) then 'Restricted publicity review'
+    when r.work_item_id is not null then 'Restricted request'
+    when w.classification='restricted' then 'Restricted item' end
+  from public.work_items w left join public.requests r on r.work_item_id=w.id left join public.request_types t on t.id=r.request_type_id
+  where w.id=p_item
+$$;
+-- The work item an object in a reader's JSON points at.
+create function app_private.preview_item_ref(v jsonb) returns uuid
+language sql immutable set search_path='' as $$
+  select x::uuid from (select coalesce(
+    nullif(substring(coalesce(v->>'workItemId','') from '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),''),
+    nullif(substring(coalesce(v->>'workId','') from '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),''),
+    nullif(substring(coalesce(v->>'requestId','') from '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),''),
+    substring(coalesce(v->>'href','') from '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'),
+    nullif(substring(coalesce(v->>'id','') from '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),'')) x) q
+$$;
+-- Redacts restricted items anywhere in a reader's JSON. Ids, states and counts are kept.
+create function app_private.preview_redact(v jsonb) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare label text; k text; x jsonb; out jsonb;
+begin
+  if jsonb_typeof(v)='array' then
+    return (select coalesce(jsonb_agg(app_private.preview_redact(e) order by o),'[]'::jsonb) from jsonb_array_elements(v) with ordinality a(e,o));
+  elsif jsonb_typeof(v) is distinct from 'object' then return v; end if;
+  label:=app_private.preview_sensitive_label(app_private.preview_item_ref(v));
+  if label is null and coalesce(v->>'href','') ~ '^/(privacy|evaluations|feedback|finance|publicity)' then label:='Restricted item'; end if;
+  out:='{}'::jsonb;
+  for k,x in select key,value from jsonb_each(v) loop
+    if label is not null and jsonb_typeof(x)='string' and k in ('title','label','name') then x:=to_jsonb(label);
+    elsif label is not null and jsonb_typeof(x)='string' and k in ('trackingId','owner','person','requester','serviceLabel','committee',
+      'summary','body','preview','message','text','typeLabel','stageLabel','publisherName','assignee','reviewerName') then x:='"Hidden"'::jsonb;
+    elsif label is not null and k='reference' and jsonb_typeof(x)='object' then x:=x||'{"value":"Hidden"}'::jsonb;
+    else x:=app_private.preview_redact(x); end if;
+    out:=out||jsonb_build_object(k,x);
+  end loop;
+  return out;
+end;
+$$;
+create function app_private.preview_redacted_ids(v jsonb) returns uuid[]
+language sql stable security definer set search_path='' as $$
+  select coalesce(array_agg(distinct app_private.preview_item_ref(o)),'{}') from jsonb_path_query(coalesce(v,'null'::jsonb),'strict $.**') o
+  where jsonb_typeof(o)='object' and app_private.preview_sensitive_label(app_private.preview_item_ref(o)) is not null
+$$;
+
 create function public.preview_member_view(p_term_id uuid,p_membership_id uuid,p_view text) returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare
   viewer public.term_memberships; target public.term_memberships; target_name text; subject uuid;
-  result jsonb; target_admin boolean:=false; failed text;
+  result jsonb; target_admin boolean:=false; failed text; captured jsonb:='[]'; before_ids uuid[]; redacted uuid[]:='{}'; reads integer:=0;
   saved_sub text:=current_setting('request.jwt.claim.sub',true);
   saved_role text:=current_setting('request.jwt.claim.role',true);
   saved_claims text:=current_setting('request.jwt.claims',true);
@@ -90,6 +149,8 @@ begin
       'member',jsonb_build_object('membershipId',target.id,'name',target_name));
   end if;
 
+  select coalesce(array_agg(e.id),'{}') into before_ids from public.restricted_access_events e
+    where e.actor_id=subject and e.occurred_at>=statement_timestamp();
   begin
     -- Nothing written in this block survives: it always ends in the rollback below.
     perform set_config('request.jwt.claim.sub',subject::text,true);
@@ -100,6 +161,9 @@ begin
       when 'today' then public.read_overview(p_term_id)
       when 'work' then public.read_owned_tasks(p_term_id,1)
       else public.read_notification_groups(p_term_id,1) end;
+    -- Keep the restricted reads so they can be recorded again against the real reader.
+    select coalesce(jsonb_agg(to_jsonb(e)),'[]') into captured from public.restricted_access_events e
+      where e.actor_id=subject and e.occurred_at>=statement_timestamp() and not e.id=any(before_ids);
     -- Always roll the block back: the claims and every row written here revert.
     raise exception using errcode='P0001',message='member_preview_done';
   exception when others then
@@ -109,8 +173,18 @@ begin
   perform set_config('request.jwt.claim.role',coalesce(saved_role,''),true);
   perform set_config('request.jwt.claims',coalesce(saved_claims,''),true);
 
-  insert into app_private.member_view_audit(term_id,viewer_membership_id,target_membership_id,view,outcome,target_is_admin)
-    values(p_term_id,viewer.id,target.id,p_view,case when failed is null then 'shown' else 'unavailable' end,coalesce(target_admin,false));
+  insert into public.restricted_access_events(endpoint,actor_id,term_id,object_id,authority_assignments,outcome,correlation_id)
+    select e->>'endpoint',auth.uid(),(e->>'term_id')::uuid,(e->>'object_id')::uuid,
+      coalesce((select array_agg(a::uuid) from jsonb_array_elements_text(e->'authority_assignments') a),'{}'),e->>'outcome',(e->>'correlation_id')::uuid
+    from jsonb_array_elements(case when failed is null then captured else '[]'::jsonb end) e;
+  get diagnostics reads=row_count;
+  if failed is null and result is not null then
+    redacted:=app_private.preview_redacted_ids(result);
+    result:=app_private.preview_redact(result);
+  end if;
+
+  insert into app_private.member_view_audit(term_id,viewer_membership_id,target_membership_id,view,outcome,target_is_admin,redacted_items,restricted_reads)
+    values(p_term_id,viewer.id,target.id,p_view,case when failed is null then 'shown' else 'unavailable' end,coalesce(target_admin,false),redacted,reads);
   if failed is not null then
     return jsonb_build_object('state','unavailable','view',p_view,'code',failed,
       'member',jsonb_build_object('membershipId',target.id,'name',target_name));
@@ -120,7 +194,8 @@ begin
 end;
 $$;
 
-revoke all on function public.read_member_directory_for_preview(uuid),public.preview_member_view(uuid,uuid,text)
+revoke all on function public.read_member_directory_for_preview(uuid),public.preview_member_view(uuid,uuid,text),
+  app_private.preview_sensitive_label(uuid),app_private.preview_item_ref(jsonb),app_private.preview_redact(jsonb),app_private.preview_redacted_ids(jsonb)
   from public,anon,authenticated,service_role;
 grant execute on function public.read_member_directory_for_preview(uuid),public.preview_member_view(uuid,uuid,text)
   to authenticated;

@@ -6,8 +6,9 @@
 --    publicity (mcd.review) and PRISM members review feedback (feedback.review). Existing permissions
 --    are never removed.
 --  * FIN becomes a review service and the seeded FIN and MCD request types are bound to those units.
---  * Existing live seats get any newly needed scope assignment (the seat machinery creates one
---    assignment per distinct allowed_scope); future seats pick the new permissions up automatically
+--  * Existing live seats get any newly needed scope assignment, starting now (never backdated). A scope
+--    an admin revoked for that seat is not recreated.
+--    The seat machinery creates one assignment per distinct allowed_scope; future seats pick the new permissions up automatically
 --    because app_private.tedx_materialize_seat reads role_permissions at seat time.
 --  * app_private.single_admin_actions keeps who/when for the single-admin commands added later.
 begin;
@@ -123,8 +124,9 @@ begin
     for scope in
       select distinct rp.allowed_scope from public.role_permissions rp where rp.role_id = seat.role_id
       except
+      -- A scope with a live grant needs nothing; a scope an admin revoked for this seat and role stays revoked.
       select a.scope_type from app_private.tedx_seat_grants g join public.role_assignments a on a.id = g.grant_id
-        where g.seat_id = seat.id and a.status = 'active'
+        where g.seat_id = seat.id and (a.status = 'active' or (a.status = 'revoked' and a.role_id = seat.role_id))
     loop
       if scope.allowed_scope = 'unit' and seat.unit_id is null then continue; end if;
       select a.granted_by into grantor from app_private.tedx_seat_grants g join public.role_assignments a on a.id = g.grant_id
@@ -136,7 +138,7 @@ begin
       insert into public.role_assignments(organization_id, term_id, term_membership_id, role_id, scope_type, unit_id,
         effective_from, effective_to, granted_by)
         values (term_row.organization_id, p_term, seat.membership_id, seat.role_id, scope.allowed_scope,
-          case when scope.allowed_scope = 'unit' then seat.unit_id end, seat.starts_at, seat.ends_at, grantor)
+          case when scope.allowed_scope = 'unit' then seat.unit_id end, greatest(seat.starts_at, statement_timestamp()), seat.ends_at, grantor)
         returning id into new_grant;
       insert into app_private.tedx_seat_grants values (new_grant, seat.id);
       added_grants := added_grants + 1;

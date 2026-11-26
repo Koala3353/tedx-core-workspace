@@ -40,7 +40,16 @@ begin
 end;
 $$;
 
-create or replace function public.read_announcement_publishing_options(p_term_id uuid)returns jsonb language plpgsql stable security definer set search_path='' as $$
+-- public.read_announcement_publishing_options is the read-audit wrapper from 20261109182925; it calls
+-- app_private.p46_read_read_announcement_publishing_options and records the read. Only that inner
+-- reader changes here, so reads stay logged.
+do $$begin
+  if not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='app_private'and p.proname='p46_read_read_announcement_publishing_options')
+    or position('p46_read_read_announcement_publishing_options' in pg_get_functiondef('public.read_announcement_publishing_options(uuid)'::regprocedure))=0 then
+    raise exception using errcode='55000',message='announcement_options_read_audit_missing';
+  end if;
+end$$;
+create or replace function app_private.p46_read_read_announcement_publishing_options(p_term_id uuid)returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare m public.term_memberships;r record;targets jsonb:='[]';begin
  m:=app_private.request_actor(p_term_id);
  for r in select distinct x.target_kind,x.target_id,x.name from(
@@ -135,10 +144,10 @@ $$;
 
 revoke all on function app_private.presentation_actor_before_single_admin(uuid,text,text,uuid,boolean),
   app_private.presentation_actor(uuid,text,text,uuid,boolean), app_private.bulletin_single_admin_allowed(uuid,uuid,text,uuid),
-  app_private.announcement_publishers_json(uuid), public.read_announcement_publishing_options(uuid),
+  app_private.announcement_publishers_json(uuid), app_private.p46_read_read_announcement_publishing_options(uuid),
   public.read_announcement_publishers(uuid), public.set_announcement_publisher(uuid,uuid,text,uuid,boolean,text,uuid)
   from public, anon, authenticated, service_role;
-grant execute on function public.read_announcement_publishing_options(uuid), public.read_announcement_publishers(uuid),
+grant execute on function public.read_announcement_publishers(uuid),
   public.set_announcement_publisher(uuid,uuid,text,uuid,boolean,text,uuid) to authenticated;
 
 do $$

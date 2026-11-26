@@ -182,8 +182,29 @@ begin
         where id = t.id returning * into t;
     end if;
     problems := app_private.service_open_problems(t);
+    -- FIN collects restricted money details, which needs the finance privacy category. Its owner must be
+    -- someone other than the admin with an active core membership; without one, nothing changes.
+    if cardinality(problems) = 0 and t.governed_kind = 'fin' and not app_private.sensitive_category_ready(t.term_id, 'finance') then
+      select c.member into privacy_owner from (
+        select t.primary_contact_id as member, 1 as rank
+        union all select t.backup_contact_id, 2
+        union all select d.term_membership_id, 3 from public.unit_memberships d
+          where d.unit_id = t.receiving_unit_id and d.status = 'active'
+            and d.effective_from <= statement_timestamp() and d.effective_to > statement_timestamp()
+      ) c join public.term_memberships tm on tm.id = c.member join public.members person on person.id = tm.member_id
+      where tm.term_id = t.term_id and tm.membership_kind = 'core' and tm.status = 'active'
+        and tm.joined_at <= statement_timestamp() and tm.ends_at > statement_timestamp()
+        and tm.member_id <> m.member_id and person.account_state = 'active' and person.auth_user_id is not null
+        and person.auth_user_id is distinct from auth.uid()
+      order by c.rank, c.member limit 1;
+      if privacy_owner is null then problems := problems || 'finance_privacy'::text; end if;
+    end if;
     if cardinality(problems) > 0 then
-      return app_private.service_setup_json(t) || jsonb_build_object('changed', false);
+      receipt := app_private.service_setup_json(t) || jsonb_build_object('changed', false, 'problems', to_jsonb(problems));
+      insert into public.idempotency_keys(actor_id, command, client_key, organization_id, term_id, payload_hash, result_reference)
+        values (auth.uid(), 'set_request_service_open', p_request_id, t.organization_id, t.term_id,
+          encode(sha256(convert_to(payload::text, 'UTF8')), 'hex'), receipt);
+      return receipt;
     end if;
 
     -- Workflow: keep a runnable one, otherwise publish a one-step review pinned to the reviewer.
@@ -259,19 +280,7 @@ begin
       end if;
     end if;
 
-    -- FIN collects restricted money details, which needs the finance privacy category.
-    if t.governed_kind = 'fin' and not app_private.sensitive_category_ready(t.term_id, 'finance') then
-      select c.member into privacy_owner from (
-        select reviewer as member, 1 as rank
-        union all select d.term_membership_id, 2 from public.unit_memberships d
-          where d.unit_id = t.receiving_unit_id and d.status = 'active'
-            and d.effective_from <= statement_timestamp() and d.effective_to > statement_timestamp()
-      ) c join public.term_memberships tm on tm.id = c.member join public.members person on person.id = tm.member_id
-      where tm.member_id <> m.member_id and person.auth_user_id is not null and person.account_state = 'active'
-      order by c.rank, c.member limit 1;
-      if privacy_owner is null then
-        raise exception using errcode = '55000', message = 'finance_privacy_owner_required';
-      end if;
+    if privacy_owner is not null then
       insert into public.privacy_sensitive_categories(term_id, category, owner_membership_id, basis_reference, retention_reference,
         retention_definition, max_emergency_minutes, approved_by, expires_at)
         values (t.term_id, 'finance', privacy_owner,

@@ -61,7 +61,7 @@ const problemText:Record<ServiceProblem,string>={
  lead_time:'Set how many days ahead people should ask.',
  form:'Publish the request form.',
  reviewer:'The receiving committee needs a head (or FIN or MCD member) who can review.',
- finance_privacy:'Finance privacy rules were set up but are no longer valid. Fix them in Privacy settings first.',
+ finance_privacy:'Finance privacy rules need an owner who is an active FIN member other than you. If they were set up before and expired, fix them in Privacy settings.',
 }
 function ServiceSwitch({api,label,setup,onChange}:{api:ConfigurationApi;label:string;setup:ServiceSetup;onChange:(setup:ServiceSetup)=>void}){
  const[busy,setBusy]=useState(false),[error,setError]=useState(''),pending=useRef<{open:boolean;key:string}|null>(null)
