@@ -19,7 +19,10 @@ language sql stable set search_path = '' as $$
       and lower(btrim(u.email)) ~ '^[^@[:space:]]+@student[.]ateneo[.]edu$'
       and lower(btrim(i.identity_data->>'email'))=lower(btrim(u.email))
       and ((i.provider='google' and i.identity_data->'email_verified'='true'::jsonb)
-        or (i.provider='email' and coalesce(i.identity_data->'email_verified','true'::jsonb)='true'::jsonb)))
+        or (i.provider='email' and coalesce(i.identity_data->'email_verified','true'::jsonb)='true'::jsonb
+          -- Code-only accounts never have a password. A password set before the student confirmed
+          -- could belong to someone else who signed up with their address, so it disqualifies.
+          and coalesce(u.encrypted_password,'')='')))
 $$;
 revoke all on function app_private.is_school_identity(uuid) from public,anon,authenticated,service_role;
 

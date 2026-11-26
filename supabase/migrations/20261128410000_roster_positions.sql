@@ -147,11 +147,12 @@ begin
 
   -- Leaving a committee with open work there is blocked, as in save_tedx_seat. Moving between
   -- positions of the same committee keeps the person in it, so that is not checked.
-  if previous.id is not null and old_position.unit_id is not null
+  -- Leadership seats (no unit) are checked against all of the person's open work, as in save_tedx_seat.
+  if previous.id is not null
       and (position.role_id is null or position.unit_id is distinct from old_position.unit_id) then
     if exists (
       select 1 from app_private.organization_obligations(p_term_id, null, previous.membership_id) w
-        where old_position.unit_id = w.lead_unit_id
+        where old_position.unit_id is null or old_position.unit_id = w.lead_unit_id
           or exists (select 1 from public.tasks t where t.work_item_id = w.id and t.assigned_unit_id = old_position.unit_id)
           or exists (select 1 from public.requests r where r.work_item_id = w.id and r.receiving_unit_id = old_position.unit_id)
     ) or exists (
