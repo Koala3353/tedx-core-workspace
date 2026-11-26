@@ -17,7 +17,9 @@ import {RequestMemory} from '../requests/Memory'
 import {FormDrafts} from '../forms/Drafts'
 import {HandoffDrafts} from '../handoffs/Drafts'
 import { useEffect, useRef, useState } from 'react'
-import { Link, Outlet, useLoaderData, useLocation, useNavigate, useRevalidator, useRouteLoaderData } from 'react-router'
+import { Link, Outlet, useLoaderData, useLocation, useNavigate, useNavigation, useRevalidator, useRouteLoaderData } from 'react-router'
+import { onPageReturn } from '../../lib/pageReturn'
+import { useDelayedFlag } from '../../lib/useDelayedFlag'
 import { ProfileEditor } from '../account/ProfileEditor'
 import { GuestContactEditor } from '../account/GuestContactEditor'
 import { LoadingState } from '../../components/FeedbackState'
@@ -35,6 +37,7 @@ import {ScheduleDrafts} from '../timeline/ScheduleDrafts'
 
 export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
   const { revalidate, state } = useRevalidator()
+  const navigation = useNavigation()
   const location = useLocation()
   const workspace=useRouteLoaderData('workspace') as WorkspaceContext|undefined
   const [offline, setOffline] = useState(() => !navigator.onLine)
@@ -43,19 +46,40 @@ export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
   const offlineHeading = useRef<HTMLHeadingElement>(null)
   const draftIdentity=workspace?JSON.stringify([workspace.termId,isGuest(workspace)?'guest:'+workspace.guestAccessId:'core:'+workspace.memberId,[...(workspace.capabilities??[])].sort()]):'signed-out'
   useEffect(() => { if (offline) offlineHeading.current?.focus() }, [offline])
+  // Access checks run in the background and never remount the page. A return to the tab
+  // (focus and visibility fire together) is one check; the timer only runs while visible.
+  const navigationRef = useRef(navigation.state)
+  const lastCheck = useRef(0)
+  useEffect(() => { navigationRef.current = navigation.state }, [navigation.state])
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState === 'visible' && window.location.pathname !== appPath('/auth/callback')) void revalidate() }
+    const refresh = () => {
+      if (document.visibilityState !== 'visible' || window.location.pathname === appPath('/auth/callback')) return
+      // A navigation already re-checks access in its loader; a second check would interrupt it.
+      if (navigationRef.current !== 'idle') return
+      // Returning to the tab can fire focus, visibility and a recovered-session event together.
+      const now = Date.now()
+      if (now - lastCheck.current < 3_000) return
+      lastCheck.current = now
+      void revalidate()
+    }
     const stop = gateway.onChange(refresh)
-    window.addEventListener('focus', refresh)
-    document.addEventListener('visibilitychange', refresh)
-    const timer = window.setInterval(refresh, 30_000)
-    return () => { stop(); clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
+    const stopReturn = onPageReturn(refresh, { minGapMs: 10_000 })
+    const timer = window.setInterval(refresh, 60_000)
+    return () => { stop(); stopReturn(); clearInterval(timer) }
   }, [gateway, revalidate])
+  // Only a check that takes a noticeable time pauses the page; quick ones stay invisible, so
+  // typing is never interrupted (inert would also drop focus and close the phone keyboard).
+  const slowCheck = useDelayedFlag(state === 'loading', 800)
   useEffect(() => {
     const disconnected = () => setOffline(true)
     const reconnected = () => { void revalidate().then(() => setOffline(!navigator.onLine)) }
     const hide = () => { document.documentElement.classList.add('leaving-workspace') }
-    const restore = (event: PageTransitionEvent) => { if (event.persisted) window.location.reload() }
+    // Back/forward cache restore (common on phones): keep the page hidden until access is
+    // re-checked in place, instead of reloading the whole app.
+    const restore = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      void revalidate().finally(() => document.documentElement.classList.remove('leaving-workspace'))
+    }
     window.addEventListener('offline', disconnected)
     window.addEventListener('online', reconnected)
     window.addEventListener('pagehide', hide)
@@ -82,7 +106,7 @@ export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
 
   return <FinDecisionMemory identity={draftIdentity}><FinanceMemory identity={draftIdentity}><ReviewMemory identity={draftIdentity}><RequestMemory identity={draftIdentity}><FormDrafts identity={draftIdentity}><ScheduleDrafts identity={draftIdentity}><HandoffDrafts identity={draftIdentity}><EditSafety key={draftIdentity}>
     {offline?<main className="standalone-page"><h1 ref={offlineHeading} tabIndex={-1}>You’re offline</h1><p role="status">Reconnect to check your current access and resume work. If you tried to save just before the connection dropped, check the result before trying again.</p>{workspace?<button className="button button--secondary" disabled={signingOut} onClick={()=>void leaveOffline()}>Sign out of this browser</button>:null}{offlineError?<p role="alert">{offlineError}</p>:null}</main>:null}
-    <div hidden={offline} inert={offline||state==='loading'&&!!workspace}>{state === 'loading' && !workspace && location.pathname !== '/auth/callback' ? <main className="standalone-page"><LoadingState /></main> : <Outlet />}</div>
+    <div hidden={offline} inert={offline||slowCheck&&!!workspace}>{state === 'loading' && !workspace && location.pathname !== '/auth/callback' ? <main className="standalone-page"><LoadingState /></main> : <Outlet />}</div>
   </EditSafety></HandoffDrafts></ScheduleDrafts></FormDrafts></RequestMemory></ReviewMemory></FinanceMemory></FinDecisionMemory>
 }
 

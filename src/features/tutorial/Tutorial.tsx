@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Link, useLocation, useNavigate, useRouteLoaderData } from 'react-router'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Link, useLocation, useNavigate, useNavigation, useRevalidator, useRouteLoaderData } from 'react-router'
 import { RotateCcw } from 'lucide-react'
 import { useShellServices } from '../../app/shellServices'
 import { installPlatform, isStandalone, useInstallPrompt } from '../../app/InstallWorkspace'
@@ -59,7 +59,15 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
   const { clientState } = useShellServices()
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const stops = allStops.filter(stop => !stop.capability || capabilities.includes(stop.capability))
+  const navigation = useNavigation()
+  const { state: revalidation } = useRevalidator()
+  // Stable between renders: the stop effect below depends on it, and a new array every render
+  // re-ran that effect on every navigation tick, calling navigate() again and aborting the
+  // page's access check each time (the tour hung on "Checking access").
+  const capabilityKey = capabilities.join(',')
+  const stops = useMemo(() => allStops.filter(stop => !stop.capability || capabilityKey.split(',').includes(stop.capability)), [capabilityKey])
+  const requested = useRef<number | null>(null)
+  const settled = navigation.state === 'idle' && revalidation === 'idle'
   const [index, setIndex] = useState<number | null>(null)
   const [pending, setPending] = useState<number | null>(null)
   const checked = useRef(false)
@@ -104,10 +112,19 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
 
   // Move to a stop: open its page, then wait for its anchor (skip optional stops that never appear).
   useEffect(() => {
-    if (pending === null) return
+    if (pending === null) { requested.current = null; return }
     const stop = stops[pending]
     if (!stop) { setPending(null); return }
-    if (stop.path && pathname !== stop.path) { void navigate(stop.path); return }
+    // Open the stop's page once, then wait for that navigation (and any access check) to finish
+    // before looking for the anchor. If the page never opens (blocked by unsaved edits, or the
+    // check failed), give up on this stop instead of waiting forever.
+    if (stop.path && pathname !== stop.path) {
+      if (requested.current !== pending) { requested.current = pending; void navigate(stop.path) }
+      if (!settled) return
+      const giveUp = window.setTimeout(() => { setPending(null); setIndex(null) }, 4000)
+      return () => clearTimeout(giveUp)
+    }
+    if (!settled) return
     let frame = 0
     const started = performance.now()
     // Optional stops (e.g. a row's button on an empty Today list) are skipped almost at once;
@@ -125,7 +142,7 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
     }
     frame = requestAnimationFrame(look)
     return () => cancelAnimationFrame(frame)
-  }, [pending, pathname, navigate, stops, save])
+  }, [pending, pathname, navigate, stops, save, settled])
 
   function finish(step: number) { setIndex(null); setPending(null); save(step, true) }
   // Hide the current bubble while the next stop is located, so it never looks frozen

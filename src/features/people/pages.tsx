@@ -5,6 +5,7 @@ import { PageHeading, Panel } from '../../components/Page'
 import { EmptyState, ErrorState, LoadingState } from '../../components/FeedbackState'
 import { TextField } from '../../components/TextField'
 import type { PeopleGateway } from './gateway'
+import { ContactLinks } from './ContactLinks'
 
 export function DirectoryPage({ api }: { api: PeopleGateway }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext; const [params]=useSearchParams()
@@ -38,11 +39,9 @@ export function PeoplePage({ api, termId,focusId }: { api: PeopleGateway; termId
         {people.length ? <ul className="guest-list">{people.map(person => <li key={person.id}>
           <h3>{person.name}</h3><p>{person.units.join(' · ') || 'No committee yet'}</p>
           <p>{person.roles.join(' · ') || 'No role yet'}</p>
-          {person.contact ? <a className="button button--secondary" href={`mailto:${person.contact}`}>Email {person.name}</a> : <p>Organization contact not available</p>}
-          {person.course ? <p>Course: {person.course}</p> : null}{person.year ? <p>Year: {person.year}</p> : null}
-          {person.phone ? <p>Shared phone: {person.phone}</p> : null}{person.externalContact ? <p>Shared contact: {person.externalContact}</p> : null}
-          {person.skills ? <p>Skills: {person.skills}</p> : null}{person.pronunciation ? <p>Name pronunciation: {person.pronunciation}</p> : null}
-          {person.affiliation ? <p>Affiliation: {person.affiliation}</p> : null}
+          <ContactLinks name={person.name} messenger={person.messenger} telegram={person.telegram} />
+          {person.contact ? <p><a href={`mailto:${person.contact}`}>{person.contact}</a></p> : null}
+          {person.course || person.year ? <p className="muted">{[person.course, person.year].filter(Boolean).join(' · ')}</p> : null}
         </li>)}</ul> : <EmptyState title="No people found" description="Try another name, committee or role." />}
       </Panel>
     </>}

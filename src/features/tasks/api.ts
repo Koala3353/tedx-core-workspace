@@ -9,7 +9,10 @@ export type TaskOptions={actorId:string;members:{id:string;name:string}[];units:
 export type TaskSummary=Pick<TaskItem,'id'|'version'|'title'|'summary'|'dueOn'|'dueAt'|'state'|'overdue'|'assigneeName'|'reference'>
 export type TaskInput={command:'create'|'update'|'assign'|'transition';termId:string;id?:string;version?:number;data:Record<string,unknown>}
 export type OwnedTask={reference?:WorkReferenceValue|null;id:string;title:string;summary:string;dueOn:string|null;dueAt:string|null;category:string;overdue:boolean}
-export interface TasksApi{read(termId:string,page:number):Promise<{items:OwnedTask[];total:number;page:number}>;list?(termId:string,page:number,view:string):Promise<{items:TaskSummary[];total:number;page:number}>;detail?(id:string):Promise<TaskItem|null>;options?(termId:string):Promise<TaskOptions|null>;execute?(input:TaskInput,key:string):Promise<CommandResult<WorkReceipt>>}
+export interface TasksApi{read(termId:string,page:number):Promise<{items:OwnedTask[];total:number;page:number}>;list?(termId:string,page:number,view:string):Promise<{items:TaskSummary[];total:number;page:number}>;detail?(id:string):Promise<TaskItem|null>;options?(termId:string):Promise<TaskOptions|null>;execute?(input:TaskInput,key:string):Promise<CommandResult<WorkReceipt>>;createForCoreTeam?(termId:string,data:Record<string,unknown>,key:string):Promise<CoreTeamResult>}
+/** Result of sending one task to every core member. 'missing' means the backend function is not deployed yet. */
+export type CoreTeamResult={ok:true;created:number}|{ok:false;missing:boolean;retryable:boolean;message:string}
+type UntypedRpc=(name:string,args?:Record<string,unknown>)=>Promise<{data:unknown;error:{code?:string;message?:string}|null}>
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 function task(v:unknown,detail=false):boolean{
  if(!v||typeof v!=='object')return false;const t=v as TaskItem
@@ -23,6 +26,19 @@ export function createTasksApi(ready:ReturnType<typeof createSupabaseClient>):Ta
     async options(termId){const client=await ready;if(!client)throw new Error('Tasks unavailable');const{data,error}=await client.rpc('task_options',{p_term_id:termId});if(error)throw new Error('Tasks unavailable');if(data===null)return null;const o=data as unknown as TaskOptions;if(!uuid.test(o.actorId)||!Array.isArray(o.members)||!o.members.every(m=>uuid.test(m.id)&&typeof m.name==='string')||!Array.isArray(o.units)||!o.units.every(u=>uuid.test(u.id)&&typeof u.name==='string'&&typeof u.canManage==='boolean')||o.parents!==undefined&&(!Array.isArray(o.parents)||!o.parents.every(p=>p&&uuid.test(p.id)&&typeof p.name==='string'&&optionalWorkReference(p.reference,'deliverable',termId))))throw new Error('Tasks unavailable');return o},
     async execute(input,key){try{const client=await ready;if(!client)throw{code:'COMMAND_UNAVAILABLE'};const result=input.command==='create'?await client.rpc('create_task',{p_term_id:input.termId,p_data:input.data as never,p_request_id:key})
       :await client.rpc(({update:'update_task',assign:'assign_task',transition:'transition_task'}as const)[input.command],{p_work_item_id:input.id!,p_data:input.data as never,p_expected_version:input.version!,p_request_id:key});if(result.error)return{ok:false,error:mapCommandError(result.error)};const r=result.data as WorkReceipt|null;if(!r||!uuid.test(r.workItemId)||!Number.isInteger(r.version)||r.version<1)throw{code:'COMMAND_UNAVAILABLE'};return{ok:true,value:r}}catch(e){return{ok:false,error:mapCommandError(e)}}},
+    async createForCoreTeam(termId,data,key){
+      try{
+        const client=await ready;if(!client)return{ok:false,missing:false,retryable:true,message:'Tasks are unavailable right now. Try again in a moment.'}
+        const rpc=client.rpc.bind(client) as unknown as UntypedRpc
+        const{data:result,error}=await rpc('create_task_for_core_team',{p_term_id:termId,p_data:data,p_request_id:key})
+        // 42883 / PGRST202: the function is not deployed yet.
+        if(error&&(error.code==='42883'||error.code==='PGRST202'))return{ok:false,missing:true,retryable:false,message:"Sending to the whole team isn't switched on yet."}
+        if(error){const mapped=mapCommandError(error);return{ok:false,missing:false,retryable:mapped.retryable,message:mapped.message}}
+        const created=(result as {created?:unknown}|null)?.created
+        if(typeof created!=='number'||!Number.isInteger(created)||created<0)return{ok:false,missing:false,retryable:true,message:"Couldn't confirm the tasks were sent. Check My tasks before trying again."}
+        return{ok:true,created}
+      }catch{return{ok:false,missing:false,retryable:true,message:"Couldn't reach the workspace. Check your connection and try again."}}
+    },
     async read(termId,page){try{
     const client=await ready;if(!client)throw new Error()
     const{data,error}=await client.rpc('read_owned_tasks',{p_term_id:termId,p_page:page})

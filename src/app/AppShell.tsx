@@ -11,6 +11,7 @@ import { getGuestNavigation, getTabItems, getVisibleNavigation, getVisibleTabs, 
 import { pageTitleFor } from './pageTitle'
 import { useShellServices, useTheme } from './shellServices'
 import { appPath } from '../lib/basePath'
+import { useDelayedFlag } from '../lib/useDelayedFlag'
 import { CommandPalette, openPalette } from '../features/palette/Palette'
 import { Tutorial } from '../features/tutorial/Tutorial'
 import { replayTour } from '../features/tutorial/events'
@@ -61,6 +62,8 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const location = useLocation()
   const navigation = useNavigation()
   const { state: revalidation } = useRevalidator()
+  // Quick background checks stay invisible; the chip only shows for one that takes a while.
+  const checking = useDelayedFlag(revalidation === 'loading', 800)
   const { gateway } = useShellServices()
   // Shared with the setup wizard's Look step; public/theme.js reads the same storage key.
   const { theme, setChoice: setThemeChoice } = useTheme()
@@ -158,9 +161,9 @@ export function AppShell({ context = setupNavigation, identity, content, preview
               {breadcrumb}
             </div>
             <div className="account-summary">
-              {revalidation === 'loading' && live ? <span className="access-check" aria-hidden="true"><span className="access-check__line" />Checking access</span> : null}
+              {checking && live ? <span className="access-check" aria-hidden="true"><span className="access-check__line" />Checking access</span> : null}
               {/* The one spoken announcement for the session check; the visual chip above is hidden from screen readers. */}
-              {live ? <span className="visually-hidden" role="status">{revalidation === 'loading' ? 'Checking current access. Your edits stay here while actions are paused.' : ''}</span> : null}
+              {live ? <span className="visually-hidden" role="status">{checking ? 'Checking current access. Your edits stay here while actions are paused.' : ''}</span> : null}
               {signOutError ? <span className="access-check access-check--error" role="alert">Sign-out failed. Try again from Account.</span> : null}
               <CountdownChip className="header-countdown" />
               {headerAction}

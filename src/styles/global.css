@@ -337,3 +337,45 @@ button:disabled { cursor: wait; opacity: .55; }
 .work-section { margin-block: var(--space-4, 16px); min-width: 0; }
 .work-section > summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 600; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* New-version notice. Sits above the phone tab bar and the iOS home indicator. */
+.update-toast { position: fixed; z-index: 60; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 4px; max-width: calc(100vw - 32px); padding: 4px 4px 4px 16px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); background: var(--color-surface-elevated); color: var(--color-ink); box-shadow: var(--shadow-md); font-size: .9375rem; animation: update-toast-in 200ms var(--ease-standard); }
+.update-toast > span { flex: 1 1 auto; min-width: 0; }
+.update-toast button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.update-toast__reload { color: var(--color-accent-ink) !important; }
+.update-toast__close { color: var(--color-muted) !important; font-weight: 500 !important; }
+.update-toast button:hover { background: var(--color-surface-subtle); }
+@keyframes update-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 60rem) { .update-toast { bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 12px); } }
+
+/* Task form: collaborators as a short checkbox list; the core-team confirmation. */
+.collaborator-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.collaborator-picker legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
+.collaborator-picker__list { display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); max-height: 16rem; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px; border: 1px solid var(--color-line); border-radius: var(--radius-control); }
+.collaborator-picker .editor-check { gap: 10px; font-weight: 400; overflow-wrap: anywhere; }
+.core-team-confirm { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--color-line-strong); border-left: 3px solid var(--color-accent); border-radius: var(--radius-panel); background: var(--color-surface-subtle); }
+.core-team-confirm p { margin: 0; font-weight: 600; }
+
+/* Phones. */
+html, body { overflow-x: clip; }
+.workspace-main { min-width: 0; }
+.workspace-main :where(img, video, iframe, svg, canvas) { max-width: 100%; }
+.workspace-main :where(pre, code) { overflow-wrap: anywhere; white-space: pre-wrap; }
+@media (max-width: 47.99rem) {
+  /* iOS zooms into any field under 16px; keep every text field at 16px or more. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']), select, textarea { font-size: max(16px, 1rem) !important; }
+  .form-field :where(select, textarea, input:not([type='checkbox']):not([type='radio'])) { width: 100%; max-width: 100%; min-width: 0; min-height: var(--control-min-size); }
+  .form-field select:not([multiple]):not([size]) { height: auto; }
+  /* Long forms: one column, full-width controls, and the primary action stays in reach. */
+  .deliverable-editor .form-actions { position: sticky; bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom)); z-index: 5; margin-inline: 0; padding: 12px 0; border-top: 1px solid var(--color-line); background: var(--color-background); }
+  .deliverable-editor .form-actions .button { flex: 1 1 100%; }
+  .deliverable-editor button { justify-self: stretch; }
+  .auth-actions > .button { flex: 1 1 auto; }
+  .page-actions { flex-wrap: wrap; }
+  /* Wide content scrolls inside itself, never the page. */
+  .workspace-main table:not(.war-room__list):not(.war-room__grid) { display: block; max-width: 100%; overflow-x: auto; }
+  .workspace-main dl { overflow-wrap: anywhere; }
+  .mobile-identity .tedx-lockup { display: inline-flex; align-items: center; min-height: var(--control-min-size); padding-block: 0; }
+  .update-toast { left: 16px; right: 16px; transform: none; max-width: none; animation-name: update-toast-in-phone; }
+}
+@keyframes update-toast-in-phone { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

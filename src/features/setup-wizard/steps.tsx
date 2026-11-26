@@ -4,7 +4,9 @@ import { TextField } from '../../components/TextField'
 import { setThemeChoice, useTheme, type ThemeChoice } from '../../app/shellServices'
 import { installPlatform, useInstallPrompt } from '../../app/InstallWorkspace'
 import { appPath } from '../../lib/basePath'
-import type { OwnProfile, ProfileGateway, ProfileValues, ProfileVisibility } from '../account/gateway'
+import { profileFields, type OwnProfile, type ProfileGateway, type ProfileValues } from '../account/gateway'
+import { profileDirty, saveProfile } from '../account/ProfileEditor'
+import { contactError } from '../people/contacts'
 import type { NotificationsApi } from '../notifications/api'
 import type { EmailDigestStatus } from '../integrations/email/api'
 import { telegramConfirmCode, telegramProofHash, telegramStartCode, type TelegramStatus } from '../integrations/telegram/api'
@@ -41,51 +43,41 @@ export function WelcomeStep({ headingId, name, committee, position, guest }: Ste
 }
 
 /* 2. Profile: the same fields and commands as the Account page (features/account). */
-const fields = [
-  { value: 'course', share: 'shareCourse', label: 'Course', max: 200 },
-  { value: 'yearLevel', share: 'shareYearLevel', label: 'Year level', max: 80 },
-  { value: 'phone', share: 'sharePhone', label: 'Personal phone', max: 80 },
-  { value: 'externalContact', share: 'shareExternalContact', label: 'Other contact (e.g. Telegram)', max: 320 },
-  { value: 'skills', share: 'shareSkills', label: 'Skills', max: 1000 },
-  { value: 'pronunciation', share: 'sharePronunciation', label: 'Name pronunciation', max: 200 },
-  { value: 'affiliation', share: 'shareAffiliation', label: 'Affiliation', max: 80 },
-] as const
-const emptyValues: ProfileValues = { course: null, yearLevel: null, phone: null, externalContact: null, skills: null, pronunciation: null, affiliation: null }
-const emptyVisibility: ProfileVisibility = { shareCourse: false, shareYearLevel: false, sharePhone: false, shareExternalContact: false, shareSkills: false, sharePronunciation: false, shareAffiliation: false }
+const emptyValues: ProfileValues = { course: null, yearLevel: null, messenger: null, telegram: null }
+const pickValues = (p: ProfileValues): ProfileValues => ({ course: p.course, yearLevel: p.yearLevel, messenger: p.messenger, telegram: p.telegram })
 
 export function ProfileStep({ headingId, registerCommit, api, termId }: StepProps & { api?: ProfileGateway; termId?: string }) {
   const [current, setCurrent] = useState<OwnProfile | null>(null)
   const [values, setValues] = useState<ProfileValues>(emptyValues)
-  const [visibility, setVisibility] = useState<ProfileVisibility>(emptyVisibility)
   const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>(api && termId ? 'loading' : 'ready')
   const [error, setError] = useState('')
-  const latest = useRef({ current, values, visibility })
-  useEffect(() => { latest.current = { current, values, visibility } })
+  const [touched, setTouched] = useState(false)
+  const latest = useRef({ current, values })
+  useEffect(() => { latest.current = { current, values } })
 
   useEffect(() => {
     if (!api || !termId) return
     let live = true
     void api.read(termId).then(result => {
       if (!live) return
-      setCurrent(result); setValues(result); setVisibility(result); setState('ready')
+      setCurrent(result); setValues(pickValues(result)); setState('ready')
     }).catch(() => { if (live) setState('unavailable') })
     return () => { live = false }
   }, [api, termId])
 
   useEffect(() => {
     registerCommit(async () => {
-      const { current: base, values: v, visibility: s } = latest.current
+      const { current: base, values: v } = latest.current
       if (!api || !termId || !base) return true
-      const dirtyValues = fields.some(f => (base[f.value] ?? null) !== (v[f.value] ?? null))
-      const dirtySharing = fields.some(f => base[f.share] !== s[f.share])
-      if (!dirtyValues && !dirtySharing) return true
+      if (contactError('messenger', v.messenger) || contactError('telegram', v.telegram)) {
+        setTouched(true)
+        return false
+      }
+      if (!profileDirty(base, v)) return true
       setError('')
       try {
-        // Explicit whitelists keep server identity/version fields out of payloads, as on Account.
-        let next = base
-        if (dirtyValues) next = await api.save(termId, { course: v.course, yearLevel: v.yearLevel, phone: v.phone, externalContact: v.externalContact, skills: v.skills, pronunciation: v.pronunciation, affiliation: v.affiliation }, next.version, crypto.randomUUID())
-        if (dirtySharing) next = await api.share(termId, { shareCourse: s.shareCourse, shareYearLevel: s.shareYearLevel, sharePhone: s.sharePhone, shareExternalContact: s.shareExternalContact, shareSkills: s.shareSkills, sharePronunciation: s.sharePronunciation, shareAffiliation: s.shareAffiliation }, next.version, crypto.randomUUID())
-        setCurrent(next); setValues(next); setVisibility(next)
+        const next = await saveProfile(api, termId, base, v, () => crypto.randomUUID())
+        setCurrent(next); setValues(pickValues(next))
         return true
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Couldn\'t save your profile. Try again, or skip and finish it in Account.')
@@ -95,21 +87,22 @@ export function ProfileStep({ headingId, registerCommit, api, termId }: StepProp
     return () => registerCommit(null)
   }, [api, termId, registerCommit])
 
+  const fields = profileFields.filter(field => !current || current.contactsAvailable || (field.value !== 'messenger' && field.value !== 'telegram'))
   return <>
-    <StepHeading id={headingId} lead="All optional. Switch on Show to members for anything you want the team to see in the directory.">Your profile</StepHeading>
+    <StepHeading id={headingId} lead="All optional. Core members can see what you add, so they can reach you.">Your profile</StepHeading>
     {error ? <p className="setup-alert" role="alert">{error}</p> : null}
     {state === 'loading' ? <p className="muted" role="status">Loading your profile…</p>
       : state === 'unavailable' ? <p className="muted" role="status">Couldn't load your profile right now. Skip this step and fill it in later from Account.</p>
         : <div className="setup-fields">
-          {fields.map(field => <div className="paired-field setup-field" key={field.value}>
-            <TextField id={`setup-${field.value}`} label={field.label} maxLength={field.max} value={values[field.value] ?? ''} autoComplete="off"
-              onChange={event => setValues({ ...values, [field.value]: event.target.value || null })} />
-            <label className="share-toggle setup-share">
-              <input type="checkbox" role="switch" checked={visibility[field.share]} aria-describedby={`setup-${field.value}`}
-                onChange={event => setVisibility({ ...visibility, [field.share]: event.target.checked })} />
-              <span className="setup-switch" aria-hidden="true" />Show to members
-            </label>
-          </div>)}
+          {fields.map(field => {
+            const problem = field.value === 'messenger' || field.value === 'telegram' ? contactError(field.value, values[field.value]) : ''
+            return <div className="setup-field" key={field.value}>
+              <TextField id={`setup-${field.value}`} label={field.label} hint={field.hint} placeholder={field.placeholder} maxLength={field.max}
+                value={values[field.value] ?? ''} autoComplete="off" spellCheck={false} error={touched && problem ? problem : undefined}
+                onBlur={() => { if (problem) setTouched(true) }}
+                onChange={event => setValues({ ...values, [field.value]: event.target.value || null })} />
+            </div>
+          })}
         </div>}
     {!api ? <p className="muted">Preview only. Nothing here is saved.</p> : null}
   </>

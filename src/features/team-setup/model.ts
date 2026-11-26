@@ -1,4 +1,4 @@
-import type { Committee, NewPerson, NudgeKind, OpenPosition, TeamPerson, Wave } from './api'
+import type { Committee, NewPerson, NudgeKind, Position, PositionTier, TeamPerson, Wave } from './api'
 
 export const tutorialSteps = 7
 export const schoolEmail = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@student\.ateneo\.edu$/
@@ -17,7 +17,7 @@ export const skipReasons: Record<string, string> = {
   unknown_committee: 'Committee not found',
   unknown_role: 'Position not found',
   role_committee_mismatch: 'That position belongs to another committee',
-  role_not_allowed: 'Only someone with full admin access can seat this position',
+  role_not_allowed: 'Only a full admin can give this position',
   account_unavailable: 'This account is closed or suspended',
   already_on_roster: 'Already on the roster',
 }
@@ -73,20 +73,36 @@ export function matchCommittee(raw: string, committees: Committee[]): Committee 
 
 const plainMember = new Set(['', 'member', 'core member', 'committee member', 'associate', 'volunteer'])
 
-/** Open positions in a committee, or every open position when none is chosen. */
-export function positionsFor(open: OpenPosition[], committeeCode: string | null): OpenPosition[] {
-  return open.filter(p => (committeeCode ? p.committeeCode === committeeCode : true))
+/** Every position in a committee, or every position when none is chosen. Held positions stay listed. */
+export function positionsFor(all: Position[], committeeCode: string | null): Position[] {
+  return all.filter(p => (committeeCode ? p.committeeCode === committeeCode : true))
+}
+
+const tierLabels: Record<PositionTier, string> = { leadership: 'Leadership', head: 'Heads', core: 'Core' }
+/** Positions grouped for a picker: Leadership, then Heads, then Core. Empty groups are left out. */
+export function positionGroups(all: Position[]): { tier: PositionTier; label: string; items: Position[] }[] {
+  return (['leadership', 'head', 'core'] as const)
+    .map(tier => ({ tier, label: tierLabels[tier], items: all.filter(p => p.tier === tier) }))
+    .filter(group => group.items.length)
+}
+
+/** Option text: the name, the committee when it isn't obvious, how many hold it, and the admin rule. */
+export function positionLabel(p: Position, showCommittee: boolean): string {
+  const parts = [p.roleName + (showCommittee && p.committeeCode && !p.roleName.toUpperCase().includes(p.committeeCode) ? ` (${p.committeeCode})` : '')]
+  if (p.holders) parts.push(`${p.holders} ${p.holders === 1 ? 'person' : 'people'}`)
+  if (!p.allowed) parts.push('full admin only')
+  return parts.join(' · ')
 }
 
 export type PositionMatch = { roleCode: string | null; warning?: string; error?: string }
-export function matchPosition(raw: string, committee: Committee | null, open: OpenPosition[]): PositionMatch {
+export function matchPosition(raw: string, committee: Committee | null, open: Position[]): PositionMatch {
   const v = raw.trim().toLowerCase()
   if (plainMember.has(v)) return { roleCode: null }
   const found = open.filter(p => p.roleName.toLowerCase() === v || p.roleCode.toLowerCase() === v)
   const inCommittee = committee ? found.find(p => p.committeeCode === committee.code) : found.length === 1 ? found[0] : undefined
   if (inCommittee) return { roleCode: inCommittee.roleCode }
-  if (committee) return { roleCode: null, warning: `"${raw.trim()}" isn't an open ${committee.code} position, so they'll join as a committee member` }
-  return { roleCode: null, warning: `"${raw.trim()}" isn't an open position. Add a committee to seat them` }
+  if (committee) return { roleCode: null, warning: `"${raw.trim()}" isn't a ${committee.code} position, so they'll join as a committee member` }
+  return { roleCode: null, warning: `"${raw.trim()}" isn't a position we know. Check the spelling or add a committee` }
 }
 
 /* ---------- Paste a list ---------- */
@@ -148,7 +164,7 @@ export type PreviewRow = {
   warnings: string[]
 }
 
-export function previewRows(text: string, committees: Committee[], open: OpenPosition[], roster: TeamPerson[]): { rows: PreviewRow[]; header: boolean; columns: (Column | null)[] } {
+export function previewRows(text: string, committees: Committee[], open: Position[], roster: TeamPerson[]): { rows: PreviewRow[]; header: boolean; columns: (Column | null)[] } {
   const raw = splitRows(text)
   if (!raw.length) return { rows: [], header: false, columns: [] }
   const { columns, header } = detectColumns(raw[0])

@@ -3,7 +3,7 @@ import { FileUp } from 'lucide-react'
 import { Status } from '../../components/Status'
 import type { AddResult, Committee, NewPerson, OpenPosition, TeamPerson, TeamSetupApi, Wave } from './api'
 import { Dialog } from './Dialog'
-import { chunk, positionsFor, previewRows, schoolEmail, skipReason, waveOptions } from './model'
+import { chunk, positionGroups, positionLabel, positionsFor, previewRows, schoolEmail, skipReason, waveOptions } from './model'
 
 type Shared = {
   api: TeamSetupApi
@@ -111,10 +111,12 @@ export function AddPersonDialog({ api, termId, committees, openPositions, roster
       </div>
       <div className="form-field">
         <label htmlFor="ts-position">Position (optional)</label>
-        <p className="field-hint" id="ts-position-hint">Only open positions are listed. Leave it as committee member if unsure.</p>
+        <p className="field-hint" id="ts-position-hint">They can sign in without a position. A position only sets their role on the roster, and you can change it later.</p>
         <select id="ts-position" value={position} aria-describedby="ts-position-hint" onChange={e => setPosition(e.target.value)} disabled={!positions.length}>
           <option value="">{committee ? 'Committee member' : 'No position'}</option>
-          {positions.map(p => <option key={p.roleCode} value={p.roleCode}>{p.roleName}{!committee && p.committeeCode ? ` (${p.committeeCode})` : ''}</option>)}
+          {positionGroups(positions).map(group => <optgroup key={group.tier} label={group.label}>
+            {group.items.map(p => <option key={p.roleCode} value={p.roleCode} disabled={!p.allowed}>{positionLabel(p, !committee)}</option>)}
+          </optgroup>)}
         </select>
       </div>
       <fieldset className="ts-choice">

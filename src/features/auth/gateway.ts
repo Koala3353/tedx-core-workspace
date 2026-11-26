@@ -149,6 +149,31 @@ export function parseContext(input: unknown): WorkspaceContext | null {
   return value as WorkspaceContext
 }
 
+
+// Long enough for a slow phone connection to refresh a token and read the context, short
+// enough that a stuck check is reported instead of leaving the page waiting.
+const contextTimeoutMs = 15_000
+
+/** Resolves with the check's result, or { state: 'error' } after `ms` or when `signal` aborts. */
+function settleWithin(check: Promise<AuthResult>, signal: AbortSignal | undefined, ms: number): Promise<AuthResult> {
+  return new Promise(resolve => {
+    let done = false
+    const finish = (result: AuthResult) => { if (done) return; done = true; clearTimeout(timer); signal?.removeEventListener('abort', aborted); resolve(result) }
+    const aborted = () => finish({ state: 'error' })
+    const timer = setTimeout(() => finish({ state: 'error' }), ms)
+    if (signal?.aborted) { aborted(); return }
+    signal?.addEventListener('abort', aborted, { once: true })
+    check.then(finish, () => finish({ state: 'error' }))
+  })
+}
+
+function transientAuthError(error: { name?: string; status?: number }): boolean {
+  return error.name === 'AuthRetryableFetchError' || (typeof error.status === 'number' && (error.status === 0 || error.status >= 500))
+}
+
+// Token refreshes and the first session read are routine; only real identity changes re-check access.
+const accessEvents = new Set(['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED'])
+
 export const returnStorageKey = 'tedx.auth.return'
 export function consumeReturnPath(): string {
   try { const path = safeReturnPath(sessionStorage.getItem(returnStorageKey)); sessionStorage.removeItem(returnStorageKey); return path } catch { return '/' }
@@ -160,6 +185,46 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
   const privacy = createPrivacyApi(clientReady)
   let exchangeCode: string | undefined
   let exchangePromise: Promise<void> | undefined
+  async function readContextOnce(signal?: AbortSignal, termId?: string): Promise<AuthResult> {
+    const client = await clientReady
+    if (!client || !redirectTo) return { state: 'unavailable' }
+    try {
+      // getSession() refreshes an expired access token itself, but a refresh that is still in
+      // flight (tab waking up, another navigation racing it) can surface as a missing session or
+      // a rejected token. Refresh once and re-check before deciding the person is signed out.
+      // Every check below still has to pass with the refreshed session.
+      let refreshed = false
+      const refreshOnce = async () => {
+        if (refreshed) return false
+        refreshed = true
+        const { data, error } = await client.auth.refreshSession()
+        return !error && !!data.session
+      }
+      let { data: session, error: sessionError } = await client.auth.getSession()
+      if (sessionError && await refreshOnce()) ({ data: session, error: sessionError } = await client.auth.getSession())
+      if (sessionError || !session.session) return { state: 'signed_out' }
+      let { data: identity, error: identityError } = await client.auth.getUser()
+      if ((identityError || !identity.user) && await refreshOnce()) ({ data: identity, error: identityError } = await client.auth.getUser())
+      // A network failure is not a sign-out: keep the person signed in and report the check failed.
+      if (identityError && transientAuthError(identityError)) return { state: 'error' }
+      if (identityError || !identity.user) return { state: 'signed_out' }
+      signal?.throwIfAborted()
+      const resolve = () => { const bootstrap = client.rpc('resolve_auth_context'); return signal ? bootstrap.abortSignal(signal) : bootstrap }
+      const first = await resolve()
+      let { data, error } = first
+      // An access token that expired between the checks above and this call: refresh and retry once.
+      if (error && (first.status === 401 || error.code === 'PGRST301' || error.code === 'PGRST303') && await refreshOnce()) ({ data, error } = await resolve())
+      if (error) return { state: 'error' }
+      if(termId){
+        const initial=parseContext(data);if(!initial)return{state:'denied'}
+        if(isGuest(initial))return initial.termId===termId?initial:{state:'denied'}
+        const scoped=client.rpc('read_search_term_context',{p_term_id:termId})
+        ;({data,error}=await(signal?scoped.abortSignal(signal):scoped));if(error)return{state:error.code==='42501'?'denied':'error'}
+      }
+      const context=parseContext(data)
+      return context&&(!termId||context.termId===termId)?context:{state:'denied'}
+    } catch { return { state: 'error' } }
+  }
   return {
     privacy,
     clientState: createClientStateApi(clientReady),
@@ -223,43 +288,11 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
     profile: createProfileGateway(clientReady),
     people: createPeopleGateway(clientReady),
     guests: createGuestGateway(clientReady),
-    async readContext(signal,termId) {
-      const client = await clientReady
-      if (!client || !redirectTo) return { state: 'unavailable' }
-      try {
-        // getSession() refreshes an expired access token itself, but a refresh that is still in
-        // flight (tab waking up, another navigation racing it) can surface as a missing session or
-        // a rejected token. Refresh once and re-check before deciding the person is signed out.
-        // Every check below still has to pass with the refreshed session.
-        let refreshed = false
-        const refreshOnce = async () => {
-          if (refreshed) return false
-          refreshed = true
-          const { data, error } = await client.auth.refreshSession()
-          return !error && !!data.session
-        }
-        let { data: session, error: sessionError } = await client.auth.getSession()
-        if (sessionError && await refreshOnce()) ({ data: session, error: sessionError } = await client.auth.getSession())
-        if (sessionError || !session.session) return { state: 'signed_out' }
-        let { data: identity, error: identityError } = await client.auth.getUser()
-        if ((identityError || !identity.user) && await refreshOnce()) ({ data: identity, error: identityError } = await client.auth.getUser())
-        if (identityError || !identity.user) return { state: 'signed_out' }
-        signal?.throwIfAborted()
-        const resolve = () => { const bootstrap = client.rpc('resolve_auth_context'); return signal ? bootstrap.abortSignal(signal) : bootstrap }
-        const first = await resolve()
-        let { data, error } = first
-        // An access token that expired between the checks above and this call: refresh and retry once.
-        if (error && (first.status === 401 || error.code === 'PGRST301' || error.code === 'PGRST303') && await refreshOnce()) ({ data, error } = await resolve())
-        if (error) return { state: 'error' }
-        if(termId){
-          const initial=parseContext(data);if(!initial)return{state:'denied'}
-          if(isGuest(initial))return initial.termId===termId?initial:{state:'denied'}
-          const scoped=client.rpc('read_search_term_context',{p_term_id:termId})
-          ;({data,error}=await(signal?scoped.abortSignal(signal):scoped));if(error)return{state:error.code==='42501'?'denied':'error'}
-        }
-        const context=parseContext(data)
-        return context&&(!termId||context.termId===termId)?context:{state:'denied'}
-      } catch { return { state: 'error' } }
+    readContext(signal,termId) {
+      // Every access check settles: a superseded navigation aborts it, and a check that hangs
+      // (an auth lock held by a sleeping tab, a stalled token refresh, a dropped connection)
+      // gives up after contextTimeoutMs, so "Checking access" can never stay on screen.
+      return settleWithin(readContextOnce(signal,termId), signal, contextTimeoutMs)
     },
     async beginGoogle(returnTo) {
       const client = await clientReady
@@ -305,7 +338,12 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       let unsubscribe = () => undefined as void
       void clientReady.then((client) => {
         if (!client || stopped) return
-        const { data } = client.auth.onAuthStateChange(() => { queueMicrotask(() => { if (!stopped) listener() }) })
+        // Defer past supabase-js's auth lock: calling back into auth from inside this callback
+        // (which a revalidation does through readContext) can deadlock on that lock.
+        const { data } = client.auth.onAuthStateChange((event) => {
+          if (!accessEvents.has(event)) return
+          setTimeout(() => { if (!stopped) listener() }, 0)
+        })
         unsubscribe = () => data.subscription.unsubscribe()
       })
       return () => { stopped = true; unsubscribe() }

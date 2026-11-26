@@ -14,6 +14,7 @@ import type { CalendarEvent } from '../calendar/api'
 import { TaskEditor } from '../tasks/TaskEditor'
 import { InstallBanner } from '../install/InstallBanner'
 import { replayTour } from '../tutorial/events'
+import { onPageReturn } from '../../lib/pageReturn'
 import { buildSections, comingUpWindow, type TodayItem } from './model'
 import { TodaySection } from './TodayList'
 import './today.css'
@@ -52,12 +53,8 @@ function TodayBody({ context }: { context: Extract<WorkspaceContext, { memberId:
   }, [overview, announcements, calendar, termId, epoch])
 
   // Refresh in place when the person comes back to the tab; the current list stays visible.
-  useEffect(() => {
-    const refresh = () => { if (document.visibilityState === 'visible') setEpoch(n => n + 1) }
-    window.addEventListener('focus', refresh)
-    document.addEventListener('visibilitychange', refresh)
-    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
-  }, [])
+  // Focus and visibility both fire on a return; onPageReturn turns them into one refresh.
+  useEffect(() => onPageReturn(() => setEpoch(n => n + 1)), [])
 
   const acknowledge = useCallback(async (item: TodayItem): Promise<string | null> => {
     const a = item.announcement

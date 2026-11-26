@@ -11,6 +11,9 @@ export type TeamPerson = {
   committee: string | null
   committeeCode: string | null
   position: string | null
+  /** Role code and tier of the position shown in `position`; null when they have none. */
+  positionCode: string | null
+  positionTier: PositionTier | null
   wave: Wave | null
   accountState: string
   signedIn: boolean
@@ -24,9 +27,20 @@ export type TeamPerson = {
   invitedAt: string | null
 }
 
-export type OpenPosition = { roleCode: string; roleName: string; committee: string | null; committeeCode: string | null }
+export type PositionTier = 'leadership' | 'head' | 'core'
+/** Every position for the term. Leadership and head positions can have several holders. */
+export type Position = {
+  roleCode: string; roleName: string; committee: string | null; committeeCode: string | null
+  tier: PositionTier; administrator: boolean
+  /** People holding it now. */
+  holders: number
+  /** False when the viewer needs full admin access to give it. */
+  allowed: boolean
+}
+/** Kept for older imports: the list is no longer limited to unheld positions. */
+export type OpenPosition = Position
 export type TeamTotals = { people: number; signedIn: number; installed: number; tutorialDone: number; remindersOn: number; neverOpened: number }
-export type TeamSetup = { people: TeamPerson[]; openPositions: OpenPosition[]; totals: TeamTotals }
+export type TeamSetup = { people: TeamPerson[]; openPositions: Position[]; totals: TeamTotals; canAssignAll: boolean }
 export type Committee = { id: string; code: string; name: string }
 
 export type NewPerson = { name: string; email: string; committeeCode?: string | null; roleCode?: string | null; wave?: Wave | null }
@@ -36,6 +50,9 @@ export type SkipReason =
   | 'unknown_role' | 'role_committee_mismatch' | 'role_not_allowed' | 'account_unavailable' | 'already_on_roster'
 export type SkippedPerson = { email: string; reason: SkipReason | string }
 export type AddResult = { added: AddedPerson[]; skipped: SkippedPerson[] }
+
+export type PositionFailure = Failure | 'not_allowed' | 'blocked' | 'conflict' | 'not_on_roster'
+export type PositionOutcome = { ok: true; value: { changed: boolean } } | { ok: false; reason: PositionFailure }
 
 /** Why a call did not return data. `not_deployed` means the database update has not been applied yet. */
 export type Failure = 'not_deployed' | 'denied' | 'invalid' | 'unavailable'
@@ -47,6 +64,8 @@ export interface TeamSetupApi {
   /** One call; at most 100 people (the page sends chunks of 50). Reuse `requestId` to retry the same batch safely. */
   add(termId: string, people: NewPerson[], requestId: string): Promise<Outcome<AddResult>>
   nudge(termId: string, membershipIds: string[], kind: NudgeKind): Promise<Outcome<{ queued: number }>>
+  /** Give, change or clear (roleCode null) someone's position. Works before they sign in. Reuse `requestId` to retry safely. */
+  setPosition(termId: string, membershipId: string, roleCode: string | null, requestId: string): Promise<PositionOutcome>
 }
 
 type RpcError = { code?: string; message?: string } | null
@@ -57,6 +76,7 @@ const isNullableString = (v: unknown): v is string | null => v === null || v ===
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
 const isCount = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0
 const waves: readonly string[] = ['wave1', 'wave1_5', 'core']
+const tiers: readonly string[] = ['leadership', 'head', 'core']
 
 function failure(error: RpcError): Failure {
   const code = error?.code ?? ''
@@ -78,6 +98,8 @@ function person(value: unknown): TeamPerson | null {
   return {
     membershipId: v.membershipId, memberId: v.memberId, name: v.name || v.email, email: v.email,
     committee: v.committee ?? null, committeeCode: v.committeeCode ?? null, position: v.position ?? null,
+    positionCode: isString(v.positionCode) ? v.positionCode : null,
+    positionTier: isString(v.positionTier) && tiers.includes(v.positionTier) ? v.positionTier as PositionTier : null,
     wave: isString(v.wave) && waves.includes(v.wave) ? v.wave as Wave : null,
     accountState: v.accountState, signedIn: v.signedIn, lastSignInAt: v.lastSignInAt ?? null, lastActiveAt: v.lastActiveAt ?? null,
     installed: v.installed, tutorialDone: v.tutorialDone, tutorialStep: isCount(v.tutorialStep) ? v.tutorialStep : 0,
@@ -91,16 +113,20 @@ function parseSetup(data: unknown): TeamSetup | null {
   if (!Array.isArray(v.people) || !Array.isArray(v.openPositions) || !v.totals || typeof v.totals !== 'object') return null
   const people = v.people.map(person)
   if (people.some(p => !p)) return null
-  const openPositions: OpenPosition[] = []
+  const openPositions: Position[] = []
   for (const raw of v.openPositions) {
     const p = raw as Record<string, unknown> | null
     if (!p || !isString(p.roleCode) || !isString(p.roleName) || !isNullableString(p.committee) || !isNullableString(p.committeeCode)) return null
-    openPositions.push({ roleCode: p.roleCode, roleName: p.roleName, committee: p.committee ?? null, committeeCode: p.committeeCode ?? null })
+    // Older servers sent only open positions without tier or counts; fall back to safe defaults.
+    const tier = isString(p.tier) && tiers.includes(p.tier) ? p.tier as PositionTier
+      : !p.committeeCode ? 'leadership' : / head$/i.test(p.roleName) ? 'head' : 'core'
+    openPositions.push({ roleCode: p.roleCode, roleName: p.roleName, committee: p.committee ?? null, committeeCode: p.committeeCode ?? null,
+      tier, administrator: p.administrator === true, holders: isCount(p.holders) ? p.holders : 0, allowed: p.allowed !== false })
   }
   const t = v.totals as Record<string, unknown>
   const keys = ['people', 'signedIn', 'installed', 'tutorialDone', 'remindersOn', 'neverOpened'] as const
   if (!keys.every(key => isCount(t[key]))) return null
-  return { people: people as TeamPerson[], openPositions, totals: Object.fromEntries(keys.map(key => [key, t[key]])) as TeamTotals }
+  return { people: people as TeamPerson[], openPositions, totals: Object.fromEntries(keys.map(key => [key, t[key]])) as TeamTotals, canAssignAll: v.canAssignAll === true }
 }
 
 function parseAdd(data: unknown): AddResult | null {
@@ -127,8 +153,8 @@ function parseAdd(data: unknown): AddResult | null {
 }
 
 /**
- * Team setup data for project managers: public.read_team_setup, public.add_roster_members and
- * public.nudge_members, plus the term's committees for the pickers. Every method resolves; a
+ * Team setup data for project managers: public.read_team_setup, public.add_roster_members,
+ * public.nudge_members and public.set_member_position, plus the term's committees for the pickers. Every method resolves; a
  * missing function (before the migration is deployed) comes back as `not_deployed`.
  */
 export function createTeamSetupApi(ready: ReturnType<typeof createSupabaseClient>): TeamSetupApi {
@@ -168,6 +194,26 @@ export function createTeamSetupApi(ready: ReturnType<typeof createSupabaseClient
       })),
       p_request_id: requestId,
     }, parseAdd),
+    async setPosition(termId, membershipId, roleCode, requestId) {
+      try {
+        const client = await ready
+        if (!client) return { ok: false, reason: 'unavailable' }
+        const rpc = client.rpc.bind(client) as unknown as Rpc
+        const { data, error } = await rpc('set_member_position', { p_term_id: termId, p_membership_id: membershipId, p_role_code: roleCode, p_request_id: requestId })
+        if (error) {
+          const message = error.message ?? ''
+          if (message === 'role_not_allowed') return { ok: false, reason: 'not_allowed' }
+          if (message === 'command_dependency_blocked') return { ok: false, reason: 'blocked' }
+          if (message === 'command_position_overlap' || error.code === '40001') return { ok: false, reason: 'conflict' }
+          if (message === 'member_not_on_roster') return { ok: false, reason: 'not_on_roster' }
+          return { ok: false, reason: failure(error) }
+        }
+        const changed = data && typeof data === 'object' ? (data as { changed?: unknown }).changed : undefined
+        return typeof changed === 'boolean' ? { ok: true, value: { changed } } : { ok: false, reason: 'unavailable' }
+      } catch {
+        return { ok: false, reason: 'unavailable' }
+      }
+    },
     nudge: (termId, membershipIds, kind) => call('nudge_members', { p_term_id: termId, p_membership_ids: membershipIds, p_kind: kind },
       data => data && typeof data === 'object' && isCount((data as { queued?: unknown }).queued) ? { queued: (data as { queued: number }).queued } : null),
   }

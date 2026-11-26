@@ -107,3 +107,7 @@ button.war-room__cell:focus-visible { outline: 2px solid var(--color-focus); out
 @media (prefers-reduced-motion: reduce) {
   button.war-room__cell, button.war-room__cell:active { transition: none; transform: none; }
 }
+/* Phones: the detail dialog opens as a full-screen sheet. */
+@media (max-width: 47.99rem) {
+  .war-room__dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom)); overflow-y: auto; }
+}

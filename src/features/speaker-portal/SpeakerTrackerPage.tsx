@@ -86,10 +86,11 @@ function Matrix({ speakers, today }: { speakers: TrackedSpeaker[]; today: string
         <th scope="row"><a href={'#speaker-' + speaker.id}>{speaker.name}</a></th>
         {columns.map(kind => {
           const items = speaker.requirements.filter(r => r.kind === kind)
-          if (!items.length) return <td key={kind}><span className="speaker-muted">Not asked</span></td>
+          const label = requirementKinds.find(k => k.kind === kind)!.label
+          if (!items.length) return <td key={kind} data-label={label}><span className="speaker-muted">Not asked</span></td>
           const worst = items.find(r => r.status !== 'done') ?? items[0]
           const isLate = worst.status !== 'done' && worst.status !== 'submitted' && worst.dueOn !== null && worst.dueOn < today
-          return <td key={kind}><Status state={isLate ? 'overdue' : worst.status} label={isLate ? 'Late' : requirementStatusLabel(worst.status, 'team')} /></td>
+          return <td key={kind} data-label={label}><Status state={isLate ? 'overdue' : worst.status} label={isLate ? 'Late' : requirementStatusLabel(worst.status, 'team')} /></td>
         })}
       </tr>)}</tbody>
     </table>

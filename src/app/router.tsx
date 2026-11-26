@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { appPath, basePath, stripBase } from '../lib/basePath'
+import { announceUpdate, chunkLoaded, reloadOnceForMissingChunk } from '../lib/appUpdate'
 import { Countdown } from '../components/Countdown'
 import { createBrowserRouter, Link, Navigate, redirect, useLocation, type RouteObject } from 'react-router'
 import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
@@ -12,7 +13,7 @@ import { ShellServicesProvider } from './shellServices'
 import { TodayPage } from '../features/today/Today'
 import { DeskHub, EventHub, TeamHub, WorkHub } from './hubs/Hubs'
 import { BootScreen } from '../components/BrandLoader'
-import { createAuthGateway, isGuest, type AuthGateway } from '../features/auth/gateway'
+import { createAuthGateway, isGuest, type AuthGateway, type WorkspaceContext } from '../features/auth/gateway'
 import { AccountPage, AuthRevalidator, CallbackPage, LoginPage, ProtectedShell } from '../features/auth/pages'
 // Already in the first-load bundle through the shell (badge, hub card, account page),
 // so these stay static imports.
@@ -22,23 +23,21 @@ import { DriveCallback } from '../features/integrations/drive/DriveSource'
 import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
 import { calendarCallback } from '../features/integrations/calendar/api'
 
-const reloadKey = 'tedx.chunk-reload'
-
 /**
  * Route-level code splitting. Each feature page loads on first visit, inside its own
- * Suspense boundary. A failed chunk load (usually an old tab after a new deploy) reloads
- * the page once to pick up the current build, then lets the route error page show.
+ * Suspense boundary. A failed chunk load means an old tab after a new deploy: the person is
+ * opening this page right now, so reload once per build to pick up the current one. If that
+ * was already tried, show the "new version" notice and let the route error page show.
  */
 function lazyPage<C extends (props: never) => ReactNode>(load: () => Promise<C>): C {
   const Lazy = lazy(async () => {
     try {
       const component = await load()
-      try { sessionStorage.removeItem(reloadKey) } catch { /* Storage is optional. */ }
+      chunkLoaded()
       return { default: component as unknown as ComponentType<Record<string, unknown>> }
     } catch (error) {
-      let reloaded = true
-      try { reloaded = sessionStorage.getItem(reloadKey) === '1'; if (!reloaded) sessionStorage.setItem(reloadKey, '1') } catch { /* Storage is optional. */ }
-      if (!reloaded) { window.location.reload(); return new Promise<never>(() => {}) }
+      if (reloadOnceForMissingChunk()) return new Promise<never>(() => {})
+      announceUpdate()
       throw error
     }
   })
@@ -199,6 +198,7 @@ function NotFoundPage() {
 }
 
 export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGateway = createAuthGateway(environment, window.location.origin)): RouteObject[] {
+  let lastContext: WorkspaceContext | null = null
   return [
     { element: <ShellServicesProvider gateway={gateway}><AuthRevalidator gateway={gateway} /></ShellServicesProvider>, errorElement: <RouteErrorPage />, hydrateFallbackElement: <BootScreen />, children: [
       { path: '/login', loader: async ({ request }) => {
@@ -218,8 +218,13 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
         { path: 'work', element: <WorkHub /> }, { path: 'event', element: <EventHub /> }, { path: 'team', element: <TeamHub /> }, { path: 'desk', element: <DeskHub /> },
       ] }] : []),
       { id:'workspace', path: '/', element: <ProtectedShell notifications={gateway.notifications} gateway={gateway}/>, loader: async ({ request }) => {
-        const result = await gateway.readContext(request.signal,new URL(request.url).searchParams.get('term')??undefined)
+        const term=new URL(request.url).searchParams.get('term')??undefined
+        let result = await gateway.readContext(request.signal,term)
+        // A check that failed or timed out (weak signal, waking tab) keeps the person on the page
+        // with the access they already had. Every page RPC still checks access on the server.
+        if (result.state === 'error' && lastContext && (!term || lastContext.termId === term) && Date.parse(lastContext.expiresAt) > Date.now()) result = lastContext
         if (result.state === 'authorized') {
+          lastContext = result
           rememberSession()
           const path=stripBase(new URL(request.url).pathname)
           if(isGuest(result) && !isDeliverablePath(path) && !isTaskPath(path) && !isAnnouncementPath(path) && !isPrivacyPath(path) && !navigationItems.some(item=>item.href===path && item.audiences.includes('guest')))return redirect('/my-part')
@@ -240,6 +245,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
         }
         // Only say a session ended when this browser actually had one; first visits get no notice.
         const reason = result.state === 'denied' ? 'denied' : result.state === 'signed_out' && hadSession() ? 'expired' : null
+        lastContext = null
         if (result.state === 'signed_out') forgetSession()
         return redirect(`/login?${reason ? `reason=${reason}&` : ''}returnTo=${encodeURIComponent(safeReturnPath(appUrlPath+url.search))}`)
       // Page RPCs recheck scope themselves. Explicit focus/expiry checks and path changes still revalidate.

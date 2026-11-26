@@ -22,11 +22,12 @@ export function TasksPage({api,exportCsv}:{api:TasksApi;exportCsv?:OperationalEx
  // Quick add hands off here as ?compose=1&title=&due=&committee=<unitId>; read once, then drop the params.
  const[prefill]=useState(()=>params.get('compose')==='1'?{title:(params.get('title')??'').slice(0,240),dueOn:/^\d{4}-\d{2}-\d{2}$/.test(params.get('due')??'')?params.get('due')!:'',leadUnitId:params.get('committee')??''}:undefined)
  useEffect(()=>{if(params.get('compose')!=='1')return;const next=new URLSearchParams(params);for(const k of['compose','title','due','committee'])next.delete(k);setParams(next,{replace:true})},[params,setParams])
- ;const key=context.termId+':'+('memberId'in context?context.memberId:context.guestAccessId)+':'+page+':'+view+':'+reload
+ ;const key=context.termId+':'+('memberId'in context?context.memberId:context.guestAccessId)+':'+page+':'+view
  const[state,setState]=useState<{key:string;items:(TaskSummary|OwnedTask)[];total:number;error:boolean}|null>(null)
  const[counts,setCounts]=useState<Partial<Record<TaskView,number>>>({})
+ // Background refreshes keep the current list on screen; only a new view or page shows the loader.
  useAutoRefresh(()=>setReload(n=>n+1),{paused:creating})
- useEffect(()=>{let active=true;void(api.list?api.list(context.termId,page,view):api.read(context.termId,page)).then(r=>{if(active)setState({key,...r,error:false})}).catch(()=>{if(active)setState({key,items:[],total:0,error:true})});return()=>{active=false}},[api,context.termId,page,view,key])
+ useEffect(()=>{let active=true;void(api.list?api.list(context.termId,page,view):api.read(context.termId,page)).then(r=>{if(active)setState({key,...r,error:false})}).catch(()=>{if(active)setState({key,items:[],total:0,error:true})});return()=>{active=false}},[api,context.termId,page,view,key,reload])
  useEffect(()=>{if(!api.list)return;let active=true;const list=api.list;void Promise.all(taskViews.map(([v])=>list(context.termId,1,v).then(r=>[v,r.total] as const).catch(()=>null))).then(rows=>{if(active)setCounts(Object.fromEntries(rows.filter(r=>r!==null)))});return()=>{active=false}},[api,context.termId,reload])
  const current=state?.key===key?state:null;const move=(p:number)=>setParams({view,page:String(p)})
  return <><PageHeading title="My tasks" description="What you're working on and what's shared with you."/>

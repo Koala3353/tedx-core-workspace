@@ -24,14 +24,15 @@ export function DeliverablesPage({ api, commands, termId, exportControl }: { api
   const [params,setParams] = useSearchParams(); const location = useLocation()
   const search = filterSearch(parseFilters(params.toString())); const filters = parseFilters(search)
   const [reload,setReload] = useState(0); const [creating,setCreating]=useState(false)
-  const key = termId + search + ':' + reload
+  // The refresh counter is not part of the key, so a background refresh keeps the list on screen.
+  const key = termId + search
   const [state,setState] = useState<{key:string;data:DeliverableList|null;error:boolean}|null>(null)
   useAutoRefresh(()=>setReload(n=>n+1),{paused:creating})
   useEffect(()=>{
     let active=true
     void api.list(termId,parseFilters(search)).then(data=>{if(active)setState({key,data,error:false})}).catch(()=>{if(active)setState({key,data:null,error:true})})
     return()=>{active=false}
-  },[api,termId,search,key])
+  },[api,termId,search,key,reload])
   const loaded=state?.key===key; const data=loaded?state.data:null
   const filtered=!!(filters.phase||filters.unit||filters.owner||filters.blocked||filters.overdue||filters.mine||filters.review)
   function apply(form:HTMLFormElement){const fields=new FormData(form);const p=new URLSearchParams();for(const [k,v] of fields)if(typeof v==='string'&&v)p.set(k,v);setParams(filterSearch(parseFilters(p.toString())))}

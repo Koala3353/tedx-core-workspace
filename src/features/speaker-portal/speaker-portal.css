@@ -80,3 +80,14 @@ a.speaker-row__title { text-decoration: none; }
   .speaker-row__line { align-items: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { .speaker-tab { transition: none; } }
+/* Phones: one card per speaker instead of a wide table. */
+@media (max-width: 47.99rem) {
+  .speaker-matrix { overflow: visible; }
+  .speaker-matrix thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .speaker-matrix table, .speaker-matrix tbody, .speaker-matrix tr { display: block; width: 100%; }
+  .speaker-matrix tr { padding-block: 12px; border-bottom: 1px solid var(--color-line); }
+  .speaker-matrix th, .speaker-matrix td { border: 0; padding: 4px 0; white-space: normal; }
+  .speaker-matrix tbody th { display: block; }
+  .speaker-matrix td { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 32px; }
+  .speaker-matrix td::before { content: attr(data-label); color: var(--color-muted); }
+}

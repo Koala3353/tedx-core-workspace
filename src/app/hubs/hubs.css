@@ -39,3 +39,7 @@
   .hub-head__actions { width: 100%; }
   .hub-head__actions > * { flex: 1 1 auto; }
 }
+/* Phones: the scope tabs scroll sideways; keep the last one from sitting flush on the edge. */
+@media (max-width: 47.99rem) {
+  .scope-tabs { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+}

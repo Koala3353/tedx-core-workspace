@@ -7,7 +7,8 @@ import { Status } from '../../components/Status'
 import { formatDateTime, timeAgo } from '../../lib/format'
 import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import { useShellServices } from '../../app/shellServices'
-import type { Committee, Failure, NudgeKind, TeamPerson, TeamSetup, TeamSetupApi, Wave } from './api'
+import type { Committee, Failure, NudgeKind, Position, TeamPerson, TeamSetup, TeamSetupApi, Wave } from './api'
+import { ChangePosition } from './PositionPicker'
 import { AddPersonDialog, PasteListDialog } from './AddPeople'
 import { Dialog } from './Dialog'
 import { nudgeKinds, nudgeLabels, nudgeOpen, statusFilters, tutorialLabel, waveLabels, type StatusFilter } from './model'
@@ -113,6 +114,7 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
     return <>{heading}<ErrorState title="Couldn't load the roster" description="Check your connection and try again." action={<button type="button" className="button button--secondary" onClick={refresh}>Try again</button>} /></>
   }
   const { totals, openPositions } = load.data
+  const unfilled = openPositions.filter(p => !p.holders)
   const person = selected ? people.find(p => p.membershipId === selected) ?? null : null
   const groups = nudgeKinds.map(kind => ({ kind, people: people.filter(nudgeOpen[kind]) })).filter(g => g.people.length)
 
@@ -226,17 +228,17 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
     </section>
 
     <section aria-labelledby="ts-open-title" className="ts-open">
-      <h2 id="ts-open-title" className="ts-section-title">Open positions <span className="ts-muted numeric">{openPositions.length}</span></h2>
-      {openPositions.length ? <ul className="ts-gaps">{openPositions.map(p => <li key={p.roleCode}>
+      <h2 id="ts-open-title" className="ts-section-title">Positions with no one yet <span className="ts-muted numeric">{unfilled.length}</span></h2>
+      {unfilled.length ? <ul className="ts-gaps">{unfilled.map(p => <li key={p.roleCode}>
         <span className="ts-gaps__role">{p.roleName}</span><span className="ts-muted">{p.committee ?? 'Leadership'}</span>
       </li>)}</ul> : <p className="ts-muted">Every position has someone in it.</p>}
-      <p className="ts-muted">To fill a position with someone already on the roster, use <Link to="/admin/access">Admin › Roles &amp; access</Link>. To seat a new person, pick the position when you add them.</p>
+      <p className="ts-muted">People don't need a position to sign in. A position only sets their role on the roster. To give someone a position, open their name in the list and choose Change position, or pick one when you add them. Leadership and head positions can have more than one person.</p>
     </section>
 
     {dialog === 'add' && api ? <AddPersonDialog api={api} termId={manager.termId} committees={committees} openPositions={openPositions} roster={people} onClose={() => setDialog(null)} onAdded={refresh} /> : null}
     {dialog === 'paste' && api ? <PasteListDialog api={api} termId={manager.termId} committees={committees} openPositions={openPositions} roster={people} onClose={() => setDialog(null)} onAdded={refresh} /> : null}
     {nudge ? <NudgeDialog pending={nudge} onClose={() => setNudge(null)} send={async () => { const err = await sendNudge(nudge.kind, nudge.people); if (!err) { setNudge(null); refresh() } return err }} /> : null}
-    {person ? <PersonSheet person={person} onClose={() => setSelected(null)} send={async kind => { const err = await sendNudge(kind, [person]); if (!err) refresh(); return err }} /> : null}
+    {person ? <PersonSheet person={person} api={api} termId={manager.termId} positions={openPositions} onPositionChanged={message => { setNotice(message); refresh() }} onClose={() => setSelected(null)} send={async kind => { const err = await sendNudge(kind, [person]); if (!err) refresh(); return err }} /> : null}
   </div>
 }
 
@@ -255,7 +257,10 @@ function NudgeDialog({ pending, onClose, send }: { pending: Pending; onClose: ()
   </Dialog>
 }
 
-function PersonSheet({ person: p, onClose, send }: { person: TeamPerson; onClose: () => void; send: (kind: NudgeKind) => Promise<string | null> }) {
+function PersonSheet({ person: p, api, termId, positions, onPositionChanged, onClose, send }: {
+  person: TeamPerson; api?: TeamSetupApi; termId: string; positions: Position[]; onPositionChanged: (message: string) => void
+  onClose: () => void; send: (kind: NudgeKind) => Promise<string | null>
+}) {
   const [busy, setBusy] = useState<NudgeKind | null>(null)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const open = nudgeKinds.filter(kind => nudgeOpen[kind](p))
@@ -268,7 +273,7 @@ function PersonSheet({ person: p, onClose, send }: { person: TeamPerson; onClose
   return <Dialog variant="sheet" title={p.name} description={<span className="ts-mono">{p.email}</span>} onClose={onClose}>
     <dl className="ts-facts">
       <div><dt>Committee</dt><dd>{p.committee ?? 'None yet'}</dd></div>
-      <div><dt>Position</dt><dd>{p.position ?? 'Committee member'}</dd></div>
+      <div><dt>Position</dt><dd>{p.position ?? (p.committee ? 'Committee member' : 'No position')}</dd></div>
       <div><dt>Wave</dt><dd>{p.wave ? waveLabels[p.wave] : 'Not set'}</dd></div>
       <div><dt>Signed in</dt><dd>{p.signedIn ? <>Yes{p.lastSignInAt ? <span className="ts-muted"> · last {timeAgo(p.lastSignInAt)}</span> : null}</> : <>Not yet{p.invitedAt ? <span className="ts-muted"> · invited {timeAgo(p.invitedAt)}</span> : null}</>}</dd></div>
       <div><dt>Installed</dt><dd>{p.installed ? 'Yes' : 'No'}</dd></div>
@@ -285,7 +290,8 @@ function PersonSheet({ person: p, onClose, send }: { person: TeamPerson; onClose
       </button>)}
     </div> : <p className="ts-muted">Nothing to nudge. They're all set.</p>}
     {message ? <p className={message.error ? 'field-error' : 'ts-notice'} role={message.error ? 'alert' : 'status'}>{message.text}</p> : null}
-    <h3 className="ts-subhead">Committee, position or wave</h3>
-    <p className="ts-muted">Change committees and positions in <Link to="/admin/access">Admin › Roles &amp; access</Link>. Changing someone's wave isn't available yet.</p>
+    <h3 className="ts-subhead">Change position</h3>
+    {api ? <ChangePosition key={p.membershipId + (p.positionCode ?? '')} api={api} termId={termId} person={p} positions={positions} onChanged={onPositionChanged} /> : null}
+    <p className="ts-muted">A committee position also puts them in that committee. Changing someone's wave isn't available yet.</p>
   </Dialog>
 }
