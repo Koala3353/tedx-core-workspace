@@ -1,0 +1,14 @@
+.email-code { border-top: 1px solid var(--color-line); padding-top: var(--space-4); }
+.email-code__summary {
+  display: flex; align-items: center; min-height: var(--control-min-size);
+  color: var(--color-ink-secondary); font-weight: 600; cursor: pointer; border-radius: var(--radius-control);
+}
+.email-code__summary:hover { color: var(--color-ink); }
+.email-code__summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.email-code__body { display: grid; gap: var(--space-3); padding-top: var(--space-3); }
+.email-code__form { display: grid; gap: var(--space-3); min-width: 0; }
+.email-code__form p { margin: 0; overflow-wrap: anywhere; }
+.email-code__form input { width: 100%; min-height: var(--control-min-size); box-sizing: border-box; }
+.email-code__code { font-variant-numeric: tabular-nums; letter-spacing: 0.25em; font-size: 1.25rem; }
+.email-code__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.email-code__actions .button { min-height: var(--control-min-size); }

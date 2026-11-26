@@ -1,3 +1,4 @@
+import { emailCodeErrorFrom } from './EmailCodeSignIn'
 import { createViewAsApi, type ViewAsApi } from '../view-as/api'
 import {createTurnoverApi,type TurnoverApi} from '../admin/turnover/api'
 import {createPrivacyApi,type PrivacyApi} from '../admin/privacy/api'
@@ -133,6 +134,8 @@ export interface AuthGateway {
   guests?: GuestGateway
   readContext: (signal?: AbortSignal,termId?:string) => Promise<AuthResult>
   beginGoogle: (returnTo: string) => Promise<void>
+  requestEmailCode: (email: string) => Promise<void>
+  verifyEmailCode: (email: string, code: string) => Promise<void>
   exchange: (code: string) => Promise<void>
   signOut: () => Promise<void>
   onChange: (listener: () => void) => () => void
@@ -293,6 +296,18 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       // (an auth lock held by a sleeping tab, a stalled token refresh, a dropped connection)
       // gives up after contextTimeoutMs, so "Checking access" can never stay on screen.
       return settleWithin(readContextOnce(signal,termId), signal, contextTimeoutMs)
+    },
+    async requestEmailCode(email) {
+      const client = await clientReady
+      if (!client) throw emailCodeErrorFrom(new Error('unavailable'))
+      const { error } = await client.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } })
+      if (error) throw emailCodeErrorFrom(error)
+    },
+    async verifyEmailCode(email, code) {
+      const client = await clientReady
+      if (!client) throw emailCodeErrorFrom(new Error('unavailable'))
+      const { error } = await client.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: 'email' })
+      if (error) throw emailCodeErrorFrom(error)
     },
     async beginGoogle(returnTo) {
       const client = await clientReady

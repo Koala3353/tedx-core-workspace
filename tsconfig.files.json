@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["supabase/functions/_shared", "supabase/functions/files", "supabase/functions/dispatch-notifications", "supabase/functions/google-oauth", "supabase/functions/calendar-sync", "supabase/functions/telegram-webhook", "supabase/functions/dispatch-telegram", "supabase/functions/email-adapter"]
+  "include": ["supabase/functions/_shared", "supabase/functions/files", "supabase/functions/dispatch-notifications", "supabase/functions/google-oauth", "supabase/functions/calendar-sync", "supabase/functions/telegram-webhook", "supabase/functions/dispatch-telegram", "supabase/functions/email-adapter", "supabase/functions/send-auth-email"]
 }

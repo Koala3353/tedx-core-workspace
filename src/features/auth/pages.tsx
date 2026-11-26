@@ -1,3 +1,4 @@
+import { EmailCodeSignIn } from './EmailCodeSignIn'
 import '../shared/shared.css'
 import { appPath } from '../../lib/basePath'
 import { TriangleAlert } from 'lucide-react'
@@ -159,6 +160,8 @@ export function LoginPage({ gateway }: { gateway: AuthGateway }) {
         'This account isn\'t on this term\'s roster. Try another account or ask your committee head to add you.'}</p> : null}
       {result.state === 'error' ? <p role="alert">We couldn't check your access. Try again in a moment.</p> : null}
       <button className="button" disabled={busy} onClick={() => void start(denied)}>{busy ? 'Opening Google…' : denied ? 'Use another Google account' : 'Continue with Google'}</button>
+      {!guestEntry ? <EmailCodeSignIn requestCode={email => gateway.requestEmailCode(email)} verifyCode={(email, code) => gateway.verifyEmailCode(email, code)}
+        onSignedIn={() => window.location.replace(appPath(returnTo))} /> : null}
     </>}
     {error ? <p className="field-error" role="alert">{error}</p> : null}
     <p className="muted">Guest? Open the invite link an organizer sent you. Use the Google account it was sent for.</p>
