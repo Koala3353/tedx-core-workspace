@@ -55,7 +55,7 @@ export function dryRun(kind: Kind, csv: string[][], mapping: Mapping) {
     for(const field of allowed){const source=mapping[field];values[field]=source&&header.includes(source)?cells[header.indexOf(source)]??'':''}
     for(const field of required)if(!values[field]?.trim())rowErrors.push(`Enter ${field.replaceAll('_',' ')}.`)
     if(values.source_key&&!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/.test(values.source_key))rowErrors.push('Use a source key of 1–100 letters, digits, dots, colons, hyphens or underscores.')
-    if(values.due_on&&!calendarDate(values.due_on))rowErrors.push('Use a real date in YYYY-MM-DD format for the due date.')
+    if(values.due_on&&!calendarDate(values.due_on))rowErrors.push('Use a valid date in YYYY-MM-DD format for the due date.')
     if(kind==='roster'&&values.email&&!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@student\.ateneo\.edu$/.test(values.email))rowErrors.push('Use a student.ateneo.edu school email.')
     if(Object.values(values).some(v=>v.length>2000))rowErrors.push('Keep each cell under 2,000 characters.')
     return {record:i+2,values,errors:rowErrors}

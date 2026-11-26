@@ -10,7 +10,7 @@ import {archivePath,ArchiveFacts} from './ArchivePage'
 import {HowThisWorks} from '../../shared/HowThisWorks'
 import {formatDateTime,formatDay} from '../../shared/dates'
 import './turnover.css'
-const stateName:Record<TurnoverState,string>={preparing:'Review unit and item outcomes',frozen:'Frozen — name custodians and export the archive',exporting:'Archive export needs attention',verified:'Archive checked — waiting for successors to accept',rehearsal_verified:'Practice run checked — waiting for successors to accept',complete:'Handover complete',rehearsal_complete:'Practice run complete'}
+const stateName:Record<TurnoverState,string>={preparing:'Review unit and item outcomes',frozen:'Frozen. Name who keeps the archive, then export it',exporting:'Archive export needs attention',verified:'Archive checked. Waiting for successors to accept',rehearsal_verified:'Practice run checked. Waiting for successors to accept',complete:'Handover complete',rehearsal_complete:'Practice run complete'}
 export function TurnoverLinks({api,term}:{api:TurnoverApi;term:string}){
   const [w,setW]=useState<TurnoverWorkspace|null>(null),sequence=useRef(0)
   useEffect(()=>{let live=true;const check=()=>{const n=++sequence.current;setW(null);void api.workspace(term).then(v=>{if(live&&sequence.current===n)setW(v)}).catch(()=>{})};check();window.addEventListener('focus',check);return()=>{live=false;window.removeEventListener('focus',check)}},[api,term])
@@ -65,7 +65,7 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
     {!checking&&!failed&&w&&!c&&!w.approvals.length?<EmptyState title="No handover for you yet" description="You'll see the handover here once you're named as its custodian or a successor. Ask an admin if you expected one."/>:null}
     {w?<div hidden={failed||checking}>
       {c?<Panel title={c.term}><p><strong>{stateName[c.state]}</strong></p><p>Handover custodian: {c.custodian}</p>{c.scope==='synthetic'?<p role="note">Practice run with sample data. Nothing real is handed over.</p>:null}
-        {w.runs[0]?.failure&&!w.runs[0].restored?<p role="alert">Archive operator: the {w.runs[0].failure.phase==='files'?'file checks':w.runs[0].failure.phase==='restore'?'restore rehearsal':'record checks'} need attention. Check the source, then resume the archive export. The archive can\'t be checked until this is fixed.</p>:null}
+        {w.runs[0]?.failure&&!w.runs[0].restored?<p role="alert">Archive operator: the {w.runs[0].failure.phase==='files'?'file checks':w.runs[0].failure.phase==='restore'?'restore rehearsal':'record checks'} need attention. Check the source, then resume the archive export. The archive can't be checked until this is fixed.</p>:null}
       </Panel>:null}
       <div ref={focus} tabIndex={-1}>{notice?<p role="status">{notice}</p>:null}
         {edit?<TurnoverEditor key={edit.kind+('id'in edit?edit.id:'')+('action'in edit?edit.action:'')} api={api} term={term} workspace={w} setup={setup} custody={custody} edit={edit} checking={checking} refresh={()=>void load()} saved={saved} close={close}/>:null}</div>

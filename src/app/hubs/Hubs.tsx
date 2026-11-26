@@ -76,7 +76,7 @@ export function WorkHub() {
         <Link className="button button--secondary" to="/requests" data-tour="work-ask">Ask a committee</Link>
         <button className="button" type="button" onClick={() => openPalette('', 'add')}><SquarePlus className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />New task</button>
       </>} />
-    <nav className="scope-tabs" aria-label="Scope">
+    <nav className="scope-tabs" aria-label="Whose work">
       {scopes.map(s => <button key={s.id} type="button" className={`scope-tab${scope === s.id ? ' is-active' : ''}`} aria-pressed={scope === s.id}
         onClick={() => { const next = new URLSearchParams(params); if (s.id === 'mine') next.delete('scope'); else next.set('scope', s.id); setParams(next, { replace: true }) }}>{s.label}</button>)}
     </nav>

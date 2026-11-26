@@ -25,7 +25,7 @@ const messages: Record<CommandErrorKind, string> = {
   stale_version: 'This record changed. Reload it before applying your edit.',
   dependency_blocked: 'This action needs a prerequisite or a later workflow step.',
   missing_approver: 'An eligible approver must be assigned before this action.',
-  quota_limit: 'The permitted limit has been reached. Check the limit before retrying.',
+  quota_limit: 'You\'ve reached the limit for this. Check the limit, then try again.',
   conflict: 'The action conflicts with an existing record or another change. Reload and review it.',
   idempotency_conflict: 'This request key was already used with different details. Review the earlier request before starting a new one.',
   unavailable: 'The result could not be confirmed. Check access or connection, then retry the same request key and details.',

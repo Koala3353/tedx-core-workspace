@@ -104,7 +104,7 @@ export function createInventoryApi(ready:ReturnType<typeof createSupabaseClient>
       const entries=data as InventoryEvidence[]|null
       if(error||!Array.isArray(entries)||!entries.every(e=>e&&uuid(e.id)&&uuid(e.workId)&&text(e.work)
         &&['task','deliverable'].includes(e.kind)&&timestamp(e.at)&&Array.isArray(e.files)&&e.files.length>0&&e.files.every(text)))
-        throw Error('Finalized evidence could not be checked')
+        throw Error('Couldn\'t check the uploaded evidence')
       return entries
     },
     async run(command:InventoryCommand,key:string):Promise<CommandResult<InventoryReceipt>>{

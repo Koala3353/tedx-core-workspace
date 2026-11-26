@@ -55,12 +55,12 @@ export function createTurnoverApi(ready:ReturnType<typeof createSupabaseClient>)
   async function client(){const c=await ready;if(!c)throw Error('Archive connection unavailable');return c}
   return {
     async setup(term:string):Promise<TurnoverSetup>{
-      const {data,error}=await(await client()).rpc('read_turnover_setup',{p_term_id:term});if(error)throw Error('Custody setup unavailable')
+      const {data,error}=await(await client()).rpc('read_turnover_setup',{p_term_id:term});if(error)throw Error('Handover setup unavailable')
       const s=obj(data);return {authorities:list(s.authorities,v=>{const a=obj(v);return {id:uuid(a.id),recipient:uuid(a.recipient),name:str(a.name),category:str(a.category),expiresAt:time(a.expiresAt)}}),
         privateRoots:list(s.privateRoots,v=>{const r=obj(v);return {id:uuid(r.id),reference:str(r.reference),category:str(r.category)}})}
     },
     async custody(term:string,id:string):Promise<ArchivedCustody>{
-      const {data,error}=await(await client()).rpc('read_archived_custody',{p_context_term:term,p_custody_id:id});if(error)throw Error('Archived custody unavailable')
+      const {data,error}=await(await client()).rpc('read_archived_custody',{p_context_term:term,p_custody_id:id});if(error)throw Error('Archive access unavailable')
       const n=obj(data);if(uuid(n.id)!==id)throw Error();return {id,version:num(n.version),category:str(n.category),workIds:list(n.workIds,uuid),expiresAt:time(n.expiresAt),
         holds:list(n.holds,v=>{const h=obj(v);return {id:uuid(h.id),objectId:uuid(h.objectId),reviewAt:time(h.reviewAt),overdue:bool(h.overdue),version:num(h.version)}})}
     },
@@ -106,11 +106,11 @@ export function createTurnoverApi(ready:ReturnType<typeof createSupabaseClient>)
 export type TurnoverApi=ReturnType<typeof createTurnoverApi>
 const turnoverErrors:Record<string,string>={
   command_turnover_archive_incomplete:'The archive has not passed all file and restore checks. Ask the archive operator to finish the named generation, then verify again.',
-  command_turnover_operational_gate:'Operational closure is awaiting approved recovery and independent custody evidence. Synthetic rehearsal is available only under its own authorization.',
+  command_turnover_operational_gate:'You can\'t close the term yet. It needs an approved backup recovery and separate proof of who holds the archive. A practice run needs its own approval.',
   command_turnover_checklist_incomplete:'Review every unit and unresolved item. Each needs a current responsible person and recorded outcome before freeze.',
-  command_turnover_carry_acceptance_required:'A carried item or private custody scope still needs the qualified successor’s acceptance of this archive.',
+  command_turnover_carry_acceptance_required:'A successor still has to accept part of this archive (a carried-over item or private records).',
   command_turnover_acceptance_required:'Successor acceptance is incomplete. Ask each named recipient to review this archive before completion.',
   command_turnover_source_changed:'The records or holds changed. Prepare and verify a current archive generation before continuing.',
-  command_turnover_scope_overlap:'An outgoing scope is already selected for another recipient. Review the transfer plan.',
-  command_turnover_policy_required:'An independently approved retention policy covering these records is required. Ask the privacy custodian to finish policy review.',
+  command_turnover_scope_overlap:'Some of this access is already going to someone else. Check the handover plan.',
+  command_turnover_policy_required:'These records need a retention policy approved by someone outside the handover. Ask the privacy custodian to finish the policy review.',
 }

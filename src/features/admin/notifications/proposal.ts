@@ -7,7 +7,7 @@ export function validProposal(value:unknown):value is NotificationProposal{
  const whole=(v:unknown,min:number,max:number)=>typeof v==='number'&&Number.isInteger(v)&&v>=min&&v<=max
  return Object.keys(r).length===keys.length&&Object.keys(r).every(k=>keys.includes(k))&&r.version===1&&r.audience==='current_assignees'&&typeof r.channel==='string'&&['in_app','email','telegram'].includes(r.channel)&&typeof r.mode==='string'&&['immediate','digest','mute'].includes(r.mode)&&whole(r.beforeDays,1,7)&&typeof r.dueDay==='boolean'&&whole(r.overdueEveryDays,1,7)&&whole(r.hour,0,23)&&whole(r.quietStart,0,23)&&whole(r.quietEnd,0,23)&&r.quietStart!==r.quietEnd&&r.template==='action_link'
 }
-export function externalTemplate(template:unknown){if(template!=='action_link')throw Error('Unsupported notification template');return 'You have an update. Open your workspace to check the current permitted action.'}
+export function externalTemplate(template:unknown){if(template!=='action_link')throw Error('Unsupported notification template');return 'You have an update. Open your workspace to see what you can do next.'}
 const dayMs=86400000,offset=8*3600000
 function day(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))throw Error('Use a valid Manila calendar date');const n=Date.parse(value+'T00:00:00Z');if(!Number.isFinite(n)||new Date(n).toISOString().slice(0,10)!==value)throw Error('Use a valid Manila calendar date');return n}
 export type PlannedReminder={key:string;event:'before_due'|'due'|'overdue';logicalDay:string;at:string;available:boolean;optionalDelivery:boolean;requiredWorkVisible:true}

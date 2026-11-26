@@ -18,7 +18,7 @@ export type Preview={draftId:string;version:number;kind:Kind;valid:boolean;probl
 export type Receipt={draftId:string;version:number;definitionVersionId?:string;definitionVersion?:number;controlVersion?:number}
 export type ConfigurationCommand={action:'save';typeId:string;kind:Kind;definition:Definition;baseFormVersionId:string;baseWorkflowVersionId:string;version:number;rollbackVersionId:string|null}|{action:'publish';draftId:string;version:number;reviewHash:string;requesterId:string;reason:string}
 export interface ConfigurationApi{formExamples?(draft:string,version:number,requester:string,values:FormValues,evidence:boolean):Promise<EvaluatedCases>;history?(type:string,before:number):Promise<{items:History[];nextBefore:number|null}>;sampleOptions?(term:string,type:string):Promise<FormOptions|null>;examples?(draft:string,requester:string,values:FormValues,evidence:boolean):Promise<EvaluatedCases>;list(term:string):Promise<{id:string;label:string;governedKind:string}[]>;read(type:string):Promise<ConfigurationData>;preview(draft:string,requester:string):Promise<Preview>;run(command:ConfigurationCommand,key:string):Promise<CommandResult<Receipt>>}
-export class ConfigurationReadError extends Error{constructor(public denied:boolean){super('Configuration could not be authorized or loaded.')}}
+export class ConfigurationReadError extends Error{constructor(public denied:boolean){super('Couldn\'t load the setup. You may not have access.')}}
 const uuid=(x:unknown):x is string=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x)
 const number=(x:unknown)=>Number.isSafeInteger(x)&&Number(x)>0
 const kind=(x:unknown)=>x==='form'||x==='workflow'

@@ -19,10 +19,10 @@ const templates={
 export function FormTemplates({value,fieldCount,change}:{value:FormDefinition;fieldCount:number;change:(next:FormDefinition)=>void}){
  const[selected,setSelected]=useState<keyof typeof templates>('schedule'),template=templates[selected],blocked=value.sections.length>=10||fieldCount+template.size>50
  function add(){if(blocked)return;const section={key:freshQuestionKey('section'),label:template.label};change({...value,sections:[...value.sections,section],fields:[...value.fields,...template.create(section.key)]})}
- return <details><summary>Templates</summary><p>Add a ready-to-edit question set as a new section in this private draft. Existing questions and answers keep their identities. Choose only what this request needs; nothing is published or migrated by adding a template.</p>
+ return <details><summary>Templates</summary><p>Add a set of questions you can edit as a new section in this private draft. Existing questions and answers stay as they are. Pick only what this request needs. Adding a template doesn't publish anything.</p>
   <label>Question template<select aria-label="Question template" value={selected} onChange={e=>setSelected(e.target.value as keyof typeof templates)}>{Object.entries(templates).map(([key,t])=><option key={key} value={key}>{t.label}</option>)}</select></label>
-  <p>{template.description}</p><p>This adds 1 section and {template.size} questions including row children. All use ordinary request access; this template grants no access or approval authority. You can edit or remove unreferenced draft questions before saving.</p>
-  {blocked?<p>This template will not fit. Keep the form within 10 sections and 50 total questions including row children. Remove unused draft questions or empty sections first; existing questions are kept.</p>:null}
+  <p>{template.description}</p><p>This adds 1 section and {template.size} questions, counting row questions. They use normal request access, and the template doesn't give anyone access or approval rights. Before saving, you can edit or remove draft questions nothing else uses.</p>
+  {blocked?<p>This template won't fit. A form can have up to 10 sections and 50 questions, counting row questions. Remove unused draft questions or empty sections first. Existing questions are kept.</p>:null}
   <button type="button" className="button button--secondary" disabled={blocked} onClick={add}>Add template questions</button>
  </details>
 }

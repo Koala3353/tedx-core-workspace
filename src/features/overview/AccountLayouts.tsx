@@ -13,7 +13,7 @@ export function AccountLayouts({api,term,identity,layout,onUse,onDefault,onLock,
  return <section className="overview-account" aria-label="Saved layouts" data-edit-form data-pending-command={mem.locked} data-unsaved-changes={!!mem.fields.name}>
  {data?.repaired?<p role="alert">A saved or default layout no longer works, so a basic layout is shown. Archive the old saved layout, or ask an admin to fix the default.</p>:null}
  {data?.ambiguous?<p role="status">More than one default layout applies to you, so a general one is used until an admin fixes it.</p>:null}
- {failed?<p role="alert">Couldn\'t load your saved layouts. Your tasks above still work. <button className="button button--secondary" onClick={()=>setEpoch(n=>n+1)}>Try again</button></p>:data?<details className="work-section"><summary>Saved layouts</summary><p>Save layouts to your account so they follow you to other devices this term.</p>
+ {failed?<p role="alert">Couldn't load your saved layouts. Your tasks above still work. <button className="button button--secondary" onClick={()=>setEpoch(n=>n+1)}>Try again</button></p>:data?<details className="work-section"><summary>Saved layouts</summary><p>Save layouts to your account so they follow you to other devices this term.</p>
  <fieldset disabled={mem.locked}><legend>My saved layouts</legend>
  {onPublished?<button className="button button--secondary" onClick={()=>onPublished(data.layout,data.source)}>Use the default layout</button>:null}
  <label>Saved layout<select value={mem.fields.selected} onChange={e=>mem.change({...mem.fields,selected:e.target.value})}><option value="">Choose a saved layout</option>{data.views.map(v=><option key={v.viewId} value={v.viewId}>{v.name}</option>)}</select></label>

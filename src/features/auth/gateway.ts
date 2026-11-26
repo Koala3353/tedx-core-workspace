@@ -42,14 +42,14 @@ import {createFilesApi,type FilesApi} from '../files/api'
 import {createDriveApi} from '../integrations/drive/api'
 import {createCommentsApi,type CommentsApi} from '../comments/api'
 import {createClientStateApi,type ClientStateApi} from '../../lib/clientState'
-import {createTeamSetupApi,type TeamSetupApi} from '../team-setup'
-import {createWarRoomApi,type WarRoomApi} from '../war-room'
-import {createWhoToAskApi,type WhoToAskApi} from '../who-to-ask'
-import {createCommitteePagesApi,type CommitteePagesApi} from '../committee-pages'
-import {createSpeakerPortalApi,type SpeakerPortalApi} from '../speaker-portal'
-import {createEventBoardsApi,type EventBoardsApi} from '../event-boards'
-import {createRunOfShowApi,type RunOfShowApi} from '../run-of-show'
-import {createEventQrApi,type EventQrApi} from '../event-qr'
+import {createTeamSetupApi,type TeamSetupApi} from '../team-setup/api'
+import {createWarRoomApi,type WarRoomApi} from '../war-room/api'
+import {createWhoToAskApi,type WhoToAskApi} from '../who-to-ask/api'
+import {createCommitteePagesApi,type CommitteePagesApi} from '../committee-pages/api'
+import {createSpeakerPortalApi,type SpeakerPortalApi} from '../speaker-portal/api'
+import {createEventBoardsApi,type EventBoardsApi} from '../event-boards/api'
+import {createRunOfShowApi,type RunOfShowApi} from '../run-of-show/api'
+import {createEventQrApi,type EventQrApi} from '../event-qr/api'
 import type { ClientEnvironment } from '../../lib/env'
 import { createSupabaseClient } from '../../lib/supabase'
 import { callbackUrl, forgetSession, safeReturnPath } from './redirects'
@@ -224,13 +224,29 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       const client = await clientReady
       if (!client || !redirectTo) return { state: 'unavailable' }
       try {
-        const { data: session, error: sessionError } = await client.auth.getSession()
+        // getSession() refreshes an expired access token itself, but a refresh that is still in
+        // flight (tab waking up, another navigation racing it) can surface as a missing session or
+        // a rejected token. Refresh once and re-check before deciding the person is signed out.
+        // Every check below still has to pass with the refreshed session.
+        let refreshed = false
+        const refreshOnce = async () => {
+          if (refreshed) return false
+          refreshed = true
+          const { data, error } = await client.auth.refreshSession()
+          return !error && !!data.session
+        }
+        let { data: session, error: sessionError } = await client.auth.getSession()
+        if (sessionError && await refreshOnce()) ({ data: session, error: sessionError } = await client.auth.getSession())
         if (sessionError || !session.session) return { state: 'signed_out' }
-        const { data: identity, error: identityError } = await client.auth.getUser()
+        let { data: identity, error: identityError } = await client.auth.getUser()
+        if ((identityError || !identity.user) && await refreshOnce()) ({ data: identity, error: identityError } = await client.auth.getUser())
         if (identityError || !identity.user) return { state: 'signed_out' }
         signal?.throwIfAborted()
-        const bootstrap = client.rpc('resolve_auth_context')
-        let { data, error } = await (signal ? bootstrap.abortSignal(signal) : bootstrap)
+        const resolve = () => { const bootstrap = client.rpc('resolve_auth_context'); return signal ? bootstrap.abortSignal(signal) : bootstrap }
+        const first = await resolve()
+        let { data, error } = first
+        // An access token that expired between the checks above and this call: refresh and retry once.
+        if (error && (first.status === 401 || error.code === 'PGRST301' || error.code === 'PGRST303') && await refreshOnce()) ({ data, error } = await resolve())
         if (error) return { state: 'error' }
         if(termId){
           const initial=parseContext(data);if(!initial)return{state:'denied'}
@@ -275,7 +291,7 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
           if (remaining.error || remaining.data.session) throw error
         }
       }
-      catch { throw new Error('Sign-out could not be confirmed. Please try again.') }
+      catch { throw new Error('Couldn\'t confirm you\'re signed out. Try again.') }
       exchangeCode = undefined
       exchangePromise = undefined
       try { sessionStorage.removeItem(returnStorageKey) } catch { /* No application data is cached. */ }

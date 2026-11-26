@@ -92,7 +92,7 @@ export function LiveStage({ show, skew, offlineSince, pending, error, onControl,
       </div> : null}
       {error ? <p className="ros-live__error" role="alert">{error}</p> : null}
       <p className="ros-live__meta" aria-live="polite">
-        {offlineSince ? <strong>Offline — last updated {offlineSince}. </strong> : null}
+        {offlineSince ? <strong>Offline. Last updated {offlineSince}. </strong> : null}
         {canEdit ? '' : 'Read only. StageMan runs the controls. '}
         {wake === 'off' || wake === 'unsupported' ? 'Keep this screen on in your phone settings.' : ''}
       </p>

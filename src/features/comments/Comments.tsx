@@ -23,7 +23,7 @@ function Thread({api,workId,quickUpdate}:{api:CommentsApi;workId:string;quickUpd
  useAutoRefresh(()=>setReload(n=>n+1))
  const discussion=<>
  {current&&current.key!==key?<p role="status">Updating…</p>:null}
- {!current?<LoadingState title="Loading comments"/>:current.error?<ErrorState title="Couldn\'t load comments" description="Check your connection and try again."/>:!current.data?<EmptyState title="You can\'t see comments here" description="You need access to this work to see its comments."/>:<>
+ {!current?<LoadingState title="Loading comments"/>:current.error?<ErrorState title="Couldn't load comments" description="Check your connection and try again."/>:!current.data?<EmptyState title="You can't see comments here" description="You need access to this work to see its comments."/>:<>
  {current.data.canComment?null:<p>You can read these comments but not add any.</p>}
  {current.data.items.length===0?<p>No comments yet.</p>:current.data.items.map(item=><CommentRow key={item.id} api={api} workId={workId} item={item} onSaved={()=>setReload(reload+1)}/>)}
  <Pager label="Comment pages" page={page} total={current.data.total} onMove={setPage}/>
@@ -31,7 +31,7 @@ function Thread({api,workId,quickUpdate}:{api:CommentsApi;workId:string;quickUpd
  </>
  const composer=current?.data?.canComment?<Composer api={api} workId={workId} onSaved={()=>setReload(reload+1)} quickUpdate={quickUpdate}/>:null
  return <Panel title={quickUpdate?'Task updates':'Comments'}>
- {quickUpdate?<>{!current?<LoadingState title="Loading updates"/>:current.error?<ErrorState title="Couldn\'t load updates" description="Check your connection and try again." action={<button className="button button--secondary" onClick={()=>setReload(reload+1)}>Try again</button>}/>:composer}<details className="work-section"><summary>Activity and discussion</summary>{discussion}</details></>:<>{discussion}{composer}</>}
+ {quickUpdate?<>{!current?<LoadingState title="Loading updates"/>:current.error?<ErrorState title="Couldn't load updates" description="Check your connection and try again." action={<button className="button button--secondary" onClick={()=>setReload(reload+1)}>Try again</button>}/>:composer}<details className="work-section"><summary>Activity and discussion</summary>{discussion}</details></>:<>{discussion}{composer}</>}
  </Panel>
 }
 function CommentRow({api,workId,item,onSaved}:{api:CommentsApi;workId:string;item:CommentItem;onSaved:()=>void}) {
@@ -61,7 +61,7 @@ function Composer({api,workId,item,onSaved,onPending,quickUpdate=false}:{api:Com
  const extraFields=<>{item?<div className="form-field"><label htmlFor={fieldId+'-reason'}>Why are you changing this? (required)</label><textarea id={fieldId+'-reason'} value={reason} onChange={e=>setReason(e.target.value)} maxLength={2000} required/></div>:<label className="editor-check"><input type="checkbox" checked={draft} onChange={e=>setDraft(e.target.checked)}/>Save as a draft (only you can see it)</label>}
  {!item||item.canEdit?<><div className="form-field"><label htmlFor={fieldId+'-search'}>Mention someone</label><input id={fieldId+'-search'} value={search} maxLength={100} onChange={e=>setSearch(e.target.value)}/></div><button type="button" disabled={finding} className="button button--secondary" onClick={()=>{setCandidates([]);setCandidateError('');setFinding(true);setSearched(false);void api.candidates(workId,search).then(rows=>{setCandidates(rows);setSearched(true)}).catch(()=>setCandidateError('Couldn\'t search. Try again.')).finally(()=>setFinding(false))}}>Search</button>
  {finding?<p role="status">Searching…</p>:searched?<p role="status">{candidates.length?`${candidates.length} ${candidates.length===1?'person':'people'} found.`:'No one on this work matches that name.'}</p>:null}
- <p>{mentions.length} mentioned. People aren\'t notified of mentions yet.</p>{candidateError?<p role="alert">{candidateError}</p>:null}{candidates.map(c=><label className="editor-check" key={c.id}><input type="checkbox" checked={mentions.includes(c.id)} disabled={!mentions.includes(c.id)&&mentions.length>=20} onChange={e=>setMentions(e.target.checked?[...mentions,c.id]:mentions.filter(id=>id!==c.id))}/>{c.name}</label>)}{mentions.length?<button type="button" className="button button--quiet" onClick={()=>setMentions([])}>Clear mentions</button>:null}</>:null}</>
+ <p>{mentions.length} mentioned. People aren't notified of mentions yet.</p>{candidateError?<p role="alert">{candidateError}</p>:null}{candidates.map(c=><label className="editor-check" key={c.id}><input type="checkbox" checked={mentions.includes(c.id)} disabled={!mentions.includes(c.id)&&mentions.length>=20} onChange={e=>setMentions(e.target.checked?[...mentions,c.id]:mentions.filter(id=>id!==c.id))}/>{c.name}</label>)}{mentions.length?<button type="button" className="button button--quiet" onClick={()=>setMentions([])}>Clear mentions</button>:null}</>:null}</>
  return <form className="deliverable-editor" onSubmit={submit}><h3>{quickUpdate?'Post an update':item?'Edit comment':'New comment'}</h3>
  {quickUpdate?<p>Everyone on this task can see updates. Save a draft to keep one to yourself.</p>:null}
  {confirmation?<p role="status">{confirmation}</p>:null}

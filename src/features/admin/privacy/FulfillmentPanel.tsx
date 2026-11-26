@@ -12,7 +12,7 @@ const options: Record<'member' | 'guest', ProfileField[]> = {
   guest: ['displayName', 'contactRoute'],
 }
 const messages = {
-  waiting: 'A custodian is reviewing your request.',
+  waiting: 'The person who handles privacy requests is reviewing yours.',
   step_up: 'You need a stronger sign-in to open or review this response. Sign in again with your school account\'s extra verification, or ask the privacy contact for help.',
   paused: 'This response isn\'t available right now. Ask the privacy contact why.',
   finished: 'Review recorded. The requester can now open their response.',
@@ -156,7 +156,7 @@ export function FulfillmentPanel({ api, term, request, refresh }: {
           <label htmlFor={fieldId + '-value'}>Corrected value</label>
           <textarea id={fieldId + '-value'} value={decision.fields.value} rows={3} maxLength={1000}
             disabled={decision.locked} onChange={e => decision.change({ ...decision.fields, value: e.target.value })} />
-          <p>Leave it blank to clear the field. A second custodian checks the change before it\'s applied.</p>
+          <p>Leave it blank to clear the field. A second custodian checks the change before it's applied.</p>
         </>}
         {stale && <button type="button" className="button button--secondary" disabled={decision.locked}
           onClick={() => decision.change({ ...decision.fields, base: String(version) })}>Keep my changes</button>}

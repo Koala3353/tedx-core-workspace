@@ -182,7 +182,7 @@ export function createEvaluationsApi(ready:ReturnType<typeof createSupabaseClien
       const {data,error}=await(await client()).rpc('export_evaluation_record',{p_term_id:term,p_grant_id:grant})
       if(!error&&data===null)return null
       const r=data as EvaluationRecord|null
-      if(error||!record(r))throw Error('The current export grant could not be checked')
+      if(error||!record(r))throw Error('Couldn\'t check your download access')
       return sanitizeRecord(r)
     },
     async run(q:EvaluationCommand,key:string):Promise<CommandResult<EvaluationReceipt>>{

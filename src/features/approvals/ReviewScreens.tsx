@@ -43,7 +43,7 @@ function ReviewBody({term,id,api,inbox,files,roomBookings}:{term:string;id:strin
  useEffect(()=>{let live=true;void inbox.read(term,id).then(value=>{if(live){setRecord(value);setError(false);setLoading(false)}}).catch(()=>{if(live){setRecord(null);setError(true);setLoading(false)}});return()=>{live=false}},[inbox,term,id,reload])
  useEffect(()=>{const focus=()=>{setRecord(null);setLoading(true);setReload(n=>n+1);setReviewed(false)};window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus)},[])
  async function command(kind:'activate'|'approve'|'reject'|'request_revision'|'note'|'accepted_date'|'completed'){
-  setLocalError('');if(!r||m.locked)return;if(!m.fields.reason.trim()){setLocalError('A reason or shared operational note is required.');document.getElementById('review-reason')?.focus();return}
+  setLocalError('');if(!r||m.locked)return;if(!m.fields.reason.trim()){setLocalError('Add a reason or a shared note.');document.getElementById('review-reason')?.focus();return}
   const base={requestId:id,revision:r.revision,version:r.version,key:crypto.randomUUID()},assignment=r.assignments.find(a=>a.isMe),decision=['approve','reject','request_revision'].includes(kind)
   if(decision&&!reviewed){setLocalError('Tick the box to confirm you reviewed this version.');document.getElementById('review-confirm')?.focus();return}
   let attempt:ReviewCommand

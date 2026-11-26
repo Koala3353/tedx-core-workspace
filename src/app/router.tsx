@@ -1,102 +1,148 @@
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { appPath, basePath, stripBase } from '../lib/basePath'
 import { Countdown } from '../components/Countdown'
-import {ArchivePage,archivePath} from '../features/admin/turnover/ArchivePage'
-import {TurnoverPage} from '../features/admin/turnover/TurnoverPage'
-import {PrivacyPage,PrivacyRequestPage} from '../features/admin/privacy/Privacy'
-import {PrivacyAdministration} from '../features/admin/privacy/Administration'
-import {RetentionPage} from '../features/admin/privacy/RetentionPage'
-import {DispositionPage} from '../features/admin/privacy/DispositionPage'
-import {BackupHealthPage} from '../features/admin/health/BackupHealthPage'
-import {EmergencyPage} from '../features/admin/privacy/EmergencyPage'
-import {Announcements,AnnouncementDetail,ContextAnnouncements} from '../features/announcements/Reader'
-import {AnnouncementPublisher} from '../features/announcements/Publisher'
-import {ProcessPage,CurrentPhase} from '../features/admin/process/ProcessPage'
-import {Search} from '../features/search/Search'
-import {Reports} from '../features/reports/Reports'
-import {CsvPreparation} from '../features/imports/CsvPreparation'
-import {LayoutsPage} from '../features/admin/layouts/LayoutsPage'
-import {ConfigurationPage} from '../features/admin/config/ConfigurationPage'
-import {AccessPage} from '../features/admin/access/Access'
-import {OrganizationPage} from '../features/admin/organization/Organization'
-import {ResourcesPage} from '../features/resources/Resources'
-import {CalendarPage} from '../features/calendar/Calendar'
-import {InventoryPage} from '../features/inventory/InventoryPage'
-import {GrowthPage} from '../features/growth/GrowthPage'
-import {EvaluationsPage} from '../features/evaluations/EvaluationsPage'
-import {Notifications} from '../features/notifications/Notifications'
-import {PublicityDesk,PublicityPage} from '../features/publicity/Publicity'
-import {FinanceReviewPage,FinanceReviewQueue} from '../features/finance/FinanceReview'
-import {FinanceCasePage} from '../features/finance/FinanceCasePage'
-import {FinanceDesk} from '../features/finance/FinanceDesk'
-import {ReviewInbox,ReviewPage} from '../features/approvals/ReviewScreens'
-import {NewRequestPage,MyRequestsPage,RequestDetailPage} from '../features/requests/RequestPages'
-import {FormPreviewPage} from '../features/forms/FormPreviewPage'
-import {CatalogPage} from '../features/requests/catalog/CatalogPage'
-import {HandoffPage,HandoffsPage} from '../features/handoffs/HandoffScreens'
-import {TimelinePage} from '../features/timeline/TimelinePage'
-import {WorkingTogetherPage} from '../features/synergies/WorkingTogetherPage'
-import {AgreementPage} from '../features/synergies/AgreementPage'
-import {Overview} from '../features/overview/Overview'
-import {TeamSetupPage,teamSetupCapabilities} from '../features/team-setup'
-import {WarRoomPage} from '../features/war-room'
-import {WhoToAskPage} from '../features/who-to-ask'
-import {CommitteeIndexPage,CommitteeOnePage} from '../features/committee-pages'
-import {MyPartPage,SpeakerTrackerPage} from '../features/speaker-portal'
-import {ContestBoardPage,TedifyBoardPage} from '../features/event-boards'
-import {RunOfShowPage} from '../features/run-of-show'
-import {EventQrPage,CrewCheckInPage} from '../features/event-qr'
 import { createBrowserRouter, Link, Navigate, redirect, useLocation, type RouteObject } from 'react-router'
-import { CommitteePage } from '../features/committee/CommitteePage'
 import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
 import { PageHeading, Panel } from '../components/Page'
-import { EmptyState, ErrorState } from '../components/FeedbackState'
+import { EmptyState, ErrorState, LoadingState } from '../components/FeedbackState'
 import { AppShell } from './AppShell'
 import { MemberPreview, SampleToday, canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from './MemberPreview'
-import { TaskDetail } from '../features/tasks/TaskDetail'
-import { TasksPage } from '../features/tasks/TasksPage'
 import { deskCapabilities, navigationItems } from './navigation'
 import { ShellServicesProvider } from './shellServices'
 import { TodayPage } from '../features/today/Today'
 import { DeskHub, EventHub, TeamHub, WorkHub } from './hubs/Hubs'
 import { BootScreen } from '../components/BrandLoader'
 import { createAuthGateway, isGuest, type AuthGateway } from '../features/auth/gateway'
-import { RedeemPage, SharedWork, SponsorPage } from '../features/guests/pages'
 import { AccountPage, AuthRevalidator, CallbackPage, LoginPage, ProtectedShell } from '../features/auth/pages'
-import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
-import { DeliverablesRoute } from '../features/deliverables/DeliverablesPage'
-import { DeliverablePage } from '../features/deliverables/DeliverablePage'
-import { DirectoryPage } from '../features/people/pages'
+// Already in the first-load bundle through the shell (badge, hub card, account page),
+// so these stay static imports.
+import { Notifications } from '../features/notifications/Notifications'
+import { TeamSetupPage, teamSetupCapabilities } from '../features/team-setup/TeamSetupPage'
 import { DriveCallback } from '../features/integrations/drive/DriveSource'
-import { CalendarSyncCallback } from '../features/integrations/calendar/CalendarSync'
+import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
 import { calendarCallback } from '../features/integrations/calendar/api'
+
+const reloadKey = 'tedx.chunk-reload'
+
+/**
+ * Route-level code splitting. Each feature page loads on first visit, inside its own
+ * Suspense boundary. A failed chunk load (usually an old tab after a new deploy) reloads
+ * the page once to pick up the current build, then lets the route error page show.
+ */
+function lazyPage<C extends (props: never) => ReactNode>(load: () => Promise<C>): C {
+  const Lazy = lazy(async () => {
+    try {
+      const component = await load()
+      try { sessionStorage.removeItem(reloadKey) } catch { /* Storage is optional. */ }
+      return { default: component as unknown as ComponentType<Record<string, unknown>> }
+    } catch (error) {
+      let reloaded = true
+      try { reloaded = sessionStorage.getItem(reloadKey) === '1'; if (!reloaded) sessionStorage.setItem(reloadKey, '1') } catch { /* Storage is optional. */ }
+      if (!reloaded) { window.location.reload(); return new Promise<never>(() => {}) }
+      throw error
+    }
+  })
+  function LazyPage(props: Parameters<C>[0]) {
+    return <Suspense fallback={<LoadingState />}><Lazy {...(props as Record<string, unknown>)} /></Suspense>
+  }
+  return LazyPage as unknown as C
+}
+
+const ArchivePage = lazyPage(() => import('../features/admin/turnover/ArchivePage').then(m => m.ArchivePage))
+const TurnoverPage = lazyPage(() => import('../features/admin/turnover/TurnoverPage').then(m => m.TurnoverPage))
+const PrivacyPage = lazyPage(() => import('../features/admin/privacy/Privacy').then(m => m.PrivacyPage))
+const PrivacyRequestPage = lazyPage(() => import('../features/admin/privacy/Privacy').then(m => m.PrivacyRequestPage))
+const PrivacyAdministration = lazyPage(() => import('../features/admin/privacy/Administration').then(m => m.PrivacyAdministration))
+const RetentionPage = lazyPage(() => import('../features/admin/privacy/RetentionPage').then(m => m.RetentionPage))
+const DispositionPage = lazyPage(() => import('../features/admin/privacy/DispositionPage').then(m => m.DispositionPage))
+const BackupHealthPage = lazyPage(() => import('../features/admin/health/BackupHealthPage').then(m => m.BackupHealthPage))
+const EmergencyPage = lazyPage(() => import('../features/admin/privacy/EmergencyPage').then(m => m.EmergencyPage))
+const Announcements = lazyPage(() => import('../features/announcements/Reader').then(m => m.Announcements))
+const AnnouncementDetail = lazyPage(() => import('../features/announcements/Reader').then(m => m.AnnouncementDetail))
+const ContextAnnouncements = lazyPage(() => import('../features/announcements/Reader').then(m => m.ContextAnnouncements))
+const AnnouncementPublisher = lazyPage(() => import('../features/announcements/Publisher').then(m => m.AnnouncementPublisher))
+const ProcessPage = lazyPage(() => import('../features/admin/process/ProcessPage').then(m => m.ProcessPage))
+const CurrentPhase = lazyPage(() => import('../features/admin/process/ProcessPage').then(m => m.CurrentPhase))
+const Search = lazyPage(() => import('../features/search/Search').then(m => m.Search))
+const Reports = lazyPage(() => import('../features/reports/Reports').then(m => m.Reports))
+const CsvPreparation = lazyPage(() => import('../features/imports/CsvPreparation').then(m => m.CsvPreparation))
+const LayoutsPage = lazyPage(() => import('../features/admin/layouts/LayoutsPage').then(m => m.LayoutsPage))
+const ConfigurationPage = lazyPage(() => import('../features/admin/config/ConfigurationPage').then(m => m.ConfigurationPage))
+const AccessPage = lazyPage(() => import('../features/admin/access/Access').then(m => m.AccessPage))
+const OrganizationPage = lazyPage(() => import('../features/admin/organization/Organization').then(m => m.OrganizationPage))
+const ResourcesPage = lazyPage(() => import('../features/resources/Resources').then(m => m.ResourcesPage))
+const CalendarPage = lazyPage(() => import('../features/calendar/Calendar').then(m => m.CalendarPage))
+const InventoryPage = lazyPage(() => import('../features/inventory/InventoryPage').then(m => m.InventoryPage))
+const GrowthPage = lazyPage(() => import('../features/growth/GrowthPage').then(m => m.GrowthPage))
+const EvaluationsPage = lazyPage(() => import('../features/evaluations/EvaluationsPage').then(m => m.EvaluationsPage))
+const PublicityDesk = lazyPage(() => import('../features/publicity/Publicity').then(m => m.PublicityDesk))
+const PublicityPage = lazyPage(() => import('../features/publicity/Publicity').then(m => m.PublicityPage))
+const FinanceReviewPage = lazyPage(() => import('../features/finance/FinanceReview').then(m => m.FinanceReviewPage))
+const FinanceReviewQueue = lazyPage(() => import('../features/finance/FinanceReview').then(m => m.FinanceReviewQueue))
+const FinanceCasePage = lazyPage(() => import('../features/finance/FinanceCasePage').then(m => m.FinanceCasePage))
+const FinanceDesk = lazyPage(() => import('../features/finance/FinanceDesk').then(m => m.FinanceDesk))
+const ReviewInbox = lazyPage(() => import('../features/approvals/ReviewScreens').then(m => m.ReviewInbox))
+const ReviewPage = lazyPage(() => import('../features/approvals/ReviewScreens').then(m => m.ReviewPage))
+const NewRequestPage = lazyPage(() => import('../features/requests/RequestPages').then(m => m.NewRequestPage))
+const MyRequestsPage = lazyPage(() => import('../features/requests/RequestPages').then(m => m.MyRequestsPage))
+const RequestDetailPage = lazyPage(() => import('../features/requests/RequestPages').then(m => m.RequestDetailPage))
+const FormPreviewPage = lazyPage(() => import('../features/forms/FormPreviewPage').then(m => m.FormPreviewPage))
+const CatalogPage = lazyPage(() => import('../features/requests/catalog/CatalogPage').then(m => m.CatalogPage))
+const HandoffPage = lazyPage(() => import('../features/handoffs/HandoffScreens').then(m => m.HandoffPage))
+const HandoffsPage = lazyPage(() => import('../features/handoffs/HandoffScreens').then(m => m.HandoffsPage))
+const TimelinePage = lazyPage(() => import('../features/timeline/TimelinePage').then(m => m.TimelinePage))
+const WorkingTogetherPage = lazyPage(() => import('../features/synergies/WorkingTogetherPage').then(m => m.WorkingTogetherPage))
+const AgreementPage = lazyPage(() => import('../features/synergies/AgreementPage').then(m => m.AgreementPage))
+const Overview = lazyPage(() => import('../features/overview/Overview').then(m => m.Overview))
+const WarRoomPage = lazyPage(() => import('../features/war-room/WarRoomPage').then(m => m.WarRoomPage))
+const WhoToAskPage = lazyPage(() => import('../features/who-to-ask/WhoToAskPage').then(m => m.WhoToAskPage))
+const CommitteeIndexPage = lazyPage(() => import('../features/committee-pages/CommitteePages').then(m => m.CommitteeIndexPage))
+const CommitteeOnePage = lazyPage(() => import('../features/committee-pages/CommitteePages').then(m => m.CommitteePage))
+const MyPartPage = lazyPage(() => import('../features/speaker-portal/MyPartPage').then(m => m.MyPartPage))
+const SpeakerTrackerPage = lazyPage(() => import('../features/speaker-portal/SpeakerTrackerPage').then(m => m.SpeakerTrackerPage))
+const ContestBoardPage = lazyPage(() => import('../features/event-boards/EventBoard').then(m => m.ContestBoardPage))
+const TedifyBoardPage = lazyPage(() => import('../features/event-boards/EventBoard').then(m => m.TedifyBoardPage))
+const RunOfShowPage = lazyPage(() => import('../features/run-of-show/RunOfShowPage').then(m => m.RunOfShowPage))
+const EventQrPage = lazyPage(() => import('../features/event-qr/EventQrPage').then(m => m.EventQrPage))
+const CrewCheckInPage = lazyPage(() => import('../features/event-qr/CrewCheckInPage').then(m => m.CrewCheckInPage))
+const CommitteePage = lazyPage(() => import('../features/committee/CommitteePage').then(m => m.CommitteePage))
+const TaskDetail = lazyPage(() => import('../features/tasks/TaskDetail').then(m => m.TaskDetail))
+const TasksPage = lazyPage(() => import('../features/tasks/TasksPage').then(m => m.TasksPage))
+const RedeemPage = lazyPage(() => import('../features/guests/pages').then(m => m.RedeemPage))
+const SharedWork = lazyPage(() => import('../features/guests/pages').then(m => m.SharedWork))
+const SponsorPage = lazyPage(() => import('../features/guests/pages').then(m => m.SponsorPage))
+const DeliverablesRoute = lazyPage(() => import('../features/deliverables/DeliverablesPage').then(m => m.DeliverablesRoute))
+const DeliverablePage = lazyPage(() => import('../features/deliverables/DeliverablePage').then(m => m.DeliverablePage))
+const DirectoryPage = lazyPage(() => import('../features/people/pages').then(m => m.DirectoryPage))
+const CalendarSyncCallback = lazyPage(() => import('../features/integrations/calendar/CalendarSync').then(m => m.CalendarSyncCallback))
 
 function FoundationPage({ environment }: { environment: ClientEnvironment }) {
   return (
     <>
-      <PageHeading title="Overview" description="A focused view of your work and the people moving it forward." />
+      <PageHeading title="Overview" description="Your work and the people you work with." />
       <Countdown variant="overview" />
       <div className="overview-layout">
-      <Panel title={environment.state === 'not_configured' ? 'Setup needed' : 'Configuration present'}>
+      <Panel title={environment.state === 'not_configured' ? 'Setup needed' : 'Connected'}>
         {environment.state === 'not_configured' ? (
           <>
-            <p>The workspace is not connected to Supabase yet. You can continue local setup without signing in.</p>
+            <p>The workspace isn't connected to Supabase yet. You can keep setting up locally without signing in.</p>
             <ul>{environment.issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
           </>
         ) : (
-          <p>Public configuration is valid. Sign-in and data access have not been implemented or verified.</p>
+          <p>The public settings look right. This preview doesn't sign in or load data.</p>
         )}
-        <p className="muted">No member, task, financial or feedback records are being loaded.</p>
+        <p className="muted">No real records are loaded here.</p>
       </Panel>
       <Panel title="Find your next step">
-        <p className="muted">Explore the workspace structure while setup is in progress.</p>
+        <p className="muted">Look around while setup is in progress.</p>
         <ul className="resource-links">
-          <li><Link to="/deliverables">Deliverables<span>Event outputs and accountable owners</span></Link></li>
+          <li><Link to="/deliverables">Deliverables<span>What the event needs and who owns it</span></Link></li>
           <li><Link to="/working-together">Working together<span>Committee contributions and handoffs</span></Link></li>
-          <li><Link to="/resources">Resources & Start Here<span>Process guides and who to ask</span></Link></li>
+          <li><Link to="/resources">Resources and start here<span>Process guides and who to ask</span></Link></li>
         </ul>
       </Panel>
       </div>
-      <EmptyState title="Your work will appear here" description="Once your account is connected and work is assigned, this overview will show your next actions. No sample tasks or metrics are shown." />
+      <EmptyState title="Your work will appear here" description="Once you're signed in and have work assigned, your next steps show up here." />
     </>
   )
 }
@@ -104,8 +150,8 @@ function FoundationPage({ environment }: { environment: ClientEnvironment }) {
 function RouteErrorPage() {
   return (
     <main className="standalone-page">
-      <h1>The workspace could not open</h1>
-      <ErrorState title="This page could not be displayed" description="Try returning to the start. If this continues, contact the workspace maintainer." action={<a className="button" href={appPath('/')}>Return to start</a>} />
+      <h1>Something went wrong</h1>
+      <ErrorState title="This page didn't load" description="Go back to the start and try again. If it keeps happening, tell the workspace maintainer." action={<a className="button" href={appPath('/')}>Back to start</a>} />
     </main>
   )
 }
@@ -116,8 +162,8 @@ function MovedPage({ to }: { to: string }) {
   return <Navigate replace to={{ pathname: to, search, hash }} />
 }
 
-function Unavailable({ title, description = 'This isn\'t available right now. Try again later.' }: { title: string; description?: string }) {
-  return <><PageHeading title={title} /><EmptyState title={title + ' unavailable'} description={description} action={<Link className="button button--secondary" to="/">Back to Today</Link>} /></>
+function Unavailable({ title, description = 'Check your connection and try again.' }: { title: string; description?: string }) {
+  return <><PageHeading title={title} /><EmptyState title="This page can't load right now" description={description} action={<Link className="button button--secondary" to="/">Back to Today</Link>} /></>
 }
 
 // Presentation gate only, so members without authority never see an admin shell.
@@ -145,8 +191,8 @@ function NotFoundPage() {
   return (
     <>
       <PageHeading title="Page not found" />
-      <p>This address does not point to a workspace page.</p>
-      <Link className="button" to="/">Return to start</Link>
+      <p>There's no page at this address.</p>
+      <Link className="button" to="/">Back to start</Link>
     </>
   )
 }
@@ -188,7 +234,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
         if(retained&&gateway.turnover){
           const current=await gateway.readContext(request.signal)
           if(current.state==='authorized'&&!isGuest(current)){
-            try{if(await gateway.turnover.record(current.termId,retained[1]))return redirect(archivePath(current.termId,retained[1]))}catch{/* The original denied result remains authoritative. */}
+            try{if(await gateway.turnover.record(current.termId,retained[1])){const{archivePath}=await import('../features/admin/turnover/ArchivePage');return redirect(archivePath(current.termId,retained[1]))}}catch{/* The original denied result remains authoritative. */}
           }
         }
         // Only say a session ended when this browser actually had one; first visits get no notice.
@@ -198,7 +244,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       // Page RPCs recheck scope themselves. Explicit focus/expiry checks and path changes still revalidate.
       }, shouldRevalidate: shouldRevalidateWorkspace, children: [
       {path:memberPreviewPath.slice(1)+'/*',element:<MemberPreview/>},
-      { index: true, element: gateway.overview?<TodayPage/>:<><PageHeading title="Today"/><EmptyState title="Today is unavailable" description="The workspace connection is unavailable."/></> },
+      { index: true, element: gateway.overview?<TodayPage/>:<Unavailable title="Today"/> },
       // The previous overview, with layouts, shortcuts and the phase banner. Linked from Today's Customize menu.
       { path: 'overview', element: gateway.overview?<><CurrentPhase api={gateway.process}/><Overview api={gateway.overview} announcements={gateway.announcements} canSearch={!!gateway.search} tasks={gateway.tasks} inventory={gateway.inventory} growth={gateway.growth} evaluations={gateway.evaluations} turnover={gateway.turnover}/></>:<Unavailable title="Classic overview"/> },
       { path: 'today', element: <MovedPage to="/"/> },
@@ -220,53 +266,53 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       { path: 'event/qr', element: <EventQrPage api={gateway.eventQr} inventory={gateway.inventory}/> },
       { path: 'event/check-in/:token', element: gateway.eventQr?<CrewCheckInPage api={gateway.eventQr}/>:<Unavailable title="Crew check-in"/> },
       ...(gateway.turnover?[{path:'archive/:archivedWorkId?',element:<ArchivePage api={gateway.turnover}/>},{path:'handover/:turnoverCaseId?',element:<TurnoverPage api={gateway.turnover}/>}]:[]),
-      {path:'prism/:evaluationId?/:view?',element:gateway.evaluations?<EvaluationsPage api={gateway.evaluations}/>:<Unavailable title="Check-ins" description="Check-ins (PRISM) aren't switched on yet."/>},
+      {path:'prism/:evaluationId?/:view?',element:gateway.evaluations?<EvaluationsPage api={gateway.evaluations}/>:<Unavailable title="Check-ins" description="Check-ins (PRISM) aren't turned on yet."/>},
       {path:'feedback',element:<MovedPage to="/prism"/>},
       {path:'department',element:<MovedPage to="/reviews"/>},
       {path:'committee',element:<CommitteePage tasks={gateway.tasks} deliverables={gateway.deliverables} handoffs={gateway.handoffs}/>},
-      {path:'mentoring',element:gateway.growth?<GrowthPage api={gateway.growth}/>:<Unavailable title="Mentoring" description="Mentoring isn't switched on yet."/>},
+      {path:'mentoring',element:gateway.growth?<GrowthPage api={gateway.growth}/>:<Unavailable title="Mentoring" description="Mentoring isn't turned on yet."/>},
       ...(gateway.inventory?[{path:'inventory/:inventoryLoanId?',element:<InventoryPage api={gateway.inventory}/>}]:[]),
-      {path:'announcements',element:gateway.announcements?<Announcements api={gateway.announcements}/>:<EmptyState title="Announcements unavailable" description="Check the workspace connection."/>},
-      {path:'privacy',element:gateway.privacy?<PrivacyPage api={gateway.privacy}/>:<EmptyState title="Privacy information unavailable" description="Check the workspace connection."/>},
-      {path:'privacy/requests/:privacyRequestId',element:gateway.privacy?<PrivacyRequestPage api={gateway.privacy}/>:<EmptyState title="Privacy request unavailable" description="Check the workspace connection."/>},
-      {path:'admin/privacy',element:gateway.privacy?<PrivacyAdministration api={gateway.privacy}/>:<EmptyState title="Privacy custodian tools unavailable" description="Check the workspace connection."/>},
-      {path:'admin/privacy/retention',element:gateway.privacy?.retention?<RetentionPage api={gateway.privacy.retention}/>:<EmptyState title="Retention tools unavailable" description="Check the workspace connection."/>},
-      {path:'admin/privacy/emergency',element:gateway.privacy?.emergency?<EmergencyPage api={gateway.privacy.emergency}/>:<EmptyState title="Temporary access unavailable" description="Check the workspace connection."/>},
-      {path:'admin/privacy/disposition',element:gateway.privacy?.retention?<DispositionPage api={gateway.privacy.retention}/>:<EmptyState title="Disposition review unavailable" description="Check the workspace connection."/>},
-      {path:'admin/privacy/recovery',element:gateway.privacy?.backupHealth?<BackupHealthPage read={gateway.privacy.backupHealth}/>:<EmptyState title="Recovery status unavailable" description="Check the workspace connection."/>},
-      {path:'announcements/:announcementId',element:gateway.announcements?<AnnouncementDetail api={gateway.announcements} files={gateway.files}/>:<EmptyState title="Announcement unavailable" description="Check the workspace connection."/>},
-      {path:'admin/announcements',element:gateway.announcements?<AnnouncementPublisher api={gateway.announcements}/>:<EmptyState title="Publishing unavailable" description="Check the workspace connection."/>},
+      {path:'announcements',element:gateway.announcements?<Announcements api={gateway.announcements}/>:<Unavailable title="Announcements"/>},
+      {path:'privacy',element:gateway.privacy?<PrivacyPage api={gateway.privacy}/>:<Unavailable title="Privacy information"/>},
+      {path:'privacy/requests/:privacyRequestId',element:gateway.privacy?<PrivacyRequestPage api={gateway.privacy}/>:<Unavailable title="Privacy request"/>},
+      {path:'admin/privacy',element:gateway.privacy?<PrivacyAdministration api={gateway.privacy}/>:<Unavailable title="Privacy custodian tools"/>},
+      {path:'admin/privacy/retention',element:gateway.privacy?.retention?<RetentionPage api={gateway.privacy.retention}/>:<Unavailable title="Retention tools"/>},
+      {path:'admin/privacy/emergency',element:gateway.privacy?.emergency?<EmergencyPage api={gateway.privacy.emergency}/>:<Unavailable title="Temporary access"/>},
+      {path:'admin/privacy/disposition',element:gateway.privacy?.retention?<DispositionPage api={gateway.privacy.retention}/>:<Unavailable title="Data sources"/>},
+      {path:'admin/privacy/recovery',element:gateway.privacy?.backupHealth?<BackupHealthPage read={gateway.privacy.backupHealth}/>:<Unavailable title="Recovery status"/>},
+      {path:'announcements/:announcementId',element:gateway.announcements?<AnnouncementDetail api={gateway.announcements} files={gateway.files}/>:<Unavailable title="Announcement"/>},
+      {path:'admin/announcements',element:gateway.announcements?<AnnouncementPublisher api={gateway.announcements}/>:<Unavailable title="Publishing"/>},
       {path:'shared',element:<><PageHeading title="Shared with me" description="Work shared with you."/>
         <SharedWork api={gateway.guests}/><nav className="auth-actions" aria-label="Guest help"><Link className="button button--secondary" to="/account#guest-contacts">Find guest contacts</Link></nav><ContextAnnouncements api={gateway.announcements}/></>},
-      {path:'admin/process',element:gateway.process?<ProcessPage api={gateway.process}/>:<EmptyState title="Process configuration unavailable" description="Current connection unavailable."/>},
-      {path:'search',element:gateway.search?<Search api={gateway.search}/>:<EmptyState title="Find unavailable" description="Current connection unavailable."/>},
-      {path:'reports',element:gateway.reports?<Reports api={gateway.reports}/>:<EmptyState title="Reports unavailable" description="Current connection unavailable."/>},
+      {path:'admin/process',element:gateway.process?<ProcessPage api={gateway.process}/>:<Unavailable title="Process setup"/>},
+      {path:'search',element:gateway.search?<Search api={gateway.search}/>:<Unavailable title="Search"/>},
+      {path:'reports',element:gateway.reports?<Reports api={gateway.reports}/>:<Unavailable title="Reports"/>},
       {path:'admin/imports',element:<CsvPreparation api={gateway.taskImports} rosterApi={gateway.rosterImports}/>},
-      {path:'admin/layouts',element:gateway.layouts?<LayoutsPage api={gateway.layouts}/>:<EmptyState title="Layout settings unavailable" description="Current connection unavailable."/>},
-      {path:'admin/access',element:gateway.access?<AccessPage api={gateway.access}/>:<EmptyState title="Access inspection unavailable" description="The connection is unavailable."/>},
-      {path:'admin/config/:configurationType?',element:gateway.configuration?<ConfigurationPage api={gateway.configuration} catalog={gateway.catalog}/>:<EmptyState title="Configuration unavailable" description="The connection is unavailable."/>},
-      {path:'reviews',element:gateway.inbox?<ReviewInbox api={gateway.inbox}/>:<EmptyState title="Reviews unavailable" description="The connection is unavailable."/>},
-      {path:'publicity',element:gateway.publicity?<PublicityDesk api={gateway.publicity}/>:<EmptyState title="Publicity sign-off unavailable" description="The connection is unavailable."/>},
-      {path:'publicity/:publicityTerm/:publicityId',element:gateway.publicity&&gateway.requests?<PublicityPage api={gateway.publicity} requests={gateway.requests} forms={gateway.forms} files={gateway.files}/>:<EmptyState title="Publicity sign-off unavailable" description="The connection is unavailable."/>},
-      {path:'finance',element:gateway.finance?<><FinanceDesk api={gateway.finance}/>{gateway.finAuthority?<FinanceReviewQueue api={gateway.finAuthority}/>:null}</>:<EmptyState title="Budget unavailable" description="The connection is unavailable."/>},
-      {path:'finance/reviews/:finTerm/:finId',element:gateway.finAuthority?<FinanceReviewPage api={gateway.finAuthority} files={gateway.files} ledger={gateway.ledger}/>:<EmptyState title="FIN review unavailable" description="The connection is unavailable."/>},
-      {path:'finance/:financeTermId/:financeId',element:gateway.finance&&gateway.requests?<FinanceCasePage api={gateway.finance} requests={gateway.requests} files={gateway.files}/>:<EmptyState title="Budget unavailable" description="The connection is unavailable."/>},
-      {path:'reviews/:reviewTermId/:reviewId',element:gateway.inbox&&gateway.approvals?<ReviewPage api={gateway.approvals} inbox={gateway.inbox} files={gateway.files} roomBookings={gateway.roomBookings}/>:<EmptyState title="Review unavailable" description="The connection is unavailable."/>},
-      {path:'requests/mine',element:gateway.requests?<MyRequestsPage api={gateway.requests}/>:<EmptyState title="Requests unavailable" description="The connection is unavailable."/>},
-      {path:'requests/services/:typeId/new',element:gateway.requests&&gateway.catalog?<NewRequestPage api={gateway.requests} catalog={gateway.catalog}/>:<EmptyState title="Draft unavailable" description="The connection is unavailable."/>},
-      {path:'requests/:requestTermId/:requestId',element:gateway.requests&&gateway.forms?<RequestDetailPage api={gateway.requests} forms={gateway.forms} files={gateway.files} roomBookings={gateway.roomBookings}/>:<EmptyState title="Request unavailable" description="The connection is unavailable."/>},
-      {path:'requests/services/:typeId/preview',element:gateway.forms&&gateway.catalog?<FormPreviewPage api={gateway.forms} catalog={gateway.catalog} files={gateway.files}/>:<EmptyState title="Form unavailable" description="The connection is unavailable."/>},
-      {path:'requests/services/:typeId',element:gateway.catalog?<CatalogPage api={gateway.catalog} process={gateway.process}/>:<EmptyState title="Catalog unavailable" description="The connection is unavailable."/>},
-      {path:'working-together/handoffs',element:gateway.handoffs?<HandoffsPage api={gateway.handoffs}/>:<EmptyState title="Handoffs unavailable" description="The connection is unavailable."/>},
-      {path:'working-together/handoffs/:handoffId',element:gateway.handoffs?<HandoffPage api={gateway.handoffs} files={gateway.files}/>:<EmptyState title="Handoff unavailable" description="The connection is unavailable."/>},
-      {path:'working-together/timeline',element:gateway.timeline?<TimelinePage api={gateway.timeline}/>:<EmptyState title="Timeline unavailable" description="The connection is unavailable."/>},
-      {path:'working-together/:agreementId',element:gateway.synergies?<AgreementPage api={gateway.synergies}/>:<EmptyState title="Agreement unavailable" description="The connection is unavailable."/>},
-      {path:'tasks/:taskId',element:gateway.tasks?<TaskDetail process={gateway.process} publicity={gateway.publicity} finance={gateway.finance} handoffs={gateway.handoffs} timeline={gateway.timeline} dependencies={gateway.dependencies} api={gateway.tasks} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<EmptyState title="Task unavailable" description="The connection is unavailable."/>},
-      {path:'deliverables/:deliverableId',element:gateway.deliverables?<DeliverablePage process={gateway.process} readiness={gateway.readiness} publicity={gateway.publicity} finance={gateway.finance} timeline={gateway.timeline} api={gateway.deliverables} commands={gateway.deliverableCommands} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<EmptyState title="Deliverable unavailable" description="The workspace connection is unavailable."/>},
+      {path:'admin/layouts',element:gateway.layouts?<LayoutsPage api={gateway.layouts}/>:<Unavailable title="Layout settings"/>},
+      {path:'admin/access',element:gateway.access?<AccessPage api={gateway.access}/>:<Unavailable title="Access check"/>},
+      {path:'admin/config/:configurationType?',element:gateway.configuration?<ConfigurationPage api={gateway.configuration} catalog={gateway.catalog}/>:<Unavailable title="Service setup"/>},
+      {path:'reviews',element:gateway.inbox?<ReviewInbox api={gateway.inbox}/>:<Unavailable title="Reviews"/>},
+      {path:'publicity',element:gateway.publicity?<PublicityDesk api={gateway.publicity}/>:<Unavailable title="Publicity sign-off"/>},
+      {path:'publicity/:publicityTerm/:publicityId',element:gateway.publicity&&gateway.requests?<PublicityPage api={gateway.publicity} requests={gateway.requests} forms={gateway.forms} files={gateway.files}/>:<Unavailable title="Publicity sign-off"/>},
+      {path:'finance',element:gateway.finance?<><FinanceDesk api={gateway.finance}/>{gateway.finAuthority?<FinanceReviewQueue api={gateway.finAuthority}/>:null}</>:<Unavailable title="Budget"/>},
+      {path:'finance/reviews/:finTerm/:finId',element:gateway.finAuthority?<FinanceReviewPage api={gateway.finAuthority} files={gateway.files} ledger={gateway.ledger}/>:<Unavailable title="FIN review"/>},
+      {path:'finance/:financeTermId/:financeId',element:gateway.finance&&gateway.requests?<FinanceCasePage api={gateway.finance} requests={gateway.requests} files={gateway.files}/>:<Unavailable title="Budget"/>},
+      {path:'reviews/:reviewTermId/:reviewId',element:gateway.inbox&&gateway.approvals?<ReviewPage api={gateway.approvals} inbox={gateway.inbox} files={gateway.files} roomBookings={gateway.roomBookings}/>:<Unavailable title="Review"/>},
+      {path:'requests/mine',element:gateway.requests?<MyRequestsPage api={gateway.requests}/>:<Unavailable title="Requests"/>},
+      {path:'requests/services/:typeId/new',element:gateway.requests&&gateway.catalog?<NewRequestPage api={gateway.requests} catalog={gateway.catalog}/>:<Unavailable title="Draft"/>},
+      {path:'requests/:requestTermId/:requestId',element:gateway.requests&&gateway.forms?<RequestDetailPage api={gateway.requests} forms={gateway.forms} files={gateway.files} roomBookings={gateway.roomBookings}/>:<Unavailable title="Request"/>},
+      {path:'requests/services/:typeId/preview',element:gateway.forms&&gateway.catalog?<FormPreviewPage api={gateway.forms} catalog={gateway.catalog} files={gateway.files}/>:<Unavailable title="Form"/>},
+      {path:'requests/services/:typeId',element:gateway.catalog?<CatalogPage api={gateway.catalog} process={gateway.process}/>:<Unavailable title="Catalog"/>},
+      {path:'working-together/handoffs',element:gateway.handoffs?<HandoffsPage api={gateway.handoffs}/>:<Unavailable title="Handoffs"/>},
+      {path:'working-together/handoffs/:handoffId',element:gateway.handoffs?<HandoffPage api={gateway.handoffs} files={gateway.files}/>:<Unavailable title="Handoff"/>},
+      {path:'working-together/timeline',element:gateway.timeline?<TimelinePage api={gateway.timeline}/>:<Unavailable title="Timeline"/>},
+      {path:'working-together/:agreementId',element:gateway.synergies?<AgreementPage api={gateway.synergies}/>:<Unavailable title="Agreement"/>},
+      {path:'tasks/:taskId',element:gateway.tasks?<TaskDetail process={gateway.process} publicity={gateway.publicity} finance={gateway.finance} handoffs={gateway.handoffs} timeline={gateway.timeline} dependencies={gateway.dependencies} api={gateway.tasks} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<Unavailable title="Task"/>},
+      {path:'deliverables/:deliverableId',element:gateway.deliverables?<DeliverablePage process={gateway.process} readiness={gateway.readiness} publicity={gateway.publicity} finance={gateway.finance} timeline={gateway.timeline} api={gateway.deliverables} commands={gateway.deliverableCommands} comments={gateway.comments} files={gateway.files} synergies={gateway.synergies}/>:<Unavailable title="Deliverable"/>},
       ...navigationItems.filter((item) => item.href !== '/' && !explicitAreas.has(item.href)).map((item) => ({
         path: item.href.slice(1),
         element: item.id === 'admin' && gateway.organization ? <OrganizationPage api={gateway.organization} process={gateway.process}/> : item.id === 'resources' && gateway.resources ? <ResourcesPage api={gateway.resources} people={gateway.people}/> : item.id === 'calendar' && gateway.calendar ? <CalendarPage api={gateway.calendar}/> : item.id === 'notifications' ? <><Notifications/><ContextAnnouncements api={gateway.announcements}/></> : item.id === 'requests' && gateway.catalog ? <CatalogPage api={gateway.catalog} process={gateway.process}/> : item.href === '/working-together' && gateway.synergies ? <WorkingTogetherPage api={gateway.synergies}/> : item.id === 'tasks' && gateway.tasks ? <TasksPage api={gateway.tasks} exportCsv={gateway.exportOperationalWork} /> : item.id === 'deliverables' && gateway.deliverables ? <DeliverablesRoute api={gateway.deliverables} commands={gateway.deliverableCommands} exportCsv={gateway.exportOperationalWork} /> : item.id === 'people' && gateway.people ? <DirectoryPage api={gateway.people} /> : item.id === 'guests' && gateway.guests ? <SponsorPage api={gateway.guests} /> : item.id === 'account' ? <AccountPage gateway={gateway} /> : <Unavailable title={item.label} />,
-        errorElement: <ErrorState title="This page could not open" description="Go back to Today and try again. If it keeps happening, contact the workspace maintainer." action={<Link className="button" to="/">Back to Today</Link>} />,
+        errorElement: <ErrorState title="This page didn't load" description="Go back to Today and try again. If it keeps happening, tell the workspace maintainer." action={<Link className="button" to="/">Back to Today</Link>} />,
       })),
       ] },
       { path: '*', element: <main className="standalone-page"><NotFoundPage /></main> },

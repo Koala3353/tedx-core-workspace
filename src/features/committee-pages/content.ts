@@ -19,7 +19,7 @@ export type CommitteeContent = {
 export const committeeContent: CommitteeContent[] = [
   {
     key: 'markstrat', codes: ['MARKSTRAT', 'MARKETING'], name: 'Marketing Strategy', short: 'MarkStrat',
-    description: 'Shapes how people see and hear about the event: the look, the campaign, the stage and the record of it all. Runs as four teams: Creatives, Productions, Promotions and Documentations.',
+    description: 'Handles how the event looks and how people hear about it: branding, the campaign, the stage, and photo and video coverage. Runs as four teams: Creatives, Productions, Promotions and Documentations.',
     deliverables: ['Brand book and pubmats', 'Stage design and installations', 'Campaign and promo videos', 'Photos, videos and the TED submission'],
     skills: ['Graphic design', 'Copywriting', 'Video', 'Photography', 'Planning a campaign'],
   },
@@ -31,7 +31,7 @@ export const committeeContent: CommitteeContent[] = [
   },
   {
     key: 'productions', codes: ['PRODUCTIONS', 'PROD'], parent: 'markstrat', name: 'Productions', short: 'Productions',
-    description: 'Builds the physical experience: stage design, installations and exhibits at the venue.',
+    description: 'Builds what people see at the venue: stage design, installations and exhibits.',
     deliverables: ['Stage design', 'Installations', 'Exhibits'],
     skills: ['Set and spatial design', 'Building and crafts', 'Working with suppliers'],
   },
@@ -43,7 +43,7 @@ export const committeeContent: CommitteeContent[] = [
   },
   {
     key: 'documentations', codes: ['DOCUMENTATIONS', 'DOCUMENTATION', 'DOCU', 'DOCS'], parent: 'markstrat', name: 'Documentations', short: 'Documentations',
-    description: 'Captures everything: photos, videos and DP shoots, and submits the talks to TED after the event.',
+    description: 'Covers photos, videos and DP shoots, and submits the talks to TED after the event.',
     deliverables: ['Event photos and videos', 'DP shoots', 'TED submission'],
     skills: ['Photography', 'Videography', 'Editing', 'File organisation'],
   },
@@ -91,7 +91,7 @@ export const committeeContent: CommitteeContent[] = [
   },
   {
     key: 'exrel', codes: ['EXREL', 'EXTERNAL'], name: 'External Relations', short: 'ExRel',
-    description: 'Brings in sponsors and partners and keeps them happy through the event.',
+    description: 'Brings in sponsors and partners and looks after them through the event.',
     deliverables: ['Sponsorship deck', 'Sponsor and partner deals', 'Partner deliverables'],
     skills: ['Pitching', 'Professional emails', 'Negotiation', 'Relationship building'],
   },

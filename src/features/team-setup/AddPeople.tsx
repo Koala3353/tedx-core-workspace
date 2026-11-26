@@ -204,8 +204,8 @@ export function PasteListDialog({ api, termId, committees, openPositions, roster
           <table className="ts-table ts-table--preview">
             <thead><tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Committee</th><th scope="col">Position</th><th scope="col">Wave</th><th scope="col">Check</th></tr></thead>
             <tbody>{preview.rows.map(r => <tr key={r.line} className={r.errors.length ? 'is-error' : undefined}>
-              <td className="numeric">{r.line}</td><td>{r.name || '—'}</td><td className="ts-mono">{r.email || '—'}</td>
-              <td>{r.person?.committeeCode ?? (r.committeeText || '—')}</td><td>{r.positionText || '—'}</td><td>{r.waveText || '—'}</td>
+              <td className="numeric">{r.line}</td><td>{r.name || 'Blank'}</td><td className="ts-mono">{r.email || 'Blank'}</td>
+              <td>{r.person?.committeeCode ?? (r.committeeText || 'Blank')}</td><td>{r.positionText || 'Blank'}</td><td>{r.waveText || 'Blank'}</td>
               <td>{r.errors.length
                 ? <><Status state="blocked" label="Fix" /><ul className="ts-issues">{r.errors.map(e => <li key={e}>{e}</li>)}</ul></>
                 : <><Status state="done" label="Ready" />{r.warnings.length ? <ul className="ts-issues ts-issues--warn">{r.warnings.map(w => <li key={w}>{w}</li>)}</ul> : null}</>}

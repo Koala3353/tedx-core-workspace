@@ -1,6 +1,6 @@
 import type {createSupabaseClient} from '../../../lib/supabase'
 import {mapCommandError,type CommandResult} from '../../../lib/commands'
-export const categoryNames={operational:'Operational work',finance:'Budget records',restricted:'Other restricted work',profile:'Optional profiles',guest:'Guest access',security:'Security history',privacy:'Privacy requests',prism:'Check-ins (not switched on)',learning:'Learning notes (not switched on)',backup:'Backup generations'}as const
+export const categoryNames={operational:'Day-to-day work',finance:'Budget records',restricted:'Other restricted work',profile:'Optional profiles',guest:'Guest access',security:'Security history',privacy:'Privacy requests',prism:'Check-ins (not switched on)',learning:'Learning notes (not switched on)',backup:'Backup generations'}as const
 export type Category=keyof typeof categoryNames
 export type RetentionRule={category:Category;owner:string;basis:string;days:number;action:'archive_review'|'review_disposal'}
 export type RetentionDefinition={version:1;rules:RetentionRule[]}

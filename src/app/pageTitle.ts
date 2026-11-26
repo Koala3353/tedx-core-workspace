@@ -35,7 +35,7 @@ const subPages: [RegExp, (labels: (href: string, fallback: string) => string) =>
   [/^\/admin\/privacy$/, () => ({ title: 'Data & privacy', parent: up('/admin', 'Admin') })],
   [/^\/admin\/privacy\/retention$/, () => ({ title: 'Retention', parent: { label: 'Data & privacy', href: '/admin/privacy' } })],
   [/^\/admin\/privacy\/emergency$/, () => ({ title: 'Temporary access', parent: { label: 'Data & privacy', href: '/admin/privacy' } })],
-  [/^\/admin\/privacy\/disposition$/, () => ({ title: 'Disposition', parent: { label: 'Data & privacy', href: '/admin/privacy' } })],
+  [/^\/admin\/privacy\/disposition$/, () => ({ title: 'Data sources', parent: { label: 'Data & privacy', href: '/admin/privacy' } })],
   [/^\/admin\/privacy\/recovery$/, () => ({ title: 'Recovery status', parent: { label: 'Data & privacy', href: '/admin/privacy' } })],
   [/^\/archive(?:\/.*)?$/, () => ({ title: 'Archive', parent: up('/desk', 'Desk') })],
   [/^\/handover(?:\/.*)?$/, () => ({ title: 'Handover', parent: up('/desk', 'Desk') })],

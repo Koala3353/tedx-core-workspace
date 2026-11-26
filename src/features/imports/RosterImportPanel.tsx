@@ -43,20 +43,20 @@ export function RosterImportPanel({api,term,input,enabled,onLoad,onDenied,onLock
   void execute({run:async()=>{const result=await api.commit(term,id,version,hash,why,key);return()=>{setReceipt(result);setDraft({...result,stamp});setReview(null);setConfirmed(false);setMessage('People added to the roster. Assign their committees and roles in Administration.')}}})
  }
  return <Panel title="3. Save and add people">
-  <p>Add up to 50 people at a time. Either everyone is added or no one is. This doesn\'t assign committees or roles, or send invitations.</p>
+  <p>Add up to 50 people at a time. Either everyone is added or no one is. This doesn't assign committees or roles, or send invitations.</p>
   <details><summary>Import rules</summary><p>Use the same list name and source keys (case matters) when you import again. People already on the roster stay as they are, including their names and dates. Fix name differences, returning members, guests or suspended accounts in Administration.</p></details>
   <label>List name (use the same one when you retry)<input maxLength={80} disabled={locked||!!draft} value={list} onChange={e=>{setList(e.target.value);setConfirmed(false)}}/></label>
   <label>Membership starts<input type="date" disabled={locked} value={joined} onChange={e=>{setJoined(e.target.value);setConfirmed(false)}}/></label>
-  <label>Membership ends (first day they\'re no longer a member)<input type="date" disabled={locked} value={ends} onChange={e=>{setEnds(e.target.value);setConfirmed(false)}}/></label>
+  <label>Membership ends (first day they're no longer a member)<input type="date" disabled={locked} value={ends} onChange={e=>{setEnds(e.target.value);setConfirmed(false)}}/></label>
   <p>These dates apply only to people being added.</p>
   <div className="auth-actions"><button className={currentReview?'button button--secondary':'button'} disabled={locked||!enabled||!list.trim()||!joined||!ends||joined>=ends||draft?.state==='committed'} onClick={save}>Save draft</button><button className="button button--secondary" disabled={locked||!draft||draft.state!=='draft'||draft.stamp!==stamp} onClick={()=>void preview()}>Preview changes</button></div>
   {message?<p role="status">{message}</p>:null}{error?<p role="alert">{error}</p>:null}
   {pending?<button className="button" disabled={busy} onClick={()=>void execute(pending)}>Try again</button>:null}
   {currentReview&&!receipt?<section aria-label="Roster changes"><h3>Roster changes · {currentReview.termLabel} · {currentReview.listName}</h3>
-   <p>New people are added as active members with the dates below. People already on the roster don\'t change.</p>
+   <p>New people are added as active members with the dates below. People already on the roster don't change.</p>
    <ol>{currentReview.rows.map(r=><li key={r.record}><h4>Row {r.record}: {r.operation==='create'?'Add to roster':'Already on the roster'}</h4><p>Source key {r.sourceKey}</p><dl><dt>Before</dt><dd>{r.before?`${r.before.name} · ${r.before.email} · active · ${formatDay(r.before.joinedAt)} – ${formatDay(r.before.endsAt)}`:'Not on the roster yet'}</dd><dt>After</dt><dd>{r.after.name} · {r.after.email} · active · {formatDay(r.after.joinedAt)} – {formatDay(r.after.endsAt)}</dd></dl>{r.errors.length?<ul role="alert">{r.errors.map((e,i)=><li key={i}>{e}</li>)}</ul>:null}</li>)}</ol>
-   {!currentReview.valid?<p>Fix every row error and save again. Partial imports aren\'t possible.</p>:null}
-   <label className="csv-confirm"><input type="checkbox" checked={confirmed} disabled={locked||!currentReview.valid} onChange={e=>setConfirmed(e.target.checked)}/>I\'ve checked these people and their dates.</label>
+   {!currentReview.valid?<p>Fix every row error and save again. Partial imports aren't possible.</p>:null}
+   <label className="csv-confirm"><input type="checkbox" checked={confirmed} disabled={locked||!currentReview.valid} onChange={e=>setConfirmed(e.target.checked)}/>I've checked these people and their dates.</label>
   </section>:null}
   {currentReview||pending?<label>Reason for adding these people<input maxLength={1000} value={reason} disabled={locked} onChange={e=>setReason(e.target.value)}/></label>:null}
   {currentReview?<button className="button" disabled={locked||!currentReview.valid||!confirmed||!reason.trim()} onClick={commit}>Add to roster</button>:null}

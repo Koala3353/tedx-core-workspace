@@ -195,7 +195,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
               onClickCapture={event => { if (event.target instanceof Element && event.target.closest('[data-discard-edits]')) window.setTimeout(() => setSiteEditing(false)) }}>{siteEditor}</div> : null}
             <div key={location.pathname} className="view-enter">{content ?? <Outlet />}</div>
             {showGuidance && (blocks.length > 0 || siteUnavailable) ? <details className="site-guidance"><summary>Workspace guidance</summary>
-              {siteUnavailable ? <p className="muted">Published site settings could not be applied. Standard navigation and work remain available.</p> : null}
+              {siteUnavailable ? <p className="muted">Couldn't apply the site settings, so you're seeing the standard menus. Your work is all still here.</p> : null}
               {blocks.map(block => <section key={block.id} className={block.kind === 'card' ? 'panel site-guidance-card' : 'site-guidance-block'}>
                 <h2>{block.kind === 'text' ? block.title : <Link to={block.href!}>{block.title}</Link>}</h2><p>{block.body}</p>
               </section>)}

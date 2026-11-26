@@ -40,9 +40,9 @@ export function EmailDigest({api,term,scopeReady}:{api:EmailDigestApi;term:strin
     refresh()
   }
   return <Panel title="Email digest">
-    <p>Optional: get one email each morning (after 8 AM) listing yesterday\'s unread updates.</p>
+    <p>Optional: get one email each morning (after 8 AM) listing yesterday's unread updates.</p>
     <p role="status">{status?activationText[status.activation]:read?.revision===revision?'Couldn\'t load email settings. Try again.':'Loading…'}</p>
-    {status?.bounced?<p role="status">Emails to this address keep bouncing, so they\'re paused. If the address is right, tell an admin.</p>:
+    {status?.bounced?<p role="status">Emails to this address keep bouncing, so they're paused. If the address is right, tell an admin.</p>:
       status?.health?<p role="status">{healthText[status.health]}</p>:null}
     {saved?<p role="status">{saved}</p>:null}{preference.error?<p role="alert">{preference.error}</p>:null}
     <div className="auth-actions">

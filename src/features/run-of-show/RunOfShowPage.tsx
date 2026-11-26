@@ -107,13 +107,13 @@ function RunOfShowBody({ api, term }: { api: RunOfShowApi; term: string }) {
     <PageHeading title="Run of show" description={canEdit ? 'Build the plan from the OpSched, then run it live on event day.'
       : 'The plan for event day. StageMan runs it live.'} />
 
-    {offlineSince ? <p className="ros-offline" role="status"><CloudOff size={16} aria-hidden="true" />Offline — last updated {offlineSince}</p> : null}
+    {offlineSince ? <p className="ros-offline" role="status"><CloudOff size={16} aria-hidden="true" />Offline. Last updated {offlineSince}</p> : null}
 
     <div className="ros-summary">
       <dl>
         <div><dt>Starts</dt><dd>{state.showStart ? clockLabel(state.showStart) : 'Not set'}</dd></div>
-        <div><dt>Ends around</dt><dd>{end ? clockLabel(end) : '—'}</dd></div>
-        <div><dt>Length</dt><dd>{segments.length ? durationLabel(totalS) : '—'}</dd></div>
+        <div><dt>Ends around</dt><dd>{end ? clockLabel(end) : 'Not set'}</dd></div>
+        <div><dt>Length</dt><dd>{segments.length ? durationLabel(totalS) : 'No segments yet'}</dd></div>
         {state.phase !== 'idle' ? <div><dt>Live</dt><dd className={state.delayS >= 60 ? 'ros-late' : undefined}>{delayLabel(state.delayS)}</dd></div> : null}
       </dl>
       {segments.length ? <button ref={openButton} type="button" className="button" onClick={() => setLive(true)}>
@@ -144,7 +144,7 @@ function RunOfShowBody({ api, term }: { api: RunOfShowApi; term: string }) {
                 onCancel={() => { setEditing(null); setError('') }} />
             </li>
             : <li key={s.id} className={'ros-row' + (s.id === state.currentSegmentId ? ' ros-row--current' : '')}>
-              <p className="ros-row__time">{s.scheduledStart ? clockLabel(s.scheduledStart) : '—'}</p>
+              <p className="ros-row__time">{s.scheduledStart ? clockLabel(s.scheduledStart) : 'No time set'}</p>
               <div className="ros-row__main">
                 <p className="ros-row__title">{s.title}</p>
                 <p className="ros-row__meta">

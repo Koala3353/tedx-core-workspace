@@ -88,6 +88,23 @@ export default defineConfig(({ command, mode }) => {
         this.emitFile({ type: 'asset', fileName: '_headers', source })
       },
     }, {
+      // Every visit starts by reading the Supabase session, and the client loads through a
+      // dynamic import. Preload its chunk so it downloads alongside the entry, not after it.
+      name: 'workspace-preload',
+      apply: 'build',
+      transformIndexHtml: { order: 'post', handler(html, context) {
+        const files = Object.values(context.bundle ?? {})
+        const chunk = files.find(file => file.type === 'chunk' && file.name === 'supabase-vendor')
+        // The latin faces of the body (Karla) and heading (Inter) fonts are used on every first
+        // paint; preloading them skips the stylesheet-then-font round trip. Same origin, so the
+        // font-src 'self' policy still applies.
+        const fonts = files.filter(file => file.type === 'asset' && /^assets\/(?:inter|karla)-latin-wght-normal-[\w-]+\.woff2$/.test(file.fileName))
+        return { html, tags: [
+          ...(chunk ? [{ tag: 'link', attrs: { rel: 'modulepreload', crossorigin: true, href: base + chunk.fileName }, injectTo: 'head' as const }] : []),
+          ...fonts.map(font => ({ tag: 'link', attrs: { rel: 'preload', as: 'font', type: 'font/woff2', crossorigin: true, href: base + font.fileName }, injectTo: 'head' as const })),
+        ] }
+      } },
+    }, {
       name: 'workspace-github-pages',
       apply: 'build',
       configResolved(config) { outDir = config.build.outDir },
@@ -108,6 +125,20 @@ export default defineConfig(({ command, mode }) => {
         writeFileSync(join(outDir, '.nojekyll'), '')
       },
     }],
+    build: {
+      rolldownOptions: {
+        output: {
+          // Stable vendor chunks: an app deploy changes only app chunk hashes, so returning
+          // visitors keep React and Supabase from the browser and service worker caches.
+          codeSplitting: {
+            groups: [
+              { name: 'react-vendor', test: /node_modules[\\/](?:react|react-dom|react-router|scheduler|cookie|set-cookie-parser)[\\/]/, priority: 3 },
+              { name: 'supabase-vendor', test: /node_modules[\\/](?:@supabase[\\/]|tslib[\\/]|iceberg-js[\\/])/, priority: 2 },
+            ],
+          },
+        },
+      },
+    },
     preview: { headers },
   }
 })

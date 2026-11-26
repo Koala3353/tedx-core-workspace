@@ -62,7 +62,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { id: 'notifications', label: 'Notifications', href: '/notifications', description: 'Updates and reminder settings', group: 'account', audiences: ['setup', 'core', 'guest'], tab: 'today' },
   { id: 'announcements', label: 'Announcements', href: '/announcements', description: 'Messages from the PMs and committees', group: 'workspace', audiences: member, tab: 'today' },
   // Work
-  { id: 'work', label: 'Work', href: '/work', description: 'Everything owed, by scope', group: 'workspace', audiences: member, tab: 'work', hub: true },
+  { id: 'work', label: 'Work', href: '/work', description: "Yours, your committee's and everyone's", group: 'workspace', audiences: member, tab: 'work', hub: true },
   { id: 'tasks', label: 'Tasks', href: '/tasks', description: 'Your tasks and deadlines', group: 'workspace', audiences: ['setup', 'core', 'guest'], tab: 'work' },
   { id: 'deliverables', label: 'Deliverables', href: '/deliverables', description: 'Event outputs and who owns them', group: 'workspace', audiences: member, tab: 'work' },
   { id: 'working', label: 'Working together', href: '/working-together', description: 'Deals and handoffs between committees', group: 'workspace', audiences: member, tab: 'work' },

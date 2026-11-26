@@ -25,7 +25,7 @@ const format = (value: string | null) => formatDateTime(value, 'None yet')
 
 export function BackupHealthPage({ read }: { read: ReadBackupHealth }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext
-  if (isGuest(context)) return <p role="alert">Guests can\'t view backup health.</p>
+  if (isGuest(context)) return <p role="alert">Guests can't view backup health.</p>
   return <Health key={context.termId + ':' + context.termMembershipId} term={context.termId} read={read} />
 }
 
@@ -76,7 +76,7 @@ function Health({ term, read }: { term: string; read: ReadBackupHealth }) {
     <HowThisWorks><p>A backup counts as healthy once a recent encrypted copy is verified and a test restore into a separate copy succeeds. A restore is only done once login access, private files and the deletion log have all been checked.</p></HowThisWorks>
     {state === 'checking' && <p role="status">Loading…</p>}
     {state === 'denied' && <p role="alert">Only the recovery operator or privacy custodian can see this. Ask an admin to assign the role in <Link to="/admin/access">Roles & access</Link>.</p>}
-    {state === 'error' && <p role="alert">Couldn\'t load backup status. Check your connection and try again.</p>}
+    {state === 'error' && <p role="alert">Couldn't load backup status. Check your connection and try again.</p>}
     {data && <>
       <Panel title="Encrypted backup">
         <p role="status">{labels[data.backupStatus]}</p>

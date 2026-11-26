@@ -8,7 +8,7 @@ import { formatDayLabel } from '../../lib/format'
 import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import type { SearchRow } from '../search/api'
 import { replayTour } from '../tutorial/events'
-import { whoToAskEntries } from '../who-to-ask'
+import { whoToAskEntries } from '../who-to-ask/entries'
 import { parseQuickAdd, type Committee, type QuickAdd } from './parse'
 import './palette.css'
 
@@ -25,7 +25,7 @@ const icon = (Icon: typeof Search) => <Icon size={16} strokeWidth={1.75} aria-hi
 /** Team and Event pages that live under a hub rather than in the navigation. Members only. */
 const hubPages: { id: string; label: string; description: string; href: string; icon: string; anyOf?: readonly string[] }[] = [
   { id: 'team-setup', label: 'Team setup', description: 'Who has signed in, installed and finished the tour', href: '/team/setup', icon: 'team.setup', anyOf: ['roles.manage', 'admin.configure'] },
-  { id: 'who-to-ask', label: 'Who do I ask?', description: 'The committee and person for a poster, a room, money and more', href: '/team/ask', icon: 'team.whoToAsk' },
+  { id: 'who-to-ask', label: 'Who do I ask?', description: 'Who to ask about a poster, a room, money or anything else', href: '/team/ask', icon: 'team.whoToAsk' },
   { id: 'committees', label: 'Committees', description: 'What each committee does and who leads it', href: '/team/committees', icon: 'team.committeePages' },
   { id: 'war-room', label: 'War room', description: 'Every deliverable at risk, by committee and week', href: '/event/war-room', icon: 'event.warRoom' },
   { id: 'speakers', label: 'Speakers', description: 'Speaker checklists, rehearsals and contacts', href: '/event/speakers', icon: 'speakers' },

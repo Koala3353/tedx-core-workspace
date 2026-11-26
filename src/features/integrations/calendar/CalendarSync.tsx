@@ -70,8 +70,8 @@ function CalendarSyncDetails({api,term,event,version,confirmed}:{
     finally{refresh();setBusy(false)}
   }
   if(pending)return <p role="status">Checking Google Calendar…</p>
-  if(error)return <p role="status">Couldn\'t check Google Calendar. The app calendar has the latest schedule.</p>
-  if(!status)return <p role="status">This event isn\'t on the shared Google Calendar.</p>
+  if(error)return <p role="status">Couldn't check Google Calendar. The app calendar has the latest schedule.</p>
+  if(!status)return <p role="status">This event isn't on the shared Google Calendar.</p>
   const previous=status.lastVerifiedAt
   return <div>
     <div role="status">
@@ -116,7 +116,7 @@ export function CalendarSyncSettings({api,term}:{api:CalendarSyncApi;term:string
   if(!status?.canManage)return null
   return <Panel title="Shared Google Calendar">
     <p><strong>{status.calendar}</strong> · {status.connection==='connected'?'Connection ready.':label(status)}</p>
-    <p>Optional. Publish events one at a time from each event\'s sync status. The app calendar is the official schedule.</p>
+    <p>Optional. Publish events one at a time from each event's sync status. The app calendar is the official schedule.</p>
     {notice?<p role="status">{notice}</p>:null}
     <div className="auth-actions">
       {status.connection==='disconnected'||status.connection==='reconnect'?<button className="button button--secondary" disabled={busy} onClick={()=>void run('connect')}>

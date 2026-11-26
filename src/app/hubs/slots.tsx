@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import type { NavigationCapability } from '../navigation'
-import { TeamSetupCard } from '../../features/team-setup'
-import { warRoomSlot } from '../../features/war-room'
-import { whoToAskSlot } from '../../features/who-to-ask'
-import { committeePagesSlot } from '../../features/committee-pages'
-import { contestBoardSlot, tedifyBoardSlot } from '../../features/event-boards'
+import { TeamSetupCard } from '../../features/team-setup/TeamSetupCard'
+import { warRoomSlot } from '../../features/war-room/slot'
+import { whoToAskSlot } from '../../features/who-to-ask/entries'
+import { committeePagesSlot } from '../../features/committee-pages/slot'
+import { contestBoardSlot, tedifyBoardSlot } from '../../features/event-boards/slots'
 
 /**
  * Named places in the tab hubs. Empty slots render nothing. Each slot holds one entry or a

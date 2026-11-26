@@ -65,7 +65,7 @@ function describe(item:TelegramItem):string {
     case 'approval':
       return 'A request is waiting for your review'
     case 'announcement':
-      return item.title?'Please confirm you have read "'+item.title+'"':'An announcement asks you to confirm you have read it'
+      return item.title?'Confirm you\'ve read "'+item.title+'"':'An announcement asks you to confirm you have read it'
   }
 }
 

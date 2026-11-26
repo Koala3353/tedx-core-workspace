@@ -165,7 +165,7 @@ export function ProgressBar({ d }: { d: BoardDeliverable }) {
 function nudgeMessage(d: BoardDeliverable): string {
   const link = window.location.origin + appPath('/deliverables/' + d.id)
   const when = due(d)
-  return `Hi ${firstName(d.ownerName)}! Quick check on "${d.title}" (${when.charAt(0).toLowerCase() + when.slice(1)}). ${steps(d)} so far. Anything blocking you or anything I can help with? ${link}`
+  return `Hi ${firstName(d.ownerName)}, quick check on "${d.title}" (${when.charAt(0).toLowerCase() + when.slice(1)}). ${steps(d)} so far. Anything blocking you or anything I can help with? ${link}`
 }
 
 function NudgeButton({ d, compact = false }: { d: BoardDeliverable; compact?: boolean }) {

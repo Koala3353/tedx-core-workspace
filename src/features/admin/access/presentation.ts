@@ -3,7 +3,7 @@ import type {Action,AccessData,Values} from './api'
 
 const permissions:Record<string,string>={'workspace.read':'See workspace work','directory.read':'View the member directory','profile.edit_own':'Edit your own profile','committee.manage':'Manage committee work','department.review':'Review requests to their committee','finance.review':'Review budgets (FIN)','mcd.review':'Give publicity sign-off (MCD)','feedback.review':'Review confidential feedback (needs sign-off from a second admin)','mentoring.view':'View your mentoring records','reports.view':'View reports','admin.configure':'Configure the workspace','roles.manage':'Manage roles and access'}
 export const permissionName=(key:string)=>permissions[key]??'Permission unavailable'
-export const scopeName=(scope:string)=>({unit:'One committee',term:'The whole term',work:'One work item',own:'Their own records'} as Record<string,string>)[scope]??'Scope unavailable'
+export const scopeName=(scope:string)=>({unit:'One committee',term:'The whole term',work:'One work item',own:'Their own records'} as Record<string,string>)[scope]??'Area unavailable'
 export const actionName=(action:Action)=>({role_publish:'Edit role permissions',assignment_grant:'Give someone a role',assignment_expiry:'Change when a role ends',assignment_revoke:'Remove a role',custodian_nominate:'Name a new workspace owner',custodian_accept:'Accept becoming workspace owner'})[action]
 export const accessDate=(value:string)=>Number.isFinite(Date.parse(value))?formatDateTime(value):'No date'
 export function namedScope(data:AccessData,scope:string,unitId:string|null,workId:string|null){

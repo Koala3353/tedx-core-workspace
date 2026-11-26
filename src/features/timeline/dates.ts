@@ -24,7 +24,7 @@ export function manilaDay(timestamp:string):string{
  return calendarDay(part('year').padStart(4,'0')+'-'+part('month')+'-'+part('day'))
 }
 export function displayEndDay(dueOn:string|null,dueAt:string|null):string|null{
- if(dueOn!==null&&dueAt!==null)throw new RangeError('A work item must have only one authoritative deadline.')
+ if(dueOn!==null&&dueAt!==null)throw new RangeError('A work item can only have one official deadline.')
  return dueOn!==null?calendarDay(dueOn):dueAt!==null?manilaDay(dueAt):null
 }
 export type Schedule={kind:'range';start:string;end:string;days:number}|{kind:'deadline';end:string}|{kind:'unscheduled';start:string|null;missing:'end'|'start_and_end'}

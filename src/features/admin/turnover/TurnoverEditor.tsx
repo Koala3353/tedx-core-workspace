@@ -49,7 +49,7 @@ export function TurnoverEditor({api,term,workspace:w,setup,custody,edit,checking
   const requiresNote=!['prepare','freeze','archive','verify'].includes(edit.kind)
   return <Panel title={labels[edit.kind]}>
     {m.error?<p role="alert">{m.error}</p>:null}
-    {m.pending?<><p role="status">We couldn\'t confirm this was saved. Try again before changing anything; it won\'t save twice.</p><button className="button" disabled={checking||m.busy} onClick={()=>void send()}>Try again</button></>:null}
+    {m.pending?<><p role="status">We couldn't confirm this was saved. Try again before changing anything; it won't save twice.</p><button className="button" disabled={checking||m.busy} onClick={()=>void send()}>Try again</button></>:null}
     {stale&&!m.pending?<div role="alert"><p>Someone changed the handover. Your entries are kept. Check the latest checklist before sending.</p><button className="button button--secondary" onClick={()=>m.change({...f,__base:String(base)})}>Keep my entries</button></div>:null}
     <form onSubmit={submit} data-unsaved-changes={f.__dirty==='1'} data-pending-command={m.locked}><fieldset disabled={checking||m.locked||stale}>
       {edit.kind==='prepare'?choice('approval','Approval',w.approvals.map(a=>({id:a.id,name:a.reference+' · '+(a.scope==='synthetic'?'Practice run':'Real handover')}))):null}
@@ -65,7 +65,7 @@ export function TurnoverEditor({api,term,workspace:w,setup,custody,edit,checking
         <details><summary>Access to remove from outgoing members</summary><fieldset><legend>Roles</legend>{checks('role_',w.roles)}</fieldset><fieldset><legend>Record access</legend>{checks('grant_',w.grants)}</fieldset></details>
       </>:null}
       {edit.kind==='nominate'?<>
-        <p>The custodian can place holds and add corrections, but can\'t open Budget, evaluation or file contents. They need the right role in next term first.</p>
+        <p>The custodian can place holds and add corrections, but can't open Budget, evaluation or file contents. They need the right role in next term first.</p>
         {choice('authority','Incoming custodian',setup?.authorities.map(a=>({id:a.id,name:a.name+' · '+categoryName(a.category)}))??[])}
         {!setup?.authorities.length?<p>No one is eligible yet. Start next term and give someone the custodian role in Administration, then come back.</p>:null}
         {authority?<fieldset><legend>Records for {categoryName(authority.category)}</legend>{checks('work_',authority.category==='prism'?(setup?.privateRoots??[]).map(r=>({id:r.id,name:r.reference})):w.work.filter(x=>x.classification===authority.category).map(x=>({id:x.id,name:(x.reference?x.reference+' · ':'')+x.title})))}</fieldset>:null}
@@ -75,15 +75,15 @@ export function TurnoverEditor({api,term,workspace:w,setup,custody,edit,checking
       {edit.kind==='verify'?<p>Checks the exported files and test restore. It fails if any record is missing or changed.</p>:null}
       {edit.kind==='complete'?<p>Do this once every successor and custodian has accepted. It archives the term and removes the outgoing access you picked.</p>:null}
       {edit.kind==='acceptRecords'?<p>By accepting, you take responsibility for these records and any carried-over work.</p>:null}
-      {edit.kind==='acceptCustody'?<p>By accepting, you agree to manage holds and corrections for these private records until the end date. You won\'t see their contents.</p>:null}
+      {edit.kind==='acceptCustody'?<p>By accepting, you agree to manage holds and corrections for these private records until the end date. You won't see their contents.</p>:null}
       {edit.kind==='custodyAction'&&custody?<>
         {edit.action==='release_hold'&&!custody.holds.length?<p>There are no active holds to release.</p>:null}
         {edit.action==='release_hold'?choice('hold','Hold to release',custody.holds.map(h=>({id:h.id,name:(w.custody.find(n=>n.id===edit.id)?.records.find(r=>r.id===h.objectId)?.reference??'Record')+' · Review '+formatDay(h.reviewAt)}))):choice('successor','Record',(w.custody.find(n=>n.id===edit.id)?.records??[]).map((r,i)=>({id:r.id,name:r.reference??'Record '+(i+1)})))}
         {edit.action==='hold'?<div className="form-field"><label htmlFor={input+'date'}>Review date and time</label><input id={input+'date'} type="datetime-local" required value={f.reviewAt} onChange={e=>change('reviewAt',e.target.value)}/></div>:null}
-        <p>The original record doesn\'t change. Add the approval reference for this {edit.action==='release_hold'?'hold release':edit.action==='hold'?'hold':'correction'}.</p>
+        <p>The original record doesn't change. Add the approval reference for this {edit.action==='release_hold'?'hold release':edit.action==='hold'?'hold':'correction'}.</p>
       </>:null}
       {requiresNote?<div className="form-field"><label htmlFor={input+'note'}>Note or approval reference</label><textarea id={input+'note'} minLength={3} maxLength={500} required value={f.reference} onChange={e=>change('reference',e.target.value)}/></div>:null}
-      {['freeze','complete','acceptRecords','acceptCustody'].includes(edit.kind)?<label className="turnover-check"><input type="checkbox" required checked={f.confirmed==='1'} onChange={e=>change('confirmed',e.target.checked?'1':'')}/><span>I\'ve checked this and understand what happens next.</span></label>:null}
+      {['freeze','complete','acceptRecords','acceptCustody'].includes(edit.kind)?<label className="turnover-check"><input type="checkbox" required checked={f.confirmed==='1'} onChange={e=>change('confirmed',e.target.checked?'1':'')}/><span>I've checked this and understand what happens next.</span></label>:null}
       <div className="auth-actions"><button className="button" type="submit" disabled={edit.kind==='nominate'&&(!authority||!selected('work_').length)||edit.kind==='transfer'&&!selected('work_').length||edit.kind==='custodyAction'&&edit.action==='release_hold'&&!custody?.holds.length}>{labels[edit.kind]}</button><button className="button button--secondary" type="button" onClick={close}>Cancel</button></div>
     </fieldset></form>
   </Panel>
