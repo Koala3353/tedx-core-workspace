@@ -17,7 +17,7 @@ export async function telegramDispatch(rpc:TelegramRpc,bot:TelegramBot,
     if(request.method!=='POST')return reply({error:'method_not_allowed'},405)
     if(!matchesTelegramSecret(request.headers.get('x-telegram-dispatch-secret'),config.secret))
       return reply({error:'dispatch_denied'},403)
-    if(request.body)return reply({error:'empty_body_required'},400)
+    if(request.body&&(await request.text()).length)return reply({error:'empty_body_required'},400)
     try {
       let checked=0,sent=0,deferred=0
       while(checked<6) {

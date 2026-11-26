@@ -18,7 +18,7 @@ export function emailDispatch(rpc:Rpc,provider:MailProvider,config:{term:string;
     let different=actual.length^config.secret.length
     for(let i=0;i<config.secret.length;i++)different|=(actual.charCodeAt(i)||0)^config.secret.charCodeAt(i)
     if(different)return reply({error:'dispatch_denied'},403)
-    if(request.body)return reply({error:'empty_body_required'},400)
+    if(request.body&&(await request.text()).length)return reply({error:'empty_body_required'},400)
     const run=(action:string,fields:Record<string,unknown>={})=>rpc('email_digest_dispatch',{
       p_term_id:config.term,p_action:action,p_sender:provider.binding.sender,p_domain_id:provider.binding.domainId,...fields,
     })
