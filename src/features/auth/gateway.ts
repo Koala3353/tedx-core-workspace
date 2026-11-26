@@ -1,3 +1,4 @@
+import { createViewAsApi, type ViewAsApi } from '../view-as/api'
 import {createTurnoverApi,type TurnoverApi} from '../admin/turnover/api'
 import {createPrivacyApi,type PrivacyApi} from '../admin/privacy/api'
 import {createOperationalExport,type OperationalExport} from '../exports/operational'
@@ -83,6 +84,7 @@ export interface AuthGateway {
   eventBoards?: EventBoardsApi
   runOfShow?: RunOfShowApi
   eventQr?: EventQrApi
+  viewAs?: ViewAsApi
   turnover?: TurnoverApi
   privacy?: PrivacyApi
   exportOperationalWork?: OperationalExport
@@ -169,6 +171,7 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
     eventBoards: createEventBoardsApi(clientReady),
     runOfShow: createRunOfShowApi(clientReady),
     eventQr: createEventQrApi(clientReady),
+    viewAs: createViewAsApi(clientReady),
     turnover: createTurnoverApi(clientReady),
     announcements: createAnnouncementsApi(clientReady),
     site: createPublishedSiteApi(clientReady),

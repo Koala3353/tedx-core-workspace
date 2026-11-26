@@ -6,7 +6,7 @@ import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
 import { PageHeading, Panel } from '../components/Page'
 import { EmptyState, ErrorState, LoadingState } from '../components/FeedbackState'
 import { AppShell } from './AppShell'
-import { MemberPreview, SampleToday, canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from './MemberPreview'
+import { SampleToday, canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from './MemberPreview'
 import { deskCapabilities, navigationItems } from './navigation'
 import { ShellServicesProvider } from './shellServices'
 import { TodayPage } from '../features/today/Today'
@@ -48,6 +48,7 @@ function lazyPage<C extends (props: never) => ReactNode>(load: () => Promise<C>)
   return LazyPage as unknown as C
 }
 
+const ViewAsPage = lazyPage(() => import('../features/view-as/ViewAsPage').then(m => m.ViewAsPage))
 const ArchivePage = lazyPage(() => import('../features/admin/turnover/ArchivePage').then(m => m.ArchivePage))
 const TurnoverPage = lazyPage(() => import('../features/admin/turnover/TurnoverPage').then(m => m.TurnoverPage))
 const PrivacyPage = lazyPage(() => import('../features/admin/privacy/Privacy').then(m => m.PrivacyPage))
@@ -243,7 +244,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
         return redirect(`/login?${reason ? `reason=${reason}&` : ''}returnTo=${encodeURIComponent(safeReturnPath(appUrlPath+url.search))}`)
       // Page RPCs recheck scope themselves. Explicit focus/expiry checks and path changes still revalidate.
       }, shouldRevalidate: shouldRevalidateWorkspace, children: [
-      {path:memberPreviewPath.slice(1)+'/*',element:<MemberPreview/>},
+      {path:memberPreviewPath.slice(1)+'/*',element:<ViewAsPage api={gateway.viewAs}/>},
       { index: true, element: gateway.overview?<TodayPage/>:<Unavailable title="Today"/> },
       // The previous overview, with layouts, shortcuts and the phase banner. Linked from Today's Customize menu.
       { path: 'overview', element: gateway.overview?<><CurrentPhase api={gateway.process}/><Overview api={gateway.overview} announcements={gateway.announcements} canSearch={!!gateway.search} tasks={gateway.tasks} inventory={gateway.inventory} growth={gateway.growth} evaluations={gateway.evaluations} turnover={gateway.turnover}/></>:<Unavailable title="Classic overview"/> },

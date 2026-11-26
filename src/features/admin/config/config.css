@@ -14,3 +14,7 @@
 .form-structure summary{min-height:44px;padding:10px 0;cursor:pointer}
 .repeatable-questions>fieldset{border:0;border-top:1px solid var(--color-line);padding:16px 0 0}
 .repeatable-questions>fieldset>fieldset{border:0;padding:0}
+.service-switch{display:grid;gap:8px;min-width:0;overflow-wrap:anywhere}
+.service-switch p{margin:0}
+.service-switch .button{justify-self:start;min-height:44px}
+.service-switch__todo{margin:0;padding-left:20px;display:grid;gap:4px}

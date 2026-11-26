@@ -1,0 +1,54 @@
+/* View as a member: picker, banner and read-only lists. Tokens only, so both themes work. */
+.view-as-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-5); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border: 1px solid var(--color-line-strong); border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-panel); background: var(--color-surface-subtle); color: var(--color-ink);
+}
+.view-as-banner .icon { flex: none; color: var(--color-accent-ink); }
+.view-as-banner__text { flex: 1 1 12rem; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.view-as-banner__exit { margin-left: auto; }
+
+.view-as-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+.view-as-locked, .view-as-locked:hover { opacity: .55; cursor: not-allowed; }
+.view-as-note { margin: var(--space-4) 0 0; color: var(--color-muted); font-size: .9375rem; }
+.view-as-fallback { display: grid; gap: var(--space-3); max-width: 40rem; }
+.view-as-fallback p { margin: 0; }
+
+.view-as-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: var(--space-3); align-items: end; margin-bottom: var(--space-4); }
+.view-as-filter { display: grid; gap: 4px; min-width: 0; font-size: .875rem; color: var(--color-muted); }
+.view-as-search { position: relative; min-width: 0; }
+.view-as-search .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
+.view-as-search input, .view-as-filter select {
+  width: 100%; min-width: 0; min-height: var(--control-min-size); padding: 8px 10px;
+  border: 1px solid var(--color-line-strong); border-radius: var(--radius-control);
+  background: var(--color-surface); color: var(--color-ink); font: inherit;
+}
+.view-as-search input { padding-left: 36px; }
+
+.view-as-people, .view-as-list { list-style: none; margin: 0; padding: 0; }
+.view-as-person {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-3); align-items: center;
+  width: 100%; min-height: 56px; padding: var(--space-3) var(--space-2); border: 0; border-bottom: 1px solid var(--color-line);
+  background: transparent; color: var(--color-ink); text-align: left; font: inherit; cursor: pointer;
+  transition: background-color 150ms var(--ease-standard);
+}
+.view-as-person:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.view-as-person__name { font-weight: 600; overflow-wrap: anywhere; }
+.view-as-person__you { font-weight: 400; color: var(--color-muted); }
+.view-as-person__meta { grid-column: 1; color: var(--color-muted); font-size: .875rem; overflow-wrap: anywhere; }
+.view-as-person .status { grid-column: 2; grid-row: 1 / span 2; }
+@media (hover: hover) { .view-as-person:hover { background: var(--color-surface-subtle); } }
+
+.view-as-list__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-4); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--color-line); }
+.view-as-list__text { display: grid; gap: 4px; min-width: 0; }
+.view-as-list__title { overflow-wrap: anywhere; }
+.view-as-list__meta { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; color: var(--color-muted); font-size: .875rem; }
+
+@media (max-width: 767px) {
+  .view-as-filters { grid-template-columns: minmax(0, 1fr); }
+  .view-as-filters > .button { justify-self: start; }
+  .view-as-list__row { grid-template-columns: minmax(0, 1fr); }
+  .view-as-list__row .view-as-locked { justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { .view-as-person { transition: none; } }

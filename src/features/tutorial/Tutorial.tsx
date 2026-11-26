@@ -6,7 +6,9 @@ import { installPlatform, isStandalone, useInstallPrompt } from '../../app/Insta
 import { safeStorage } from '../../lib/clientState'
 import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import { InstallSheet } from '../install/InstallBanner'
-import { replayEvent, replayTour, tutorialVersion } from './events'
+import { onSetupGate, readSetupGate } from '../setup-wizard/gate'
+import type { ClientStateApi } from '../../lib/clientState'
+import { replayEvent, replayTour, setTourActive, tutorialVersion } from './events'
 import './tutorial.css'
 
 type Stop = { id: string; anchor: string; path?: string; title: string; body: string; capability?: string; optional?: boolean }
@@ -28,6 +30,12 @@ function readLocal(): LocalProgress | null {
   try { const value = JSON.parse(safeStorage.get(localKey) ?? 'null'); return value && typeof value.step === 'number' ? value : null } catch { return null }
 }
 function writeLocal(value: LocalProgress) { safeStorage.set(localKey, JSON.stringify(value)) }
+
+/** "Skip tour" on the setup wizard's last step: the tour will not start on its own. */
+export function markTourDone(clientState?: ClientStateApi): void {
+  writeLocal({ step: 0, done: true, version: tutorialVersion })
+  void clientState?.record({ tutorialDone: true, tutorialVersion })
+}
 
 /** First visible element carrying the anchor (the sidebar and the phone bar both exist in the DOM). */
 function findAnchor(anchor: string): HTMLElement | null {
@@ -62,21 +70,31 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
     void clientState?.record(done ? { tutorialStep: step, tutorialDone: true, tutorialVersion } : { tutorialStep: step, tutorialVersion })
   }, [clientState])
 
+  // The setup wizard comes first. Its last step either starts the tour (through replayTour)
+  // or skips it; when setup was done earlier, the tour follows its own saved progress.
+  const [gate, setGate] = useState(readSetupGate)
+  useEffect(() => onSetupGate(() => setGate(readSetupGate())), [])
+  useEffect(() => { setTourActive(index !== null || pending !== null) }, [index, pending])
+  useEffect(() => () => setTourActive(false), [])
+
   // First signed-in visit: start on Today. Progress comes from the server, else this browser.
   useEffect(() => {
-    if (checked.current || pathname !== '/') return
+    if (checked.current || gate.status !== 'closed') return
+    if (gate.tour !== 'auto') { checked.current = true; return }
+    if (pathname !== '/') return
     checked.current = true
     let live = true
+    setTourActive(true)
     void (async () => {
       const server = clientState ? await clientState.read() : null
       const local = readLocal()
       const done = server ? server.tutorialDone && server.tutorialVersion >= tutorialVersion : !!local?.done && local.version >= tutorialVersion
-      if (!live || done) return
+      if (!live || done) { setTourActive(false); return }
       const step = Math.min(Math.max(server?.tutorialStep ?? local?.step ?? 0, 0), stops.length - 1)
-      window.setTimeout(() => { if (live) setPending(step) }, 700)
+      window.setTimeout(() => { if (live) setPending(step); else setTourActive(false) }, 700)
     })()
     return () => { live = false }
-  }, [pathname, clientState, stops.length])
+  }, [gate, pathname, clientState, stops.length])
 
   useEffect(() => {
     const replay = () => { setIndex(null); setPending(0) }

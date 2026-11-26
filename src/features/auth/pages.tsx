@@ -25,6 +25,7 @@ import { AppShell } from '../../app/AppShell'
 import { canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from '../../app/MemberPreview'
 import { InstallWorkspace } from '../../app/InstallWorkspace'
 import { ReplayTourButton } from '../tutorial/Tutorial'
+import { SetupAgainButton } from '../setup-wizard/SetupWizard'
 import { DriveConnection } from '../integrations/drive/DriveSource'
 import type { NavigationCapability } from '../../app/navigation'
 import type { AuthGateway, AuthResult, WorkspaceContext } from './gateway'
@@ -181,7 +182,7 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
   {context && !isGuest(context) && gateway.profile ? <ProfileEditor key={context.memberId + context.termId} api={gateway.profile} termId={context.termId} /> : null}
   {context && isGuest(context) && gateway.guestContacts ? <GuestContactEditor key={context.guestAccessId} api={gateway.guestContacts} termId={context.termId} /> : null}
   <InstallWorkspace />
-  {context && !isGuest(context) ? <section className="account-tour" aria-labelledby="account-tour-title"><h2 id="account-tour-title">Workspace tour</h2><p className="muted">A short walk through Today, Work, Event, Team and the search.</p><ReplayTourButton /></section> : null}
+  {context && !isGuest(context) ? <section className="account-tour" aria-labelledby="account-tour-title"><h2 id="account-tour-title">Workspace tour</h2><p className="muted">A short walk through Today, Work, Event, Team and the search.</p><ReplayTourButton /><SetupAgainButton /></section> : null}
   {context && !isGuest(context) && gateway.files?.drive ? <DriveConnection key={context.memberId+context.termId} api={gateway.files.drive} term={context.termId} /> : null}
   <p><Link to="/privacy">Privacy notice and requests</Link></p>
   <div className="auth-actions">

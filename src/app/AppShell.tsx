@@ -1,5 +1,5 @@
 import { NotificationBadge } from '../features/notifications/Notifications'
-import { ChevronLeft, CircleUser, LogOut, Moon, PenLine, RotateCcw, Search, Sun, UserRound } from 'lucide-react'
+import { ChevronLeft, CircleUser, LogOut, Moon, PenLine, RotateCcw, Search, Settings2, Sun, UserRound } from 'lucide-react'
 import { TedxLockup, licenseLine } from '../components/TedxLockup'
 import { CountdownChip } from '../components/Countdown'
 import { Menu, type MenuEntry } from '../components/Menu'
@@ -9,11 +9,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigation, useRevalidator } from 'react-router'
 import { getGuestNavigation, getTabItems, getVisibleNavigation, getVisibleTabs, setupNavigation, tabForPath, type NavigationContext, type NavigationItem, type TabId } from './navigation'
 import { pageTitleFor } from './pageTitle'
-import { useShellServices } from './shellServices'
+import { useShellServices, useTheme } from './shellServices'
 import { appPath } from '../lib/basePath'
 import { CommandPalette, openPalette } from '../features/palette/Palette'
 import { Tutorial } from '../features/tutorial/Tutorial'
 import { replayTour } from '../features/tutorial/events'
+import { SetupWizard } from '../features/setup-wizard/SetupWizard'
+import { openSetup } from '../features/setup-wizard/gate'
 import { countVisit, useInstalledReport } from '../features/install/InstallBanner'
 
 type AppShellProps = {
@@ -29,19 +31,7 @@ type AppShellProps = {
   headerAction?: ReactNode
 }
 
-// Matches public/theme.js, which applies the same choice before first paint:
-// stored choice, then the system preference, then dark.
 const shortcut = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K'
-
-function readInitialTheme(): 'dark' | 'light' {
-  const applied = document.documentElement.dataset.theme
-  if (applied === 'light' || applied === 'dark') return applied
-  try {
-    const stored = window.localStorage.getItem('tedx-workspace-theme')
-    if (stored === 'light' || stored === 'dark') return stored
-  } catch { /* Storage optional. */ }
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-}
 
 function SubLink({ item }: { item: NavigationItem }) {
   const Icon = navIcon(item.id)
@@ -72,10 +62,10 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const navigation = useNavigation()
   const { state: revalidation } = useRevalidator()
   const { gateway } = useShellServices()
-  const [theme, setTheme] = useState<'dark' | 'light'>(readInitialTheme)
+  // Shared with the setup wizard's Look step; public/theme.js reads the same storage key.
+  const { theme, setChoice: setThemeChoice } = useTheme()
   const [siteEditing, setSiteEditing] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
-  const themeChosen = useRef(false)
   const mainRef = useRef<HTMLElement>(null)
   const siteSlot = useRef<HTMLDivElement>(null)
   const previousPath = useRef(location.pathname)
@@ -97,14 +87,6 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const guestItems = guest ? getGuestNavigation(context).map(item => items.find(x => x.id === item.id) ?? item) : []
   const title = pageTitleFor(path, worded)
   const admin = context.capabilities.includes('admin.configure')
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#111111' : '#ffffff')
-    // Only an explicit toggle is remembered, so the system preference keeps applying until then.
-    if (themeChosen.current) try { window.localStorage.setItem('tedx-workspace-theme', theme) } catch { /* Storage optional. */ }
-  }, [theme])
 
   useEffect(() => {
     if (previousPath.current !== location.pathname) {
@@ -134,8 +116,10 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const accountMenu: MenuEntry[] = [
     { kind: 'label', label: <><strong>{identity?.displayName ?? 'Not signed in'}</strong>{identity?.unitName ? <span>{identity.unitName}</span> : null}</> },
     { kind: 'link', label: 'Account', to: destination('/account'), icon: <UserRound size={16} strokeWidth={1.75} /> },
+    ...(live ? [{ kind: 'action' as const, label: 'Set up again', icon: <Settings2 size={16} strokeWidth={1.75} />, onSelect: openSetup }] : []),
     ...(!guest && !memberPreviewPath ? [{ kind: 'action' as const, label: 'Replay the tour', icon: <RotateCcw size={16} strokeWidth={1.75} />, onSelect: replayTour }] : []),
-    { kind: 'action', label: theme === 'dark' ? 'Light theme' : 'Dark theme', icon: theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />, onSelect: () => { themeChosen.current = true; setTheme(current => current === 'dark' ? 'light' : 'dark') } },
+    // An explicit toggle is remembered; until then the device preference applies.
+    { kind: 'action', label: theme === 'dark' ? 'Light theme' : 'Dark theme', icon: theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />, onSelect: () => setThemeChoice(theme === 'dark' ? 'light' : 'dark') },
     ...(admin && siteEditor && live ? [{ kind: 'action' as const, label: 'Edit site wording', icon: <PenLine size={16} strokeWidth={1.75} />, onSelect: () => setSiteEditing(true) }] : []),
     ...(live && gateway ? [{ kind: 'separator' as const }, { kind: 'action' as const, label: 'Sign out', quiet: true, icon: <LogOut size={16} strokeWidth={1.75} />, onSelect: () => void signOut() }] : []),
   ]
@@ -149,7 +133,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
     <div className={presentation?.accent === '#252624' ? 'site-theme--ink' : 'site-theme--default'}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       {preview ? <div className="preview-notice">Development shell preview <span>Destinations require sign-in</span></div> : null}
-      {memberPreviewPath && <div className="preview-notice" role="status">Member view <span>Read-only preview with sample data</span></div>}
+      {memberPreviewPath && <div className="preview-notice" role="status">Member view <span>Read-only preview</span></div>}
       <div className="workspace-shell">
         <aside className="sidebar" aria-label="Workspace sidebar">
           <div className="workspace-identity">
@@ -209,6 +193,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
       </nav>
       {!memberPreviewPath ? <CommandPalette items={items.filter(item => item.href !== '/account' || !guest)} /> : null}
       {live && !guest ? <Tutorial /> : null}
+      {live ? <SetupWizard /> : preview && import.meta.env.DEV ? <SetupWizard preview /> : null}
     </div>
   )
 }

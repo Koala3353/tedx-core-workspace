@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router'
+import { Link } from 'react-router'
 import { PageHeading, Panel } from '../components/Page'
 import type { WorkspaceContext } from '../features/auth/gateway'
 import type { OverviewRow } from '../features/overview/api'
@@ -6,9 +6,11 @@ import { buildSections } from '../features/today/model'
 import { TodaySection } from '../features/today/TodayList'
 import { CountdownChip } from '../components/Countdown'
 import { formatDayLabel } from '../lib/format'
-import { AppShell } from './AppShell'
 import { getVisibleNavigation, tabs, type NavigationContext } from './navigation'
 import '../features/today/today.css'
+
+// The member preview page itself lives in src/features/view-as (loaded on first visit).
+// This module keeps the small pieces the router, the shell and the dev preview need up front.
 
 export const memberPreviewPath = '/member-preview'
 export const isMemberPreviewPath = (path: string) => {
@@ -18,8 +20,12 @@ export const isMemberPreviewPath = (path: string) => {
 export function canPreviewAsMember(context: WorkspaceContext) {
   return 'memberId' in context && context.capabilities.includes('admin.configure')
 }
+/** Viewing a real member's data needs full admin: both admin.configure and roles.manage. */
+export function canViewRealMember(context: WorkspaceContext) {
+  return canPreviewAsMember(context) && context.capabilities.includes('roles.manage')
+}
 
-const memberNavigation: NavigationContext = { audience: 'core', capabilities: [] }
+export const memberNavigation: NavigationContext = { audience: 'core', capabilities: [] }
 
 // Fixed sample rows, dated relative to today so the preview always reads naturally.
 function sampleRows(): OverviewRow[] {
@@ -58,23 +64,15 @@ export function SampleToday() {
   </div>
 }
 
-export function MemberPreview() {
-  const path = useLocation().pathname.toLowerCase().slice(memberPreviewPath.length).replace(/\/$/, '') || '/'
-  const navigation = getVisibleNavigation(memberNavigation)
-  const active = navigation.find(item => item.href === path)
+/** The sample member's page for a preview sub-path ("/" is Today). */
+export function SamplePreviewContent({ path }: { path: string }) {
+  if (path === '/') return <SampleToday />
+  const active = getVisibleNavigation(memberNavigation).find(item => item.href === path)
   const tab = tabs.find(item => item.href === path)
-  const today = path === '/'
   const example = active ? examples[active.id] : undefined
-  return <AppShell
-    context={memberNavigation}
-    identity={{ displayName: 'Sample member', unitName: 'Stage Management Core' }}
-    preview={false}
-    memberPreviewPath={memberPreviewPath}
-    headerAction={<Link className="button" replace to="/admin">Return to admin view</Link>}
-    content={today ? <SampleToday /> : <>
-      <PageHeading title={active?.label ?? tab?.label ?? 'Preview page unavailable'} description={active?.description ?? tab?.description} />
-      {example && <Panel title={example.title}><p>{example.detail}</p></Panel>}
-      {!active && !tab && <Link className="button button--secondary" to={memberPreviewPath}>Back to the preview</Link>}
-    </>}
-  />
+  return <>
+    <PageHeading title={active?.label ?? tab?.label ?? 'Preview page unavailable'} description={active?.description ?? tab?.description} />
+    {example && <Panel title={example.title}><p>{example.detail}</p></Panel>}
+    {!active && !tab && <Link className="button button--secondary" to={memberPreviewPath}>Back to the preview</Link>}
+  </>
 }
