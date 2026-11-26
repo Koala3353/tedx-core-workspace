@@ -55,6 +55,7 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
   const [index, setIndex] = useState<number | null>(null)
   const [pending, setPending] = useState<number | null>(null)
   const checked = useRef(false)
+  const direction = useRef<1 | -1>(1)
 
   const save = useCallback((step: number, done: boolean) => {
     writeLocal({ step, done, version: tutorialVersion })
@@ -91,12 +92,15 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
     if (stop.path && pathname !== stop.path) { void navigate(stop.path); return }
     let frame = 0
     const started = performance.now()
+    // Optional stops (e.g. a row's button on an empty Today list) are skipped almost at once;
+    // required ones get a little longer for the page to render.
+    const patience = stop.optional ? 500 : 3000
     const look = () => {
       if (findAnchor(stop.anchor)) { setIndex(pending); setPending(null); save(pending, false); return }
-      if (performance.now() - started > 4000) {
-        setPending(null)
-        if (pending + 1 < stops.length) setPending(pending + 1)
-        else setIndex(null)
+      if (performance.now() - started > patience) {
+        const skipTo = pending + direction.current
+        if (skipTo >= 0 && skipTo < stops.length) setPending(skipTo)
+        else { setPending(null); setIndex(null) }
         return
       }
       frame = requestAnimationFrame(look)
@@ -106,7 +110,14 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
   }, [pending, pathname, navigate, stops, save])
 
   function finish(step: number) { setIndex(null); setPending(null); save(step, true) }
-  function go(next: number) { if (next >= 0 && next < stops.length) setPending(next) }
+  // Hide the current bubble while the next stop is located, so it never looks frozen
+  // and repeated clicks cannot restart the search.
+  function go(next: number) {
+    if (next < 0 || next >= stops.length || index === null) return
+    direction.current = next > index ? 1 : -1
+    setIndex(null)
+    setPending(next)
+  }
 
   if (index === null || !stops[index]) return null
   return <CoachMark key={stops[index].id} stop={stops[index]} position={index} total={stops.length}
