@@ -56,7 +56,8 @@ function verifyMessage(error: unknown) {
   return 'We couldn\'t check that code. Try again in a moment.'
 }
 
-export function EmailCodeSignIn({ requestCode, verifyCode, onSignedIn, codeLength = 6 }: EmailCodeSignInProps) {
+// Must match Supabase Auth > Sign In / Providers > Email OTP length (8 on this project).
+export function EmailCodeSignIn({ requestCode, verifyCode, onSignedIn, codeLength = 8 }: EmailCodeSignInProps) {
   const id = useId()
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')

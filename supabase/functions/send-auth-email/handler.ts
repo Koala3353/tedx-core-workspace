@@ -68,12 +68,13 @@ export function signInCodeMail(code:string):Mail {
   return {
     type:'auth_code',
     subject,
-    text:'Your sign-in code is '+code+". It expires in about 10 minutes. If you didn't ask for this, ignore this email."
+    text:'Your sign-in code is '+code+". It expires in 1 hour. If you didn't ask for this, ignore this email."
       +'\n\n'+SIGNATURE+'\n\n'+CODE_REASON+'\n'+LICENSE_LINE,
-    ...htmlPart({subject,preheader:'Your code is '+code+'. It expires in about 10 minutes.',heading:'Your sign-in code',
+    ...htmlPart({subject,preheader:'Your code is '+code+'. It expires in 1 hour.',heading:'Your sign-in code',
       body:['Enter this code in the TEDx core workspace to finish signing in.'],
       detail:{kind:'code',label:'Sign-in code',code},
-      after:["It expires in about 10 minutes. If you didn't ask for this, you can ignore this email."],reason:CODE_REASON}),
+      // Must match Supabase Auth > Email OTP expiration (3600 seconds on this project).
+      after:["It expires in 1 hour. If you didn't ask for this, you can ignore this email."],reason:CODE_REASON}),
   }
 }
 
