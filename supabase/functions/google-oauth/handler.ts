@@ -2,8 +2,8 @@ import { bounded } from '../files/validation.ts'
 import { type createGoogleDrive, DriveError, type DriveErrorCode } from './google.ts'
 import { driveHash, driveNonce, isDriveUuid, makeDriveAttempt, openDriveToken, sealDriveToken } from './protocol.ts'
 import { isDriveSelection, type DriveSelection } from './selection.ts'
-import { isRendition, type createDriveRendition } from '../drive-export/rendition.ts'
-import { isDriveCopy, type createDriveCopy } from '../drive-export/copy.ts'
+import { isRendition, type createDriveRendition } from '../_shared/drive-export/rendition.ts'
+import { isDriveCopy, type createDriveCopy } from '../_shared/drive-export/copy.ts'
 
 export type DriveSubject = { membership: string; subject: string; email: string }
 export type StoreAction = 'start' | 'status' | 'claim' | 'finish' | 'cancel' | 'disconnect' | 'revoked' | 'picker' | 'expire'

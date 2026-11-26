@@ -1,4 +1,4 @@
-import { importDriveKey,isDriveUuid,openDriveToken } from '../google-oauth/protocol.ts'
+import { importDriveKey,isDriveUuid,openDriveToken } from '../../google-oauth/protocol.ts'
 import { matchesTelegramSecret,type TelegramRpc } from './backend.ts'
 import { telegramAlert,validateTelegramOrigin,type TelegramBot,type TelegramOutcome } from './telegram.ts'
 

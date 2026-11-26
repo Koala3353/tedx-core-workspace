@@ -6,7 +6,7 @@ export const approvedRecipient=/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@student\.ateneo\.
 export type MailOutcome={outcome:'accepted';providerId:string}|{outcome:'retry';delay:number}|
   {outcome:'quota'|'failed'|'uncertain'}
 export type MailHealth='pending'|'delivered'|'bounced'|'failed'
-type Mail={subject:string;text:string}
+export type Mail={subject:string;text:string;html?:string;type?:string}
 export interface MailProvider {
   binding:{sender:string;domainId:string}
   verify():Promise<boolean>
@@ -14,11 +14,15 @@ export interface MailProvider {
   status(delivery:string):Promise<MailHealth>
 }
 
-export function workspaceDigest(origin:string):Mail {
+export function workspaceOrigin(origin:string):string {
   const url=new URL(origin)
   if(url.protocol!=='https:'||url.origin!==origin||url.port||!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(url.hostname))
     throw Error('Invalid email workspace origin')
-  return {subject:'Workspace updates',text:'You have workspace updates. Sign in to open your notifications.\n'+origin+'/notifications'}
+  return origin
+}
+
+export function workspaceDigest(origin:string):Mail {
+  return {subject:'Workspace updates',text:'You have workspace updates. Sign in to open your notifications.\n'+workspaceOrigin(origin)+'/notifications'}
 }
 
 export function approvedMail(config:{sender:string;domainId:string;sendKey:string;readKey:string},fetcher:typeof fetch=fetch):MailProvider {
@@ -45,7 +49,8 @@ export function approvedMail(config:{sender:string;domainId:string;sendKey:strin
       try {
         const {response,result}=await request('/emails',config.sendKey,{
           method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':'tedx-digest-'+job},
-          body:JSON.stringify({from:config.sender,to:[recipient],subject:message.subject,text:message.text}),
+          body:JSON.stringify({from:config.sender,to:[recipient],subject:message.subject,text:message.text,
+            ...(message.html?{html:message.html}:{})}),
         })
         if(response.ok)return uuid.test(result?.id??'')?{outcome:'accepted',providerId:result.id}:{outcome:'uncertain'}
         if(response.status===429) {

@@ -1,11 +1,15 @@
 import { isDriveUuid } from '../google-oauth/protocol.ts'
-import { approvedRecipient,workspaceDigest,type MailProvider } from './provider.ts'
+import { approvedRecipient,type MailProvider } from './provider.ts'
+import { reminderMail,workspaceLink } from './templates.ts'
 
 type Rpc=(procedure:string,args:Record<string,unknown>)=>Promise<unknown>
 type Receipt={recorded?:boolean}
 
-export function emailDispatch(rpc:Rpc,provider:MailProvider,config:{term:string;origin:string;secret:string}) {
-  const message=workspaceDigest(config.origin)
+// Sends per run are bounded so one invocation stays well inside the edge wall-clock limit.
+const SENDS_PER_RUN=12
+
+export function emailDispatch(rpc:Rpc,provider:MailProvider,config:{term:string;origin:string;basePath?:string;secret:string}) {
+  const base=workspaceLink(config.origin,config.basePath??'/')
   if(!isDriveUuid(config.term)||!/^[A-Za-z0-9_-]{32,128}$/.test(config.secret))throw Error('Invalid email dispatch configuration')
   return async(request:Request)=>{
     const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})
@@ -34,15 +38,16 @@ export function emailDispatch(rpc:Rpc,provider:MailProvider,config:{term:string;
         if(confirmation?.recorded!==true)throw Error()
         if(result==='delivered')delivered++
       }
-      for(let attempt=0;attempt<4;attempt++){
-        const job=await run('prepare') as {id?:unknown;lease?:unknown;recipient?:unknown;skipped?:boolean;blocked?:string}|null
+      for(let attempt=0;attempt<SENDS_PER_RUN;attempt++){
+        const job=await run('prepare') as {id?:unknown;lease?:unknown;recipient?:unknown;content?:unknown;skipped?:boolean;blocked?:string}|null
         if(!job)break
         if(job.blocked==='quota')return reply({state:'blocked',reason:'quota',accepted,delivered,deferred},503)
         if(job.blocked==='domain')return reply({state:'blocked',reason:'domain',accepted,delivered,deferred},503)
         if(job.blocked)return reply({state:'blocked',reason:'sender',accepted,delivered,deferred},503)
         if(job.skipped===true){deferred++;continue}
         if(!isDriveUuid(job.id)||!isDriveUuid(job.lease)||typeof job.recipient!=='string'||!approvedRecipient.test(job.recipient))throw Error()
-        const result=await provider.send(job.recipient,job.id,message)
+        const message=reminderMail(base,job.content)
+        const result=message?await provider.send(job.recipient,job.id,message):{outcome:'failed' as const}
         const receipt=await run('finish',{
           p_id:job.id,p_lease:job.lease,p_outcome:result.outcome,
           p_provider_id:result.outcome==='accepted'?result.providerId:null,p_delay:result.outcome==='retry'?result.delay:null,

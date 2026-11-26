@@ -1,6 +1,6 @@
-import {bounded} from '../files/validation.ts'
-import {DriveError} from '../google-oauth/google.ts'
-import {driveFileId,schoolAddress} from '../google-oauth/protocol.ts'
+import {bounded} from '../../files/validation.ts'
+import {DriveError} from '../../google-oauth/google.ts'
+import {driveFileId,schoolAddress} from '../../google-oauth/protocol.ts'
 
 export type DriveFolderPolicy = {id: string; owner: string; readers: string[]}
 type Copy = {id: string; folder: string; name: string; mime: string; sha256: string; receipt: string; bytes: Uint8Array}

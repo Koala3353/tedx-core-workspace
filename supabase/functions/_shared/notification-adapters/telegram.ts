@@ -1,4 +1,4 @@
-import { bounded } from '../files/validation.ts'
+import { bounded } from '../../files/validation.ts'
 
 export type TelegramOutcome={outcome:'sent'|'relink'|'failed'|'uncertain'}|{outcome:'retry';delay:number}
 export interface TelegramBot {send(chat:string,text:string):Promise<TelegramOutcome>}

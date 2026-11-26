@@ -422,11 +422,30 @@ enabled = true
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
 
+# Every deployed function is declared explicitly. Shared modules live in functions/_shared/.
+# Browser-called functions keep the platform JWT gate in front of their own session checks.
+[functions.calendar-sync]
+verify_jwt = true
+
+[functions.files]
+verify_jwt = true
+
+[functions.google-oauth]
+verify_jwt = true
+
 # Telegram authenticates the provider webhook with its dedicated secret header.
 [functions.telegram-webhook]
 verify_jwt = false
-[functions.dispatch-telegram]
-verify_jwt = true
+
+# Scheduled workers are called by .github/workflows/reminders.yml. Each one rejects any request
+# without its own constant-time-compared shared-secret header (x-notification-dispatch-secret,
+# x-email-dispatch-secret, x-telegram-dispatch-secret), so the platform JWT gate is off:
+# sb_secret_ API keys are not JWTs and would be refused before reaching that check.
+[functions.dispatch-notifications]
+verify_jwt = false
 
 [functions.email-adapter]
-verify_jwt = true
+verify_jwt = false
+
+[functions.dispatch-telegram]
+verify_jwt = false

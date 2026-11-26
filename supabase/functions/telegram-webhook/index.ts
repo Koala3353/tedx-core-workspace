@@ -1,5 +1,5 @@
-import { telegramBot } from '../notification-adapters/telegram.ts'
-import { telegramRpc } from '../notification-adapters/backend.ts'
+import { telegramBot } from '../_shared/notification-adapters/telegram.ts'
+import { telegramRpc } from '../_shared/notification-adapters/backend.ts'
 import { telegramWebhook } from './handler.ts'
 
 declare const Deno:{env:{get(name:string):string|undefined};serve(handler:(request:Request)=>Promise<Response>):void}

@@ -3,10 +3,10 @@ import { createGoogleDrive, DriveError } from './google.ts'
 import { driveOAuthHandler } from './handler.ts'
 import { importDriveKey } from './protocol.ts'
 import { driveSelection } from './selection.ts'
-import { createDriveRendition, type RenditionStage } from '../drive-export/rendition.ts'
+import { createDriveRendition, type RenditionStage } from '../_shared/drive-export/rendition.ts'
 import { restBackend } from '../files/backend.ts'
-import { createDriveCopy } from '../drive-export/copy.ts'
-import { createDriveCopyProvider } from '../drive-export/copy-provider.ts'
+import { createDriveCopy } from '../_shared/drive-export/copy.ts'
+import { createDriveCopyProvider } from '../_shared/drive-export/copy-provider.ts'
 
 declare const Deno:{env:{get(name:string):string|undefined};serve(handler:(request:Request)=>Promise<Response>):void}
 

@@ -1,9 +1,9 @@
-import type { FileBackend } from '../files/handler.ts'
-import { FileFault, validateFile } from '../files/validation.ts'
-import { driveConnection } from '../google-oauth/connection.ts'
-import { DriveError, type createGoogleDrive } from '../google-oauth/google.ts'
-import type { DriveBackend } from '../google-oauth/handler.ts'
-import { driveFileId, isDriveUuid, openDriveToken, sealDriveToken } from '../google-oauth/protocol.ts'
+import type { FileBackend } from '../../files/handler.ts'
+import { FileFault, validateFile } from '../../files/validation.ts'
+import { driveConnection } from '../../google-oauth/connection.ts'
+import { DriveError, type createGoogleDrive } from '../../google-oauth/google.ts'
+import type { DriveBackend } from '../../google-oauth/handler.ts'
+import { driveFileId, isDriveUuid, openDriveToken, sealDriveToken } from '../../google-oauth/protocol.ts'
 
 type Action = 'begin_rendition' | 'review_rendition' | 'save_rendition'
 export const isRendition = (value: unknown): value is Action =>

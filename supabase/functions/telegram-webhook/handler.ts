@@ -1,7 +1,7 @@
 import { bounded } from '../files/validation.ts'
 import { driveHash,importDriveKey,sealDriveToken } from '../google-oauth/protocol.ts'
-import { matchesTelegramSecret } from '../notification-adapters/backend.ts'
-import { telegramChat,type TelegramBot } from '../notification-adapters/telegram.ts'
+import { matchesTelegramSecret } from '../_shared/notification-adapters/backend.ts'
+import { telegramChat,type TelegramBot } from '../_shared/notification-adapters/telegram.ts'
 
 type Stage={startHash:string;confirmHash:string;chatHash:string;sealedChat:string}
 interface WebhookBackend {

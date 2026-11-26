@@ -1,6 +1,6 @@
-import { telegramBot } from '../notification-adapters/telegram.ts'
-import { telegramRpc } from '../notification-adapters/backend.ts'
-import { telegramDispatch } from '../notification-adapters/telegram-dispatch.ts'
+import { telegramBot } from '../_shared/notification-adapters/telegram.ts'
+import { telegramRpc } from '../_shared/notification-adapters/backend.ts'
+import { telegramDispatch } from '../_shared/notification-adapters/telegram-dispatch.ts'
 
 declare const Deno:{env:{get(name:string):string|undefined};serve(handler:(request:Request)=>Promise<Response>):void}
 const url=Deno.env.get('SUPABASE_URL')
