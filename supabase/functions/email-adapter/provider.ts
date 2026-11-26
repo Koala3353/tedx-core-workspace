@@ -3,10 +3,12 @@ import { bounded } from '../files/validation.ts'
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
 const mailbox=/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/
 export const approvedRecipient=/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@student\.ateneo\.edu$/
-export type MailOutcome={outcome:'accepted';providerId:string}|{outcome:'retry';delay:number}|
+// 'limited' is only returned for developer messages, when the relay's per-sender hourly cap is reached.
+export type MailOutcome={outcome:'accepted';providerId:string}|{outcome:'retry'|'limited';delay:number}|
   {outcome:'quota'|'failed'|'uncertain'}
 export type MailHealth='pending'|'delivered'|'bounced'|'failed'
-export type Mail={subject:string;text:string;html?:string;type?:string}
+// replyTo is only honoured by the Apps Script relay; it sets the Reply-To header, not a recipient.
+export type Mail={subject:string;text:string;html?:string;type?:string;replyTo?:string}
 export interface MailProvider {
   binding:{sender:string;domainId:string}
   verify():Promise<boolean>

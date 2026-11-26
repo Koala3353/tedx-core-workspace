@@ -61,7 +61,7 @@ function detail(d:Detail):string {
   }
   const rows=d.rows.map(([label,value],i)=>`<tr>
 <td class="mt ln" style="padding:12px 0;${i?`border-top:1px solid ${LINE};`:''}font-family:${SANS};font-size:15px;line-height:22px;color:${MUTED}">${esc(label)}</td>
-<td class="tx ln" align="right" style="padding:12px 0 12px 12px;${i?`border-top:1px solid ${LINE};`:''}font-family:${SANS};font-size:16px;line-height:22px;font-weight:600;color:${INK}">${esc(value)}</td>
+<td class="tx ln" align="right" style="padding:12px 0 12px 12px;${i?`border-top:1px solid ${LINE};`:''}font-family:${SANS};font-size:16px;line-height:22px;font-weight:600;color:${INK};word-break:break-word;overflow-wrap:anywhere">${esc(value)}</td>
 </tr>`).join('')
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="box" bgcolor="${BOX}" style="margin:8px 0 24px;background:${BOX};border:1px solid ${BOX_LINE};border-radius:10px">
 <tr><td style="padding:4px 16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr></table>`
@@ -74,7 +74,7 @@ function button(b:{label:string;href:string}):string {
 <td align="center" bgcolor="${RED}" style="background:${RED};background-image:linear-gradient(${RED},${RED});border-radius:8px">
 <a href="${esc(b.href)}" target="_blank" style="display:inline-block;padding:13px 28px;border:1px solid ${RED};background-image:linear-gradient(${RED},${RED});border-radius:8px;font-family:${SANS};font-size:16px;line-height:18px;font-weight:600;color:#ffffff;text-decoration:none">${esc(b.label)}</a>
 </td></tr></table>
-<p class="mt" style="margin:0 0 16px;font-family:${SANS};font-size:13px;line-height:20px;color:${MUTED};word-break:break-all">Or open this link: <a class="mt" href="${esc(b.href)}" target="_blank" style="color:${MUTED};text-decoration:underline">${esc(b.href)}</a></p>`
+${b.href.startsWith('mailto:')?'':`<p class="mt" style="margin:0 0 16px;font-family:${SANS};font-size:13px;line-height:20px;color:${MUTED};word-break:break-all">Or open this link: <a class="mt" href="${esc(b.href)}" target="_blank" style="color:${MUTED};text-decoration:underline">${esc(b.href)}</a></p>`}`
 }
 
 export function renderEmail(e:EmailLayout):string {

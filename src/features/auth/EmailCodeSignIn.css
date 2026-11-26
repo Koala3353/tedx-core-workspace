@@ -12,3 +12,22 @@
 .email-code__code { font-variant-numeric: tabular-nums; letter-spacing: 0.25em; font-size: 1.25rem; }
 .email-code__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .email-code__actions .button { min-height: var(--control-min-size); }
+
+/* Limit and failure notices: a tinted panel with an icon, a one-line title, the why, and a live countdown. */
+.email-code__notice {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: start;
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-left-width: 4px;
+  border-radius: var(--radius-control); background: var(--color-surface-subtle); overflow-wrap: anywhere;
+  animation: panelReveal 200ms var(--ease-standard) both;
+}
+.email-code__notice p { margin: 0; }
+.email-code__notice p + p, .email-code__notice [role=alert] + p { margin-top: var(--space-1); }
+.email-code__notice-icon { margin-top: 2px; color: var(--color-ink-secondary); }
+.email-code__notice-title { font-weight: 700; color: var(--color-ink); }
+.email-code__notice [role=alert] p:not(.email-code__notice-title) { color: var(--color-ink-secondary); }
+.email-code__notice-wait { font-size: .875rem; color: var(--color-ink-secondary); font-variant-numeric: tabular-nums; }
+.email-code__notice-wait strong { color: var(--color-ink); }
+.email-code__notice--wait { border-left-color: var(--color-ink-secondary); }
+.email-code__notice--stop, .email-code__notice--error { border-left-color: var(--color-danger); background: var(--color-danger-soft); }
+.email-code__notice--stop .email-code__notice-icon, .email-code__notice--error .email-code__notice-icon { color: var(--color-danger); }
+@media (prefers-reduced-motion: reduce) { .email-code__notice { animation: none; } }

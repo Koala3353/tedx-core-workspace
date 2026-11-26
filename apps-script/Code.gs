@@ -3,7 +3,8 @@
  *
  * Called only by the Supabase email-adapter function. Every POST is signed:
  *   POST <web app url>?ts=<unix seconds>&sig=<hex HMAC-SHA256(HMAC_SECRET, ts + '.' + rawBody)>
- *   body: {"v":1,"action":"send"|"health","type":...,"jobId":...,"to":...,"subject":...,"text":...,"html"?:...,"ts":...,"nonce":...}
+ *   body: {"v":1,"action":"send"|"health","type":...,"jobId":...,"to":...,"subject":...,"text":...,"html"?:...,"replyTo"?:...,"ts":...,"nonce":...}
+ * type "developer_message" (from the developer-message function) needs replyTo and is limited to 5 per sender per hour.
  * Apps Script cannot read request headers, so the signature travels in the query string.
  * Every handled request answers HTTP 200 with JSON {outcome: ...}; the caller reads the outcome, never the status.
  *
@@ -18,6 +19,10 @@ var JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 var CLOCK_WINDOW_SECONDS = 300;
 var DEDUPE_SECONDS = 21600; // 6 hours, the CacheService maximum
 var MAX_BODY = 65536;
+// Reply-To may be any ordinary address (guests are not always on the school domain); it is a header, not a recipient.
+var REPLY_TO = /^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+var DEVELOPER_MESSAGES_PER_WINDOW = 5;
+var DEVELOPER_WINDOW_SECONDS = 3600;
 
 function doGet() {
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
@@ -78,10 +83,11 @@ function send_(message, cache) {
   var subject = typeof message.subject === 'string' ? message.subject : '';
   var text = typeof message.text === 'string' ? message.text : '';
   var html = typeof message.html === 'string' ? message.html : null;
+  var replyTo = typeof message.replyTo === 'string' ? message.replyTo : null;
   if (typeof message.jobId !== 'string' || !JOB_ID.test(message.jobId)) return { outcome: 'failed', error: 'invalid' };
   if (to.length > 254 || !ALLOWED_RECIPIENT.test(to)) return { outcome: 'failed', error: 'recipient' };
   if (!subject || subject.length > 200 || /[\r\n]/.test(subject) || !text || text.length > 20000 ||
-      (html !== null && html.length > 50000)) {
+      (html !== null && html.length > 50000) || (replyTo !== null && (replyTo.length > 254 || !REPLY_TO.test(replyTo)))) {
     return { outcome: 'failed', error: 'invalid' };
   }
 
@@ -90,13 +96,29 @@ function send_(message, cache) {
   try {
     var jobKey = 'job:' + message.jobId;
     if (cache.get(jobKey)) return { outcome: 'accepted', id: message.jobId, duplicate: true };
+    // Messages to the developer are capped per sender so one person cannot flood the inbox or the quota.
+    var limitKey = null, limit = null;
+    if (message.type === 'developer_message') {
+      if (replyTo === null) return { outcome: 'failed', error: 'invalid' };
+      limitKey = 'devmsg:' + replyTo.toLowerCase();
+      limit = JSON.parse(cache.get(limitKey) || 'null') || { n: 0, until: Date.now() + DEVELOPER_WINDOW_SECONDS * 1000 };
+      if (limit.until <= Date.now()) limit = { n: 0, until: Date.now() + DEVELOPER_WINDOW_SECONDS * 1000 };
+      if (limit.n >= DEVELOPER_MESSAGES_PER_WINDOW) {
+        return { outcome: 'retry', delay: Math.max(60, Math.ceil((limit.until - Date.now()) / 1000)), error: 'limited' };
+      }
+    }
     if (MailApp.getRemainingDailyQuota() < 1) return { outcome: 'quota' };
 
     var options = { name: SENDER_NAME };
     if (noReply_()) options.noReply = true;
     if (html !== null) options.htmlBody = html;
+    if (replyTo !== null) options.replyTo = replyTo;
     MailApp.sendEmail(to, subject, text, options);
     cache.put(jobKey, '1', DEDUPE_SECONDS);
+    if (limitKey) {
+      limit.n += 1;
+      cache.put(limitKey, JSON.stringify(limit), Math.max(1, Math.ceil((limit.until - Date.now()) / 1000)));
+    }
     return { outcome: 'accepted', id: message.jobId, remaining: MailApp.getRemainingDailyQuota() };
   } catch (err) {
     var reason = String((err && err.message) || err);

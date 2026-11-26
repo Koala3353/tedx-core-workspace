@@ -8,7 +8,7 @@ const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
 const mailbox=/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/
 const endpoint=/^https:\/\/script\.google\.com\/(?:a\/macros\/[a-z0-9.-]+\/|macros\/)s\/[A-Za-z0-9_-]{20,200}\/exec$/
 
-type Reply={outcome?:unknown;id?:unknown;delay?:unknown;remaining?:unknown}
+type Reply={outcome?:unknown;id?:unknown;delay?:unknown;remaining?:unknown;error?:unknown}
 
 export function appsScriptMail(config:{url:string;secret:string;sender:string;domainId:string},fetcher:typeof fetch=fetch):MailProvider {
   if(!endpoint.test(config.url)||!/^[A-Za-z0-9_-]{32,128}$/.test(config.secret)||!mailbox.test(config.sender)
@@ -42,13 +42,15 @@ export function appsScriptMail(config:{url:string;secret:string;sender:string;do
       let result:Reply
       try {
         result=await call({action:'send',type:message.type??'reminder',jobId:job,to:recipient,subject:message.subject,text:message.text,
-          ...(message.html?{html:message.html}:{})},25000)
+          ...(message.html?{html:message.html}:{}),...(message.replyTo?{replyTo:message.replyTo}:{})},25000)
       } catch {return {outcome:'uncertain'}}
       if(result.outcome==='accepted')return result.id===job?{outcome:'accepted',providerId:job}:{outcome:'uncertain'}
       if(result.outcome==='quota')return {outcome:'quota'}
       if(result.outcome==='retry') {
         const delay=Number(result.delay)
-        return Number.isInteger(delay)&&delay>=1&&delay<=3600?{outcome:'retry',delay}:{outcome:'retry',delay:300}
+        const bounded=Number.isInteger(delay)&&delay>=1&&delay<=3600?delay:300
+        // Only developer messages carry a per-sender cap; reminders keep the plain retry path.
+        return result.error==='limited'&&message.type==='developer_message'?{outcome:'limited',delay:bounded}:{outcome:'retry',delay:bounded}
       }
       if(result.outcome==='failed')return {outcome:'failed'}
       return {outcome:'uncertain'}

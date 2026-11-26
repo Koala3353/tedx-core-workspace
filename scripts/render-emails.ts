@@ -8,6 +8,7 @@ import { MAX_HTML } from '../supabase/functions/email-adapter/layout.ts'
 import type { Mail } from '../supabase/functions/email-adapter/provider.ts'
 import { reminderMail,workspaceLink } from '../supabase/functions/email-adapter/templates.ts'
 import { signInCodeMail } from '../supabase/functions/send-auth-email/handler.ts'
+import { developerMail } from '../supabase/functions/developer-message/handler.ts'
 
 const out=resolve(process.argv[2]??'email-previews')
 const base=workspaceLink('https://koala3353.github.io','/tedx-core-workspace/')
@@ -38,7 +39,12 @@ const mails:Array<[string,Mail]>=samples.map(([name,content])=>{
   if(!mail)throw Error('Template refused sample '+name)
   return [name,mail]
 })
-mails.push(['sign_in_code',signInCodeMail('482913')])
+mails.push(['sign_in_code',signInCodeMail('48291375')])
+mails.push(['developer_message',developerMail({id:'8b1f0c2e-3d4a-4b5c-9d6e-7f8091a2b3c4',email:'juan.dela.cruz@student.ateneo.edu',name:'Juan dela Cruz',role:'Member'},{
+  requestId:id,topic:'bug',subject:'Task due dates show a day early',
+  message:'When I open a task due Friday, the list says Thursday.\nIt started after I changed my phone to dark mode. Screenshots on request.',
+  context:{path:'/tasks/'+id,userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',viewport:'390x844',theme:'dark',timezone:'Asia/Manila'}},
+  {origin:base.origin,basePath:base.basePath,to:'developer@student.ateneo.edu',now:()=>new Date('2026-11-26T09:30:00+08:00')})])
 
 // Gmail iOS ignores prefers-color-scheme, then inverts lightness while roughly keeping hue;
 // dropping the media block and applying invert + hue-rotate is the usual approximation.

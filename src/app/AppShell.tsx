@@ -1,5 +1,7 @@
 import { NotificationBadge } from '../features/notifications/Notifications'
-import { ChevronLeft, CircleUser, LogOut, Moon, PenLine, RotateCcw, Search, Settings2, Sun, UserRound } from 'lucide-react'
+import { ChevronLeft, CircleUser, LogOut, MessageSquareText, Moon, PenLine, RotateCcw, Search, Settings2, Sun, UserRound } from 'lucide-react'
+import { DeveloperMessageDialog } from '../features/developer-message/DeveloperMessageDialog'
+import { DeveloperMessageError, type DeveloperMessageApi } from '../features/developer-message/api'
 import { TedxLockup, licenseLine } from '../components/TedxLockup'
 import { CountdownChip } from '../components/Countdown'
 import { Menu, type MenuEntry } from '../components/Menu'
@@ -30,6 +32,17 @@ type AppShellProps = {
   siteUnavailable?: boolean
   memberPreviewPath?: string
   headerAction?: ReactNode
+}
+
+// Local development preview only (no Supabase): lets the dialog and its error states be tried without sending.
+// Put "limit", "busy" or "offline" in the subject to see those outcomes.
+const previewDeveloperApi: DeveloperMessageApi = {
+  async send(message) {
+    await new Promise(resolve => window.setTimeout(resolve, 700))
+    if (/limit/i.test(message.subject)) throw new DeveloperMessageError('limited', 1800)
+    if (/busy/i.test(message.subject)) throw new DeveloperMessageError('busy', 60)
+    if (/offline/i.test(message.subject)) throw new DeveloperMessageError('offline')
+  },
 }
 
 const shortcut = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K'
@@ -69,6 +82,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const { theme, setChoice: setThemeChoice } = useTheme()
   const [siteEditing, setSiteEditing] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
+  const [messaging, setMessaging] = useState(false)
   const mainRef = useRef<HTMLElement>(null)
   const siteSlot = useRef<HTMLDivElement>(null)
   const previousPath = useRef(location.pathname)
@@ -90,6 +104,8 @@ export function AppShell({ context = setupNavigation, identity, content, preview
   const guestItems = guest ? getGuestNavigation(context).map(item => items.find(x => x.id === item.id) ?? item) : []
   const title = pageTitleFor(path, worded)
   const admin = context.capabilities.includes('admin.configure')
+  // Every signed-in person (members, admins and guests) can message the developer.
+  const developerApi = live ? gateway?.developerMessage : preview && import.meta.env.DEV ? previewDeveloperApi : undefined
 
   useEffect(() => {
     if (previousPath.current !== location.pathname) {
@@ -123,6 +139,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
     ...(!guest && !memberPreviewPath ? [{ kind: 'action' as const, label: 'Replay the tour', icon: <RotateCcw size={16} strokeWidth={1.75} />, onSelect: replayTour }] : []),
     // An explicit toggle is remembered; until then the device preference applies.
     { kind: 'action', label: theme === 'dark' ? 'Light theme' : 'Dark theme', icon: theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />, onSelect: () => setThemeChoice(theme === 'dark' ? 'light' : 'dark') },
+    ...(developerApi ? [{ kind: 'action' as const, label: 'Message the developer', icon: <MessageSquareText size={16} strokeWidth={1.75} />, onSelect: () => setMessaging(true) }] : []),
     ...(admin && siteEditor && live ? [{ kind: 'action' as const, label: 'Edit site wording', icon: <PenLine size={16} strokeWidth={1.75} />, onSelect: () => setSiteEditing(true) }] : []),
     ...(live && gateway ? [{ kind: 'separator' as const }, { kind: 'action' as const, label: 'Sign out', quiet: true, icon: <LogOut size={16} strokeWidth={1.75} />, onSelect: () => void signOut() }] : []),
   ]
@@ -196,6 +213,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
       </nav>
       {!memberPreviewPath ? <CommandPalette items={items.filter(item => item.href !== '/account' || !guest)} /> : null}
       {live && !guest ? <Tutorial /> : null}
+      {messaging && developerApi ? <DeveloperMessageDialog api={developerApi} onClose={() => setMessaging(false)} /> : null}
       {live ? <SetupWizard /> : preview && import.meta.env.DEV ? <SetupWizard preview /> : null}
     </div>
   )

@@ -47,6 +47,7 @@ import {createClientStateApi,type ClientStateApi} from '../../lib/clientState'
 import {createTeamSetupApi,type TeamSetupApi} from '../team-setup/api'
 import {createWarRoomApi,type WarRoomApi} from '../war-room/api'
 import {createWhoToAskApi,type WhoToAskApi} from '../who-to-ask/api'
+import {createDeveloperMessageApi,type DeveloperMessageApi} from '../developer-message/api'
 import {createCommitteePagesApi,type CommitteePagesApi} from '../committee-pages/api'
 import {createSpeakerPortalApi,type SpeakerPortalApi} from '../speaker-portal/api'
 import {createEventBoardsApi,type EventBoardsApi} from '../event-boards/api'
@@ -80,6 +81,7 @@ export interface AuthGateway {
   teamSetup?: TeamSetupApi
   warRoom?: WarRoomApi
   whoToAsk?: WhoToAskApi
+  developerMessage?: DeveloperMessageApi
   committeePages?: CommitteePagesApi
   speakerPortal?: SpeakerPortalApi
   eventBoards?: EventBoardsApi
@@ -234,6 +236,7 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
     teamSetup: createTeamSetupApi(clientReady),
     warRoom: createWarRoomApi(clientReady),
     whoToAsk: createWhoToAskApi(clientReady),
+    developerMessage: createDeveloperMessageApi(clientReady),
     committeePages: createCommitteePagesApi(clientReady),
     speakerPortal: createSpeakerPortalApi(clientReady),
     eventBoards: createEventBoardsApi(clientReady),

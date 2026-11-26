@@ -443,6 +443,9 @@ verify_jwt = true
 [functions.google-oauth]
 verify_jwt = true
 
+[functions.developer-message]
+verify_jwt = true
+
 # Telegram authenticates the provider webhook with its dedicated secret header.
 [functions.telegram-webhook]
 verify_jwt = false
