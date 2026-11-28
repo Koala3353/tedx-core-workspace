@@ -1,6 +1,60 @@
-.calendar-controls{display:flex;flex-wrap:wrap;gap:16px;margin-block:20px}.calendar-controls>*{flex:1;min-width:180px}.calendar-grid{overflow-x:auto;margin-block:24px}.calendar-grid table{width:100%;table-layout:fixed;border-collapse:collapse;background:var(--color-surface)}.calendar-grid th,.calendar-grid td{border:1px solid var(--color-line);padding:8px;vertical-align:top;overflow-wrap:anywhere}.calendar-grid td{height:120px}.calendar-grid ul{padding-left:16px;font-size:.85rem}.calendar-grid a{display:block;min-height:44px;padding-block:8px}.calendar-grid caption{text-align:left;padding-block:8px;font-weight:600}.calendar-list{list-style:none;padding:0}.calendar-list>li{padding-block:20px;border-block-start:1px solid var(--color-line);overflow-wrap:anywhere}.calendar-check{display:flex;align-items:center;gap:10px;min-height:44px;margin-block:12px}.calendar-check input{width:20px;height:20px;flex-shrink:0}.calendar-mobile-hint{display:none}@media(max-width:700px){.calendar-grid{display:none}.calendar-mobile-hint{display:block}.calendar-controls>*{min-width:0;flex-basis:100%}}
+.calendar-controls{display:flex;flex-wrap:wrap;align-items:end;gap:16px;margin-block:20px}.calendar-controls>*{flex:1;min-width:180px}.calendar-grid{overflow-x:auto;margin-block:24px}.calendar-grid table{width:100%;table-layout:fixed;border-collapse:collapse;background:var(--color-surface)}.calendar-grid th,.calendar-grid td{border:1px solid var(--color-line);padding:8px;vertical-align:top;overflow-wrap:anywhere}.calendar-grid td{height:120px}.calendar-grid caption{text-align:left;padding-block:8px;font-weight:600}.calendar-list{list-style:none;padding:0}.calendar-list>li{padding-block:20px;border-block-start:1px solid var(--color-line);overflow-wrap:anywhere}.calendar-check{display:flex;align-items:center;gap:10px;min-height:44px;margin-block:12px}.calendar-check input{width:20px;height:20px;flex-shrink:0}.calendar-mobile-hint{display:none}@media(max-width:700px){.calendar-grid{display:none}.calendar-mobile-hint{display:block}.calendar-controls>*{min-width:0;flex-basis:100%}}
 .calendar-sync-event { margin-block-start: 14px; }
 
+/* Filters: same rhythm as .form-field so the selects line up with the month input. */
+.calendar-select { display: grid; gap: 8px; font-weight: 600; }
+.calendar-select select, .calendar-editor select { inline-size: 100%; min-block-size: var(--control-min-size); padding: 10px 12px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink); font: inherit; font-weight: 400; }
+
+/* Month grid */
 .calendar-grid td.calendar-today { background: var(--color-accent-soft); }
 .calendar-grid td.calendar-today time { display: inline-grid; place-items: center; min-width: 28px; height: 28px; border-radius: 14px; background: var(--color-accent); color: var(--color-on-accent); font-weight: 700; }
-@media(max-width:700px){.calendar-view-select{display:none}}
+.calendar-cell--create { cursor: pointer; transition: background-color 150ms var(--ease-standard); }
+@media (hover: hover) and (pointer: fine) { .calendar-cell--create:not(.calendar-today):hover { background: var(--color-surface-subtle); } }
+.calendar-cell__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); min-height: 32px; margin-bottom: var(--space-1); }
+.calendar-cell__head time { display: inline-grid; place-items: center; min-width: 28px; height: 28px; font-variant-numeric: tabular-nums; }
+.calendar-cell__add { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-ink-secondary); cursor: pointer; }
+.calendar-cell__add::after { content: ''; position: absolute; inset: -6px; }
+.calendar-cell__add:hover, .calendar-cell__add:focus-visible { border-color: var(--color-line-strong); color: var(--color-ink); }
+@media (hover: hover) and (pointer: fine) { .calendar-cell__add { opacity: 0; transition: opacity 150ms var(--ease-standard); } td:hover > .calendar-cell__head .calendar-cell__add, .calendar-cell__add:focus-visible { opacity: 1; } }
+.calendar-chips { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.calendar-chip { display: block; min-height: 24px; padding: 1px 6px; border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface-elevated); color: var(--color-ink); font-size: .8125rem; line-height: 20px; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; transition: border-color 150ms var(--ease-standard), background-color 150ms var(--ease-standard); }
+.calendar-chip:hover { border-color: var(--color-line-strong); background: var(--color-surface-subtle); text-decoration: none; }
+.calendar-chip__time { margin-right: 6px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.calendar-chip--cancelled, .calendar-struck { color: var(--color-muted); text-decoration: line-through; }
+.calendar-chip--cancelled:hover { text-decoration: line-through; }
+.calendar-more { display: block; width: 100%; min-height: 32px; margin-top: 2px; padding: 0 6px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-ink-secondary); font: inherit; font-size: .8125rem; font-weight: 600; text-align: left; cursor: pointer; }
+.calendar-more:hover { background: var(--color-surface-subtle); color: var(--color-ink); }
+
+/* Dialogs: editor and event details. Padding lives on the body so only the backdrop closes. */
+.calendar-dialog { width: min(40rem, calc(100vw - 2 * var(--space-4))); max-height: calc(100dvh - 2 * var(--space-5)); padding: 0; overflow-y: auto; background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); }
+.calendar-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+.calendar-dialog__body { padding: var(--space-5); }
+.calendar-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.calendar-dialog__head h2 { margin: 0; padding-top: 8px; font-size: var(--text-h2); overflow-wrap: anywhere; }
+.calendar-dialog__content { margin-top: var(--space-3); }
+.calendar-dialog[open] { animation: panelReveal 200ms var(--ease-standard) both; }
+.calendar-editor { display: grid; gap: var(--space-4); }
+.calendar-editor > p { margin: 0; }
+.calendar-editor .calendar-check { margin-block: 0; }
+.calendar-editor__textarea { inline-size: 100%; min-height: 88px; resize: vertical; padding: 10px 12px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink); font: inherit; }
+.calendar-editor__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.calendar-editor__retry { display: grid; justify-items: start; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-left-width: 4px; border-radius: var(--radius-control); background: var(--color-surface-subtle); }
+.calendar-editor__retry p { margin: 0; }
+.calendar-editor__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.calendar-detail > p { margin: 0 0 var(--space-2); }
+.calendar-detail__when { font-weight: 600; }
+.calendar-detail__links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-block: var(--space-3); }
+.calendar-export { margin-top: var(--space-3); }
+.calendar-export > p { margin: 0 0 var(--space-2); }
+.calendar-day-list { display: grid; gap: var(--space-4); margin: 0 0 var(--space-4); padding: 0; list-style: none; }
+.calendar-day-list > li + li { padding-top: var(--space-4); border-top: 1px solid var(--color-line); }
+.calendar-day-list h3 { margin: 0 0 var(--space-2); font-size: 1rem; }
+@media (max-width: 700px) { .calendar-view-select { display: none } }
+/* Phones: a full-screen sheet with the actions reachable at the bottom. */
+@media (max-width: 640px) {
+  .calendar-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+  .calendar-dialog__body { padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom)); }
+  .calendar-editor__pair { grid-template-columns: minmax(0, 1fr); }
+  .calendar-editor__actions .button, .calendar-export .button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .calendar-dialog[open] { animation: none; } }

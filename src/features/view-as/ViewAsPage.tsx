@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useLocation, useRouteLoaderData } from 'react-router'
-import { Eye, Search } from 'lucide-react'
+import { Link, useLocation, useNavigate, useRouteLoaderData } from 'react-router'
+import { Eye } from 'lucide-react'
 import { AppShell } from '../../app/AppShell'
 import { SamplePreviewContent, canViewRealMember, memberNavigation, memberPreviewPath } from '../../app/MemberPreview'
 import { PageHeading } from '../../components/Page'
@@ -12,38 +12,97 @@ import type { OwnedTask } from '../tasks/api'
 import { buildSections, fromOverview, type TodayItem } from '../today/model'
 import { TodaySection } from '../today/TodayList'
 import type { DirectoryMember, MemberPreviewResult, PreviewView, ViewAsApi, ViewAsOutcome } from './api'
+import { MemberCombobox, memberOption, sampleOption, sampleOptionId, type PreviewOption } from './MemberCombobox'
 import '../today/today.css'
 import './view-as.css'
 
-type Choice = { kind: 'sample' } | { kind: 'member'; member: DirectoryMember } | null
 type Ready<V extends PreviewView> = Extract<MemberPreviewResult<V>, { state: 'ok' }>
 
 const lockedHint = 'Read-only preview'
+/** Query parameter that names the previewed member, so a preview link is shareable and survives reload. */
+const memberParam = 'member'
 
 /**
- * Member preview, route "/member-preview/*". Full admins pick a real member and see that
- * member's Today, Work and notifications, read-only. Everyone else (or a database without the
- * preview functions) gets the sample member.
+ * Member preview, route "/member-preview/*". Starts as the sample member. Full admins can switch
+ * to any real member from the roster without leaving the page and see that member's Today, Work
+ * and notifications, read-only. The choice lives in ?member=<membership id>.
  */
 export function ViewAsPage({ api }: { api?: ViewAsApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
-  const path = useLocation().pathname.toLowerCase().slice(memberPreviewPath.length).replace(/\/$/, '') || '/'
+  const location = useLocation()
+  const navigate = useNavigate()
+  const path = location.pathname.toLowerCase().slice(memberPreviewPath.length).replace(/\/$/, '') || '/'
   const live = !!api && !!context && canViewRealMember(context)
-  const [choice, setChoice] = useState<Choice>(live ? null : { kind: 'sample' })
+  const termId = context?.termId
+  const urlMember = new URLSearchParams(location.search).get(memberParam)
 
-  const name = choice?.kind === 'member' ? choice.member.name : choice?.kind === 'sample' ? 'Sample member' : 'Pick a member'
-  const unit = choice?.kind === 'member' ? [choice.member.committee, choice.member.position].filter(Boolean).join(' · ') : choice?.kind === 'sample' ? 'Stage Management Core' : undefined
+  // The shell's nav links drop the query string. When the sub-page changes and the member
+  // disappears from the URL, carry the last member over (and put it back in the URL below).
+  // Removing it on the same page (picking the sample member) is an explicit choice and sticks.
+  const [remembered, setRemembered] = useState<{ path: string; memberId: string | null }>({ path, memberId: urlMember })
+  const carried = !urlMember && remembered.memberId && remembered.path !== path ? remembered.memberId : null
+  if (!carried && (remembered.path !== path || remembered.memberId !== urlMember)) setRemembered({ path, memberId: urlMember })
+  useEffect(() => {
+    if (carried) void navigate({ pathname: location.pathname, search: `?${memberParam}=${encodeURIComponent(carried)}`, hash: location.hash }, { replace: true })
+  }, [carried, navigate, location.pathname, location.hash])
+
+  const [directory, setDirectory] = useState<{ key: string; outcome: ViewAsOutcome<DirectoryMember[]> } | null>(null)
+  const [epoch, setEpoch] = useState(0)
+  const directoryKey = `${termId}:${epoch}`
+  useEffect(() => {
+    if (!live || !api || !termId) return
+    let active = true
+    void api.directory(termId).then(outcome => { if (active) setDirectory({ key: directoryKey, outcome }) })
+    return () => { active = false }
+  }, [live, api, termId, directoryKey])
+  const roster = live && directory?.key === directoryKey ? directory.outcome : null
+
+  const options = useMemo(() => [sampleOption, ...(roster?.ok ? roster.value.map(memberOption) : [])], [roster])
+  const requestedId = urlMember ?? carried
+  const wanted = live ? requestedId : null
+  const member = wanted && roster?.ok ? roster.value.find(person => person.membershipId === wanted) : undefined
+  const loadingMember = !!wanted && !roster
+  const notFound = !!wanted && !!roster?.ok && !member
+
+  function select(option: PreviewOption) {
+    const search = option.id === sampleOptionId ? '' : `?${memberParam}=${encodeURIComponent(option.id)}`
+    void navigate({ pathname: location.pathname, search })
+  }
+  const toSample = () => select(sampleOption)
+
+  const name = member ? member.name : loadingMember ? 'Loading member' : sampleOption.label
+  const unit = member ? [member.committee, member.position].filter(Boolean).join(' · ') : loadingMember ? '' : 'Stage Management Core'
+
+  let hint: ReactNode
+  if (!context) hint = null
+  else if (!canViewRealMember(context)) hint = <>Only admins who can also manage roles can preview a real member, so the sample member is the only choice here.{requestedId ? ' The member in this link is not shown.' : null}</>
+  else if (!api) hint = 'Real members are not available in this build. Showing the sample member.'
+  else if (!roster) hint = 'Loading the member list.'
+  else if (!roster.ok) hint = roster.reason === 'not_deployed' ? 'Previewing a real member is not set up yet, so only the sample member is available.'
+    : roster.reason === 'denied' ? 'Only admins who can also manage roles can preview a real member, so only the sample member is available.'
+      : 'The member list could not load. Check your connection, then try again.'
+  else if (notFound) hint = 'That link does not match anyone on this term’s roster. Showing the sample member.'
+  else if (member) hint = 'Read-only. Nothing you do here changes their work. Navigation shows what a member sees; Today, Work and Notifications show their real data.'
+  else hint = 'Sample data. Pick a member to see their real Today, Work and notifications.'
+  const retry = live && roster && !roster.ok && roster.reason === 'unavailable'
 
   let content: ReactNode
-  if (!choice || !context) {
-    content = api && context ? <Picker api={api} termId={context.termId} onPick={setChoice} /> : <LoadingState />
-  } else {
-    content = <>
-      <Banner name={name} sample={choice.kind === 'sample'} onExit={live ? () => setChoice(null) : undefined} />
-      {choice.kind === 'sample' || !api ? <SamplePreviewContent path={path} />
-        : <MemberContent key={choice.member.membershipId} api={api} termId={context.termId} member={choice.member} path={path} onSample={() => setChoice({ kind: 'sample' })} />}
-    </>
-  }
+  if (!context) content = <LoadingState />
+  else content = <>
+    <section className="view-as-banner" aria-label="Member preview">
+      <Eye className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+      <div className="view-as-banner__body">
+        <MemberCombobox label="Previewing as" options={options} selectedId={member?.membershipId ?? sampleOptionId} onSelect={select} />
+        {hint ? <p className="view-as-banner__hint">{hint}</p> : null}
+        {retry ? <button className="button button--secondary view-as-banner__retry" type="button" onClick={() => setEpoch(n => n + 1)}>Try again</button> : null}
+      </div>
+      <Link className="button button--secondary view-as-banner__exit" replace to="/admin">Exit preview</Link>
+      <p className="visually-hidden" role="status">{loadingMember ? '' : `Viewing as ${name}, ${member ? 'read-only' : 'sample data'}`}</p>
+    </section>
+    {loadingMember ? <LoadingState title="Loading the member list" />
+      : member && api ? <MemberContent key={member.membershipId} api={api} termId={context.termId} member={member} path={path} onSample={toSample} />
+        : <SamplePreviewContent path={path} />}
+  </>
 
   return <AppShell
     context={memberNavigation}
@@ -55,85 +114,12 @@ export function ViewAsPage({ api }: { api?: ViewAsApi }) {
   />
 }
 
-function Banner({ name, sample, onExit }: { name: string; sample: boolean; onExit?: () => void }) {
-  return <div className="view-as-banner" role="status">
-    <Eye className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-    <p className="view-as-banner__text">Viewing as <strong>{name}</strong><span aria-hidden="true"> · </span><span className="visually-hidden">, </span>{sample ? 'sample data' : 'read-only'}</p>
-    {onExit
-      ? <button className="button button--secondary view-as-banner__exit" type="button" onClick={onExit}>Exit</button>
-      : <Link className="button button--secondary view-as-banner__exit" replace to="/admin">Exit</Link>}
-  </div>
-}
-
 /** A button that looks like the member's real action but does nothing here. */
 function Locked({ children }: { children: ReactNode }) {
   return <button className="button button--secondary view-as-locked" type="button" aria-disabled="true" title={lockedHint}
     onClick={event => event.preventDefault()}>{children}<span className="visually-hidden"> ({lockedHint.toLowerCase()})</span></button>
 }
 
-function Picker({ api, termId, onPick }: { api: ViewAsApi; termId: string; onPick: (choice: Choice) => void }) {
-  const [state, setState] = useState<{ key: number; outcome: ViewAsOutcome<DirectoryMember[]> } | null>(null)
-  const [epoch, setEpoch] = useState(0)
-  const [query, setQuery] = useState('')
-  const [committee, setCommittee] = useState('')
-
-  useEffect(() => {
-    let live = true
-    void api.directory(termId).then(outcome => { if (live) setState({ key: epoch, outcome }) })
-    return () => { live = false }
-  }, [api, termId, epoch])
-
-  const outcome = state?.key === epoch ? state.outcome : null
-  const people = useMemo(() => outcome?.ok ? outcome.value : [], [outcome])
-  const committees = useMemo(() => [...new Set(people.map(p => p.committee).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b)), [people])
-  const needle = query.trim().toLowerCase()
-  const filtered = people.filter(p => (!needle || p.name.toLowerCase().includes(needle))
-    && (!committee || (committee === '-' ? !p.committee : p.committee === committee)))
-  const sample = <button className="button button--secondary" type="button" onClick={() => onPick({ kind: 'sample' })}>Use a sample member</button>
-
-  return <div className="view-as">
-    <PageHeading title="View as a member" description="Pick someone to see their Today, Work and notifications. You can look around, but nothing here changes their work." />
-    {!outcome ? <LoadingState title="Loading the member list" />
-      : !outcome.ok ? <div className="view-as-fallback">
-        <p>{outcome.reason === 'not_deployed' ? 'Viewing a real member is not set up yet. You can still look around as a sample member.'
-          : outcome.reason === 'denied' ? 'Only full admins can view a real member. You can still look around as a sample member.'
-            : 'The member list could not load. Check your connection, then try again.'}</p>
-        <div className="view-as-actions">
-          {outcome.reason === 'unavailable' ? <button className="button button--secondary" type="button" onClick={() => setEpoch(n => n + 1)}>Try again</button> : null}
-          {sample}
-        </div>
-      </div>
-        : <>
-          <div className="view-as-filters">
-            <div className="view-as-search">
-              <Search className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />
-              <label htmlFor="view-as-search" className="visually-hidden">Search by name</label>
-              <input id="view-as-search" type="search" placeholder="Search by name" value={query} onChange={e => setQuery(e.target.value)} />
-            </div>
-            <label className="view-as-filter">Committee
-              <select value={committee} onChange={e => setCommittee(e.target.value)}>
-                <option value="">All committees</option>
-                {committees.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="-">No committee yet</option>
-              </select>
-            </label>
-            {sample}
-          </div>
-          {!filtered.length
-            ? <EmptyState title="No one matches" description="Clear the search or pick another committee."
-              action={<button className="button button--secondary" type="button" onClick={() => { setQuery(''); setCommittee('') }}>Clear filters</button>} />
-            : <ul className="view-as-people" aria-label="Members">
-              {filtered.map(person => <li key={person.membershipId}>
-                <button className="view-as-person" type="button" onClick={() => onPick({ kind: 'member', member: person })}>
-                  <span className="view-as-person__name">{person.name}{person.isSelf ? <span className="view-as-person__you"> (you)</span> : null}</span>
-                  <span className="view-as-person__meta">{[person.committee ?? 'No committee yet', person.position].filter(Boolean).join(' · ')}</span>
-                  {!person.signedIn ? <Status state="not_started" label="Not signed in yet" /> : null}
-                </button>
-              </li>)}
-            </ul>}
-        </>}
-  </div>
-}
 
 function usePreview<V extends PreviewView>(api: ViewAsApi, termId: string, membershipId: string, view: V, epoch: number) {
   const key = `${membershipId}:${view}:${epoch}`

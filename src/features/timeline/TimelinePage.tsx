@@ -10,6 +10,11 @@ import type {TimelineApi,TimelineItem,TimelineResult} from './api'
 import {formatDay,formatRange} from '../shared/dates'
 import {Pager} from '../shared/Pager'
 import {HowThisWorks} from '../shared/HowThisWorks'
+import {ViewTabs} from '../shared/ViewTabs'
+import {Calendar} from './Calendar'
+import {Gantt} from './Gantt'
+import {monthLabel,viewWindow} from './views'
+const maxPages=10
 const offset=(a:string,b:string)=>(Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/86400000
 function dates(item:TimelineItem){const s=schedule(item.plannedStartOn,item.dueOn,item.dueAt);return s.kind==='range'?formatRange(s.start,s.end):s.kind==='deadline'?`Due ${formatDay(s.end)} · no start date`:s.start?`Starts ${formatDay(s.start)} · no due date`:'No dates set'}
 function Chronology({items,allItems,edges}:{items:TimelineItem[];allItems:TimelineItem[];edges:TimelineResult['dependencies']}){
@@ -37,39 +42,47 @@ function Chart({items,edges,start,end,today}:{items:TimelineItem[];edges:Timelin
  {rows.length===0?<p>Nothing with dates falls in this window.</p>:null}<p>Solid line: has to finish first. Dashed line: related or optional.</p></section>
 }
 function TimelineBody({api,termId}:{api:TimelineApi;termId:string}){
- const[params,setParams]=useSearchParams(),today=manilaDay(new Date().toISOString()),q=parseTimelineQuery(params.toString(),today),query=timelineSearch(q),window=windowFor(q.anchor,q.scale)
+ const[params,setParams]=useSearchParams(),today=manilaDay(new Date().toISOString()),q=parseTimelineQuery(params.toString(),today),query=timelineSearch(q),navScale=q.view==='list'?q.scale:'month',nav=windowFor(q.anchor,navScale),window=q.view==='list'?nav:viewWindow(q.anchor,q.view)
  const[epoch,setEpoch]=useState(0),[state,setState]=useState<{key:string;result:TimelineResult|null;error:boolean}|null>(null),key=query+':'+epoch
  const refresh=()=>setEpoch(n=>n+1)
- useEffect(()=>{let live=true;const f={units:q.units,...(!q.overdue?{from:window.start}:{}),to:q.overdue?today:window.end,includeUnscheduled:q.includeUnscheduled,blocked:q.blocked,overdue:q.overdue,...(q.owner?{owner:q.owner}:{}),...(q.phase?{phase:q.phase}:{}),...(q.type?{type:q.type}:{})};void api.read(termId,f,q.page).then(result=>{if(live)setState({key,result,error:false})}).catch(()=>{if(live)setState({key,result:null,error:true})});return()=>{live=false}
+ useEffect(()=>{let live=true;const f={units:q.units,...(!q.overdue?{from:window.start}:{}),to:q.overdue?today:window.end,includeUnscheduled:q.includeUnscheduled,blocked:q.blocked,overdue:q.overdue,...(q.owner?{owner:q.owner}:{}),...(q.phase?{phase:q.phase}:{}),...(q.type?{type:q.type}:{})};const all=q.view!=='list'
+ // Calendar and gantt draw everything in range at once, so they read every page (up to maxPages) instead of paging.
+ const load=async()=>{const first=await api.read(termId,f,all?1:q.page);if(!first||!all)return first;const items=[...first.items],dependencies=[...first.dependencies];for(let page=2;page<=maxPages&&items.length<first.total;page++){const next=await api.read(termId,f,page);if(!next||next.items.length===0)break;for(const i of next.items)if(!items.some(x=>x.id===i.id))items.push(i);for(const d of next.dependencies)if(!dependencies.some(x=>x.id===d.id))dependencies.push(d)}return{...first,items,dependencies}}
+ void load().then(result=>{if(live)setState({key,result,error:false})}).catch(()=>{if(live)setState({key,result:null,error:true})});return()=>{live=false}
  // The canonical URL is the dependency for every validated filter and calendar field.
  },[api,termId,key])
  useEffect(()=>{const visible=()=>{if(document.visibilityState==='visible')refresh()};globalThis.window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',visible);const timer=setInterval(visible,30000);return()=>{globalThis.window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible);clearInterval(timer)}},[])
  const current=state?.key===key?state:null,result=current?.result,options=result?.options
  function change(patch:Partial<TimelineQuery>,paging=false){setParams(timelineSearch({...q,...patch,...(paging?{}:{page:1})}).slice(1))}
- function shift(direction:number){try{change({anchor:direction<0?addDays(window.start,-(q.scale==='week'?7:1)):addDays(window.end,1)})}catch{/* The supported calendar boundary disables navigation. */}}
- let previous=true,next=true;try{addDays(window.start,-1)}catch{previous=false}try{addDays(window.end,1)}catch{next=false}
+ function shift(direction:number){try{change({anchor:direction<0?addDays(nav.start,-(navScale==='week'?7:1)):addDays(nav.end,1)})}catch{/* The supported calendar boundary disables navigation. */}}
+ let previous=true,next=true;try{addDays(nav.start,-1)}catch{previous=false}try{addDays(nav.end,1)}catch{next=false}
+ const only=q.units.length===1?{id:q.units[0],name:options?.units.find(u=>u.id===q.units[0])?.name??'Selected committee'}:null
  const dated=result?.items.filter(i=>i.endOn!==null)??[],unscheduled=result?.items.filter(i=>i.endOn===null)??[]
  return <><PageHeading title="Committee timeline" description="Who's doing what, when, and what depends on what."/>
  <p><Link to="/working-together">Working together</Link> · <Link to="/deliverables">Deliverables</Link></p>
  <p>Today: {formatDay(today)} · Event day: {formatDay(eventDay)}</p>
  <HowThisWorks><p>You only see work you have access to, so some links between tasks may be missing.</p><p>Work that overlaps on the chart isn't a sign anyone is overloaded or that anything is approved.</p></HowThisWorks>
- <div className="auth-actions"><button className="button button--secondary" disabled={!previous} onClick={()=>shift(-1)}>Previous {q.scale}</button><button className="button button--secondary" onClick={()=>change({anchor:today})}>Today</button><button className="button button--secondary" disabled={!next} onClick={()=>shift(1)}>Next {q.scale}</button></div>
- <div className="timeline-controls"><label>Go to date<input type="date" min="0001-01-01" max="9999-12-31" value={q.anchor} onChange={e=>{if(e.target.value)change({anchor:parseTimelineQuery('?date='+e.target.value,today).anchor})}}/></label><label>Scale<select aria-label="Scale" value={q.scale} onChange={e=>change({scale:e.target.value as TimelineQuery['scale']})}><option value="week">Week</option><option value="month">Month</option></select></label><label>View<select aria-label="View" value={q.view} onChange={e=>change({view:e.target.value as TimelineQuery['view']},true)}><option value="chart">Chart and list</option><option value="list">List only</option></select></label></div>
+ <ViewTabs label="Timeline view" value={q.view} onChange={view=>change({view})} tabs={[{value:'list',label:'List'},{value:'calendar',label:'Calendar'},{value:'gantt',label:'Gantt'}]}/>
+ <div className="auth-actions"><button className="button button--secondary" disabled={!previous} onClick={()=>shift(-1)}>Previous {navScale}</button><button className="button button--secondary" onClick={()=>change({anchor:today})}>Today</button><button className="button button--secondary" disabled={!next} onClick={()=>shift(1)}>Next {navScale}</button></div>
+ <div className="timeline-controls"><label>Go to date<input type="date" min="0001-01-01" max="9999-12-31" value={q.anchor} onChange={e=>{if(e.target.value)change({anchor:parseTimelineQuery('?date='+e.target.value,today).anchor})}}/></label>{q.view==='list'?<label>Scale<select aria-label="Scale" value={q.scale} onChange={e=>change({scale:e.target.value as TimelineQuery['scale']})}><option value="week">Week</option><option value="month">Month</option></select></label>:null}</div>
  <details className="timeline-filter-panel"><summary>Filters</summary><div className="timeline-controls">
  <label>Committees (pick one or more)<select aria-label="Committees (pick one or more)" multiple size={3} value={q.units} onChange={e=>change({units:Array.from(e.target.selectedOptions,o=>o.value)})}>{q.units.filter(id=>!options?.units.some(u=>u.id===id)).map(id=><option key={id} value={id}>Selected committee</option>)}{options?.units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
  <label>Owner<select aria-label="Owner" value={q.owner} onChange={e=>change({owner:e.target.value})}><option value="">All owners</option>{q.owner&&!options?.owners.some(o=>o.id===q.owner)?<option value={q.owner}>Selected owner</option>:null}{options?.owners.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
  <label>Phase<select aria-label="Phase" value={q.phase} onChange={e=>change({phase:e.target.value})}><option value="">All phases</option>{q.phase&&!options?.phases.includes(q.phase)?<option value={q.phase}>Selected phase</option>:null}{options?.phases.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
  <label>Work type<select aria-label="Work type" value={q.type} onChange={e=>change({type:e.target.value as TimelineQuery['type']})}><option value="">All work</option><option value="deliverable">Deliverables</option><option value="contribution">Work for other committees</option><option value="task">Tasks</option></select></label>
  </div><div className="timeline-checks">{(['blocked','overdue','includeUnscheduled']as const).map(k=><label key={k}><input type="checkbox" checked={q[k]} onChange={e=>change({[k]:e.target.checked})}/>{k==='blocked'?'Blocked only':k==='overdue'?'Overdue only (any date)':'Include work with no dates'}</label>)}</div><button className="button button--secondary" onClick={()=>change({units:[],owner:'',phase:'',type:'',blocked:false,overdue:false,includeUnscheduled:true})}>Clear filters</button></details>
- <h2>{q.scale==='week'?'Week':'Month'}: {formatRange(window.start,window.end)}</h2>
+ <h2>{q.view==='calendar'?'Month: '+monthLabel(q.anchor):q.view==='gantt'?'Weeks: '+formatRange(window.start,window.end):(q.scale==='week'?'Week':'Month')+': '+formatRange(window.start,window.end)}</h2>
  {!current?<LoadingState title="Loading timeline"/>:current.error?<ErrorState title="Couldn't load the timeline" description="Check your connection and try again." action={<button className="button button--secondary" onClick={refresh}>Try again</button>}/>:!result?<EmptyState title="You can't see the timeline" description="The committee timeline is only for organizers on this term's roster."/>:<>
- <p role="status">{result.total} {result.total===1?'item':'items'}</p>
+ <p role="status">{result.total} {result.total===1?'item':'items'}{q.view!=='list'&&result.items.length<result.total?`. Showing the first ${result.items.length}; narrow the filters to see the rest.`:''}</p>
+ {q.view!=='list'&&unscheduled.length?<p>{unscheduled.length} {unscheduled.length===1?'item has':'items have'} no due date, so {unscheduled.length===1?"it isn't":"they aren't"} shown here. Switch to List to see {unscheduled.length===1?'it':'them'}.</p>:null}
  {result.items.length===0?<EmptyState title="Nothing in this window" description="Try another date or clear the filters."/>:<>
- {q.view==='chart'?<Panel title="Chart"><Chart items={result.items} edges={result.dependencies} start={window.start} end={window.end} today={today}/></Panel>:null}
+ {q.view==='calendar'?<Panel title="Calendar"><Calendar items={dated} start={window.start} end={window.end} month={q.anchor.slice(0,7)} today={today}/></Panel>:q.view==='gantt'?<Panel title={only?only.name+' gantt':'Project-wide gantt'}><Gantt items={dated} start={window.start} today={today} only={only} several={q.units.length>1} units={options?.units??[]} onCommittee={id=>change({units:id?[id]:[]})}/></Panel>:<>
+ <Panel title="Day chart"><Chart items={result.items} edges={result.dependencies} start={window.start} end={window.end} today={today}/></Panel>
  <Panel title="By date">{dated.length?<Chronology items={dated} allItems={result.items} edges={result.dependencies}/>:<p>No dated work here.</p>}</Panel>
  <Panel title="No dates yet">{unscheduled.length?<Chronology items={unscheduled} allItems={result.items} edges={result.dependencies}/>:<p>Everything here has dates.</p>}</Panel>
  </>}
- <Pager label="Timeline pages" page={q.page} total={Math.min(result.total,result.pageSize*10000)} pageSize={result.pageSize} onMove={page=>change({page},true)}/>
+ </>}
+ {q.view==='list'?<Pager label="Timeline pages" page={q.page} total={Math.min(result.total,result.pageSize*10000)} pageSize={result.pageSize} onMove={page=>change({page},true)}/>:null}
  </>}
  </>
 }

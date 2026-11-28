@@ -59,7 +59,7 @@
 
 /* Live stage display. Black in both themes so it reads the same backstage. */
 .ros-live {
-  --live-bg: #000; --live-ink: #fff; --live-muted: #a3a39e; --live-line: #2a2a28; --live-red: #ff4d64;
+  --live-bg: #000; --live-ink: #fff; --live-muted: #a3a39e; --live-line: #2a2a28; --live-red: #eb0028;
   position: fixed; inset: 0; z-index: 1000; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
   background: var(--live-bg); color: var(--live-ink); padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
   max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); overflow: auto;

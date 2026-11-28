@@ -3,7 +3,8 @@
  * It appears on the wordmark, one primary action per view, the active-nav
  * indicator and critical statuses. Never as a large fill.
  * Contrast (WCAG): on-accent white on #eb0028 4.60, on hover #d10024 5.62;
- * accent-ink #ff4d64 on #111111 5.84; light accent-ink #c4001f on #fff 6.24.
+ * Dark accent-ink and danger are #eb0028 too (one red everywhere): 4.10 on #111111, which passes
+ * for bold or large text and for icons and borders; light accent-ink #c4001f on #fff 6.24.
  */
 :root {
   /* Default dark theme tokens */
@@ -19,7 +20,7 @@
   --color-accent: #eb0028;
   --color-accent-hover: #d10024;
   --color-accent-soft: rgba(235, 0, 40, 0.14);
-  --color-accent-ink: #ff4d64;
+  --color-accent-ink: #eb0028;
   --color-on-accent: #ffffff;
   --color-focus: #ffffff;
   --color-logo-red: #eb0028;
@@ -27,7 +28,7 @@
   --color-logo-name: #ffffff;
   --color-ok: #4ade80;
   --color-warn: #fbbf24;
-  --color-danger: #ff4d64;
+  --color-danger: #eb0028;
   --color-danger-soft: rgba(235, 0, 40, 0.12);
   --color-info: #7dd3fc;
   --color-neutral: #a3a39e;
@@ -116,12 +117,12 @@
   --color-line-strong: #4a4a46;
   --color-accent: #eb0028;
   --color-accent-hover: #d10024;
-  --color-accent-ink: #ff4d64;
+  --color-accent-ink: #eb0028;
   --color-on-accent: #ffffff;
   --color-focus: #ffffff;
   --color-logo-tile: #000000;
   --color-logo-name: #ffffff;
-  --color-danger: #ff4d64;
+  --color-danger: #eb0028;
   --color-warn: #fbbf24;
   color-scheme: dark;
 }

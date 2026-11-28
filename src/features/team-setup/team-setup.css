@@ -60,9 +60,13 @@
 
 /* Open positions */
 .ts-open { margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--color-line); }
-.ts-gaps { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 var(--space-5); }
-.ts-gaps li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--color-line-strong); min-width: 0; }
-.ts-gaps__role { font-weight: 600; }
+.ts-gaps { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 var(--space-5); }
+.ts-gaps li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--color-line-strong); min-width: 0; }
+.ts-gaps__role { font-weight: 600; min-width: 0; }
+.ts-gaps__tiers { display: flex; flex-shrink: 0; justify-content: flex-end; gap: 6px; }
+.ts-gaps__tier { padding: 2px 8px; border: 1px solid var(--color-line-strong); border-radius: 999px; color: var(--color-ink-secondary); font-size: .8125rem; white-space: nowrap; }
+.ts-gap-group + .ts-gap-group { margin-top: var(--space-5); }
+.ts-gap-group__title { margin: 0 0 var(--space-2); font-size: .875rem; font-weight: 700; color: var(--color-muted); }
 
 /* Dialogs and sheet */
 .ts-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: var(--space-4); background: rgba(0, 0, 0, .55); }

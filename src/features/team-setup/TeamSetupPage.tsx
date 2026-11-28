@@ -114,7 +114,7 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
     return <>{heading}<ErrorState title="Couldn't load the roster" description="Check your connection and try again." action={<button type="button" className="button button--secondary" onClick={refresh}>Try again</button>} /></>
   }
   const { totals, openPositions } = load.data
-  const unfilled = openPositions.filter(p => !p.holders)
+  const unfilled = openPositions.filter(p => !p.holders && !(p.committeeCode === 'FIN' && p.tier === 'core'))
   const person = selected ? people.find(p => p.membershipId === selected) ?? null : null
   const groups = nudgeKinds.map(kind => ({ kind, people: people.filter(nudgeOpen[kind]) })).filter(g => g.people.length)
 
@@ -229,9 +229,13 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
 
     <section aria-labelledby="ts-open-title" className="ts-open">
       <h2 id="ts-open-title" className="ts-section-title">Positions with no one yet <span className="ts-muted numeric">{unfilled.length}</span></h2>
-      {unfilled.length ? <ul className="ts-gaps">{unfilled.map(p => <li key={p.roleCode}>
-        <span className="ts-gaps__role">{p.roleName}</span><span className="ts-muted">{p.committee ?? 'Leadership'}</span>
-      </li>)}</ul> : <p className="ts-muted">Every position has someone in it.</p>}
+      {unfilled.length ? openGroups(unfilled).map(group => <div key={group.title} className="ts-gap-group">
+        {group.title ? <h3 className="ts-gap-group__title">{group.title}</h3> : null}
+        <ul className="ts-gaps">{group.rows.map(row => <li key={row.name}>
+          <span className="ts-gaps__role">{row.name}</span>
+          <span className="ts-gaps__tiers">{row.positions.map(p => <span key={p.roleCode} className="ts-gaps__tier">{tierWord(p)}</span>)}</span>
+        </li>)}</ul>
+      </div>) : <p className="ts-muted">Every position has someone in it.</p>}
       <p className="ts-muted">People don't need a position to sign in. A position only sets their role on the roster. To give someone a position, open their name in the list and choose Change position, or pick one when you add them. Leadership and head positions can have more than one person.</p>
     </section>
 
@@ -294,4 +298,24 @@ function PersonSheet({ person: p, api, termId, positions, onPositionChanged, onC
     {api ? <ChangePosition key={p.membershipId + (p.positionCode ?? '')} api={api} termId={termId} person={p} positions={positions} onChanged={onPositionChanged} /> : null}
     <p className="ts-muted">A committee position also puts them in that committee. Changing someone's wave isn't available yet.</p>
   </Dialog>
+}
+
+// MCD and PRISM review other committees' work, so they sit apart at the bottom.
+const reviewTeams = new Set(['MCD', 'PRISM'])
+const tierWord = (p: Position) => p.tier === 'leadership' ? p.roleName : p.tier === 'head' ? 'Head' : 'Core'
+function openGroups(open: Position[]) {
+  const rows = (list: Position[]) => {
+    const byName = new Map<string, Position[]>()
+    for (const p of list) {
+      const key = p.committee ?? 'Leadership'
+      byName.set(key, [...(byName.get(key) ?? []), p])
+    }
+    const order = { leadership: 0, head: 1, core: 2 }
+    return [...byName].map(([name, positions]) => ({ name, positions: positions.sort((a, b) => order[a.tier] - order[b.tier]) }))
+      .sort((a, b) => a.name === 'Leadership' ? -1 : b.name === 'Leadership' ? 1 : a.name.localeCompare(b.name))
+  }
+  return [
+    { title: '', rows: rows(open.filter(p => !reviewTeams.has(p.committeeCode ?? ''))) },
+    { title: 'MCD and PRISM', rows: rows(open.filter(p => reviewTeams.has(p.committeeCode ?? ''))) },
+  ].filter(g => g.rows.length)
 }

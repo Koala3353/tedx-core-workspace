@@ -73,7 +73,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { id: 'event', label: 'Event', href: '/event', description: 'The event at a glance', group: 'workspace', audiences: member, tab: 'event', hub: true },
   { id: 'calendar', label: 'Calendar', href: '/calendar', description: 'Meetings, deadlines and event dates', group: 'workspace', audiences: ['setup', 'core', 'guest'], tab: 'event' },
   { id: 'timeline', label: 'Timeline', href: '/working-together/timeline', description: 'Committee work laid out over time', group: 'workspace', audiences: member, tab: 'event' },
-  { id: 'publicity', label: 'Publicity sign-off', href: '/publicity', description: 'Final publicity and its sign-off', group: 'role', audiences: core, tab: 'event' },
+  { id: 'publicity', label: 'Publicity sign-off', href: '/publicity', description: 'Final publicity and its sign-off', group: 'role', audiences: core, capability: 'committee.manage', tab: 'event' },
   { id: 'inventory', label: 'Inventory', href: '/inventory', description: 'Equipment and borrowed items', group: 'workspace', audiences: core, tab: 'event' },
   { id: 'guests', label: 'Guests & speakers', href: '/guests', description: 'Guest invitations you sponsor', group: 'role', audiences: core, capability: 'roles.manage', tab: 'event' },
   // Team
