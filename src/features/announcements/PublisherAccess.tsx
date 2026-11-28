@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
+import {PersonPicker,personOptions} from '../../components/list'
 import {formatDateTime} from '../shared/dates'
 import type {AnnouncementsApi,PublisherAccess as Access,PublisherCommand} from './api'
 
@@ -28,7 +29,7 @@ export function PublisherAccess({api,term,self,changed}:{api:AnnouncementsApi;te
   </li>)}</ul>:<p>Only PMs can post right now.</p>}
   <div className="publisher-access__form">
    <label htmlFor="publisher-person">Person</label>
-   <select id="publisher-person" value={person} disabled={busy} onChange={e=>{setPerson(e.target.value);setNotice('')}}><option value="">Choose a person</option>{people.map(p=><option key={p.membershipId} value={p.membershipId}>{p.name}</option>)}</select>
+   <PersonPicker id="publisher-person" value={person} disabled={busy} onChange={value=>{setPerson(value);setNotice('')}} options={personOptions(people.map(p=>({id:p.membershipId,name:p.name})))}/>
    <label htmlFor="publisher-audience">Audience</label>
    <select id="publisher-audience" value={audience} disabled={busy} onChange={e=>{setAudience(e.target.value);setNotice('')}}><option value="">Choose an audience</option>{access.audiences.map(a=><option key={a.kind+a.id} value={a.kind+':'+a.id}>{a.name}</option>)}</select>
    {already?<p className="muted">{chosenPerson?.name} can already post to {chosenAudience?.name}.</p>:null}

@@ -1,5 +1,6 @@
 import {WorkReference} from '../work-references/WorkReference'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { PersonPicker } from '../../components/list'
 import { Link, useLocation, useNavigate, useRouteLoaderData, useSearchParams } from 'react-router'
 import { PageHeading } from '../../components/Page'
 import { useAutoRefresh } from '../shared/useAutoRefresh'
@@ -35,6 +36,8 @@ export function DeliverablesPage({ api, commands, termId, exportControl }: { api
   },[api,termId,search,key,reload])
   const loaded=state?.key===key; const data=loaded?state.data:null
   const filtered=!!(filters.phase||filters.unit||filters.owner||filters.blocked||filters.overdue||filters.mine||filters.review)
+  // The owner picker submits through a hidden input, which fires no change event, so it applies the form itself.
+  const filterForm=useRef<HTMLFormElement>(null)
   function apply(form:HTMLFormElement){const fields=new FormData(form);const p=new URLSearchParams();for(const [k,v] of fields)if(typeof v==='string'&&v)p.set(k,v);setParams(filterSearch(parseFilters(p.toString())))}
   const move=(page:number)=>setParams(filterSearch({...filters,page}))
   return <>
@@ -43,10 +46,10 @@ export function DeliverablesPage({ api, commands, termId, exportControl }: { api
     <HowThisWorks><p>A deliverable is ready once its reviews are accepted. Finishing its tasks doesn't accept it on its own.</p><p>Deadlines end at 11:59 PM Manila time.</p></HowThisWorks>
     {commands&&creating?<DeliverableEditor api={commands} termId={termId} onCancel={()=>setCreating(false)} onSaved={id=>void navigate('/deliverables/'+id)}/>:null}
     {!loaded ? <LoadingState title="Loading deliverables" /> : state.error ? <ErrorState title="Couldn't load deliverables" description="Check your connection and try again." action={<button className="button button--secondary" onClick={()=>setReload(reload+1)}>Try again</button>} /> : data ? <>
-      {data.total||filtered?<form key={search} onChange={e=>apply(e.currentTarget)} onSubmit={e=>{e.preventDefault();apply(e.currentTarget)}} className="deliverable-filters" aria-label="Filter deliverables">
+      {data.total||filtered?<form ref={filterForm} key={search} onChange={e=>apply(e.currentTarget)} onSubmit={e=>{e.preventDefault();apply(e.currentTarget)}} className="deliverable-filters" aria-label="Filter deliverables">
           <label>Phase<select name="phase" defaultValue={filters.phase}><option value="">All phases</option>{filters.phase&&!data.options.phases.includes(filters.phase)?<option value={filters.phase}>Other phase</option>:null}{data.options.phases.map(p=><option key={p}>{p}</option>)}</select></label>
           <label>Committee<select name="unit" defaultValue={filters.unit}><option value="">All committees</option>{filters.unit&&!data.options.units.some(u=>u.id===filters.unit)?<option value={filters.unit}>Other committee</option>:null}{data.options.units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
-          <label>Owner<select name="owner" defaultValue={filters.owner}><option value="">Anyone</option>{filters.owner&&!data.options.owners.some(o=>o.id===filters.owner)?<option value={filters.owner}>Other owner</option>:null}{data.options.owners.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
+          <label>Owner<PersonPicker name="owner" aria-label="Owner" defaultValue={filters.owner} onChange={()=>setTimeout(()=>{if(filterForm.current)apply(filterForm.current)})} options={[{value:'',label:'Anyone'},...(filters.owner&&!data.options.owners.some(o=>o.id===filters.owner)?[{value:filters.owner,label:'Other owner'}]:[]),...data.options.owners.map(o=>({value:o.id,label:o.name}))]}/></label>
           <div className="deliverable-toggles">{[{name:'blocked',label:'Blocked',checked:filters.blocked},{name:'overdue',label:'Overdue',checked:filters.overdue},{name:'mine',label:'Involves my committee',checked:filters.mine},{name:'review',label:'Waiting on a review',checked:filters.review}].map(f=><label key={f.name}><input type="checkbox" name={f.name} value="1" defaultChecked={f.checked}/>{f.label}</label>)}</div>
           {filtered?<div className="auth-actions"><button className="button button--quiet" type="button" onClick={()=>setParams('')}>Clear filters</button></div>:null}
         </form>:null}

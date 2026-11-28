@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import {refreshKey,settled} from '../../shared/settled'
 import { useRouteLoaderData, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Check, Download, Lock, RefreshCw, Search } from 'lucide-react'
 import { PageHeading } from '../../../components/Page'
@@ -47,7 +48,7 @@ export function DataPage({ api }: { api: AdminDataApi }) {
   const [reload, setReload] = useState(0)
   const [load, setLoad] = useState<Load | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  const key = context.termId + ':' + sheet + ':' + reload
+  const key = refreshKey(context.termId + ':' + sheet, reload)
 
   useEffect(() => {
     let live = true
@@ -57,7 +58,7 @@ export function DataPage({ api }: { api: AdminDataApi }) {
     return () => { live = false }
   }, [api, context.termId, sheet, key])
 
-  const current = load?.key === key ? load : null
+  const current = settled(load, key)
   // Keep the last sheet on screen while a refresh of the same sheet loads.
   const data = current?.data ?? (load?.data?.dataset === sheet ? load.data : null)
   const rows = useMemo(() => {

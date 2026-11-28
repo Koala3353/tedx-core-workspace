@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { CircleAlert, CircleCheck, Clock3, WifiOff, X } from 'lucide-react'
 import { useLocation } from 'react-router'
+import { celebrate, submitterOf } from '../../components/celebrate'
 import { DeveloperMessageError, type DeveloperMessage, type DeveloperMessageApi, type DeveloperTopic } from './api'
 import './developer-message.css'
 
@@ -78,6 +79,7 @@ export function DeveloperMessageDialog({ api, onClose }: { api: DeveloperMessage
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    const button = submitterOf(event)
     const subject = draft.subject.trim(), message = draft.message.trim()
     const next = { subject: subject.length < 3 ? 'Add a short subject (at least 3 characters).' : undefined,
       message: message.length < 10 ? 'Add a few more details (at least 10 characters).' : undefined }
@@ -86,6 +88,7 @@ export function DeveloperMessageDialog({ api, onClose }: { api: DeveloperMessage
     setBusy(true); setNotice(null)
     try {
       await api.send({ requestId: draft.requestId, topic: draft.topic, subject, message, context })
+      void celebrate(button, 'send')
       saveDraft(null); setSent(true)
     } catch (cause) { setNotice(failureNotice(cause)) }
     finally { setBusy(false) }

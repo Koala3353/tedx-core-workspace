@@ -1,4 +1,5 @@
 import {useEffect,useId,useState,type ComponentProps,type FormEvent} from 'react'
+import {PersonPicker,SearchSelect,personOptions} from '../../components/list'
 import {Link} from 'react-router'
 import {Panel} from '../../components/Page'
 import {TextField} from '../../components/TextField'
@@ -126,10 +127,7 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
           {input('quantity','How many you have now',{type:'number',required:true,min:0,max:100000})}{conditionFields}
         </>:null}
         {choice.kind==='register'||choice.kind==='reassign'?<div className="form-field"><label htmlFor={id+'custodian'}>Person in charge</label>
-          <select id={id+'custodian'} required value={fields.custodian} onChange={e=>field('custodian',e.target.value)}>
-            <option value="">Choose a person</option>{workspace.custodians.filter(person=>choice.kind==='register'||person.id!==item?.custodianId)
-              .map(person=><option key={person.id} value={person.id}>{person.name}</option>)}
-          </select>
+          <PersonPicker id={id+'custodian'} required value={fields.custodian} onChange={value=>field('custodian',value)} options={personOptions(workspace.custodians.filter(person=>choice.kind==='register'||person.id!==item?.custodianId))}/>
         </div>:null}
         {choice.kind==='reserve'&&item?<><p role="status">{item.available} available · {item.custodian?'In charge: '+item.custodian:'Needs someone in charge'}</p>
           {review?<div>
@@ -145,8 +143,7 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
             {item.kind==='returnable'?input('dueOn','Return by (Manila)',{type:'date',required:true,min:fields.startsOn}):
               <p>This item gets used up, so there's no return date.</p>}
             {workspace.work.length?<div className="form-field"><label htmlFor={id+'work'}>Related work (optional)</label>
-              <select id={id+'work'} value={fields.work} onChange={e=>field('work',e.target.value)}>
-              <option value="">Choose related work</option>{workspace.work.map(w=><option key={w.id} value={w.id}>{w.label}</option>)}</select></div>:null}
+              <SearchSelect id={id+'work'} value={fields.work} onChange={value=>field('work',value)} placeholder="Type related work" options={[{value:'',label:'No related work'},...workspace.work.map(w=>({value:w.id,label:w.label}))]}/></div>:null}
           </>}
         </>:null}
         {action==='issue'&&loan?<><p>Confirm only after you've handed {loan.quantity} {loan.quantity===1?'unit':'units'} to {loan.borrower} at {loan.location}.</p>{conditionFields}</>:null}

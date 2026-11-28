@@ -11,17 +11,16 @@ import { SampleToday, canPreviewAsMember, isMemberPreviewPath, memberPreviewPath
 import { deskCapabilities, navigationItems } from './navigation'
 import { ShellServicesProvider } from './shellServices'
 import { TodayPage } from '../features/today/Today'
-import { DeskHub, EventHub, TeamHub, WorkHub } from './hubs/Hubs'
 import { BootScreen } from '../components/BrandLoader'
 import { createAuthGateway, isGuest, type AuthGateway, type WorkspaceContext } from '../features/auth/gateway'
 import { AccountPage, AuthRevalidator, CallbackPage, LoginPage, ProtectedShell } from '../features/auth/pages'
 // Already in the first-load bundle through the shell (badge, hub card, account page),
 // so these stay static imports.
 import { Notifications } from '../features/notifications/Notifications'
-import { TeamSetupPage, teamSetupCapabilities } from '../features/team-setup/TeamSetupPage'
 import { DriveCallback } from '../features/integrations/drive/DriveSource'
 import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
 import { calendarCallback } from '../features/integrations/calendar/api'
+import { installRoutePrefetch, type Preload } from './prefetch'
 
 /**
  * Route-level code splitting. Each feature page loads on first visit, inside its own
@@ -29,10 +28,13 @@ import { calendarCallback } from '../features/integrations/calendar/api'
  * opening this page right now, so reload once per build to pick up the current one. If that
  * was already tried, show the "new version" notice and let the route error page show.
  */
-function lazyPage<C extends (props: never) => ReactNode>(load: () => Promise<C>): C {
+function lazyPage<C extends (props: never) => ReactNode>(load: () => Promise<C>): C & { preload: Preload } {
+  // One download shared by prefetch and render. A failure is not cached, so the next try refetches.
+  let loading: Promise<C> | undefined
+  const fetchPage = () => loading ??= load().catch((error: unknown) => { loading = undefined; throw error })
   const Lazy = lazy(async () => {
     try {
-      const component = await load()
+      const component = await fetchPage()
       chunkLoaded()
       return { default: component as unknown as ComponentType<Record<string, unknown>> }
     } catch (error) {
@@ -44,8 +46,18 @@ function lazyPage<C extends (props: never) => ReactNode>(load: () => Promise<C>)
   function LazyPage(props: Parameters<C>[0]) {
     return <Suspense fallback={<LoadingState />}><Lazy {...(props as Record<string, unknown>)} /></Suspense>
   }
-  return LazyPage as unknown as C
+  return Object.assign(LazyPage, { preload: fetchPage }) as unknown as C & { preload: Preload }
 }
+
+// The hubs and Team setup were first-load code; they now load on first visit like other pages.
+const WorkHub = lazyPage(() => import('./hubs/Hubs').then(m => m.WorkHub))
+const EventHub = lazyPage(() => import('./hubs/Hubs').then(m => m.EventHub))
+const TeamHub = lazyPage(() => import('./hubs/Hubs').then(m => m.TeamHub))
+const DeskHub = lazyPage(() => import('./hubs/Hubs').then(m => m.DeskHub))
+const TeamSetupPage = lazyPage(() => import('../features/team-setup/TeamSetupPage').then(m => m.TeamSetupPage))
+// Mirrors teamSetupCapabilities in TeamSetupPage.tsx (kept here so the loader gate doesn't pull that page
+// into the entry chunk). The page re-checks with its own copy, and the server enforces both.
+const teamSetupCapabilities = ['roles.manage', 'admin.configure'] as const
 
 const ViewAsPage = lazyPage(() => import('../features/view-as/ViewAsPage').then(m => m.ViewAsPage))
 const ArchivePage = lazyPage(() => import('../features/admin/turnover/ArchivePage').then(m => m.ArchivePage))
@@ -116,6 +128,56 @@ const DeliverablesRoute = lazyPage(() => import('../features/deliverables/Delive
 const DeliverablePage = lazyPage(() => import('../features/deliverables/DeliverablePage').then(m => m.DeliverablePage))
 const DirectoryPage = lazyPage(() => import('../features/people/pages').then(m => m.DirectoryPage))
 const CalendarSyncCallback = lazyPage(() => import('../features/integrations/calendar/CalendarSync').then(m => m.CalendarSyncCallback))
+
+// Link intent (hover, focus, touch) warms the page a link opens. Paths are app paths; /preview/* is dev only.
+const prefetchRules: ReadonlyArray<readonly [RegExp, Preload]> = [
+  [/^(?:\/preview)?\/(?:work|event|team|desk)\/?$/, WorkHub.preload],
+  [/^\/calendar\/?$/, CalendarPage.preload],
+  [/^\/tasks\/?$/, TasksPage.preload],
+  [/^\/tasks\/[^/]+\/?$/, TaskDetail.preload],
+  [/^\/deliverables\/?$/, DeliverablesRoute.preload],
+  [/^\/deliverables\/[^/]+\/?$/, DeliverablePage.preload],
+  [/^\/working-together\/timeline\/?$/, TimelinePage.preload],
+  [/^\/working-together\/handoffs/, HandoffsPage.preload],
+  [/^\/working-together\/?$/, WorkingTogetherPage.preload],
+  [/^\/announcements\/?$/, Announcements.preload],
+  [/^\/announcements\/[^/]+\/?$/, AnnouncementDetail.preload],
+  [/^\/requests\/?$/, CatalogPage.preload],
+  [/^\/requests\/mine\/?$/, MyRequestsPage.preload],
+  [/^\/reviews\/?$/, ReviewInbox.preload],
+  [/^\/search\/?$/, Search.preload],
+  [/^\/reports\/?$/, Reports.preload],
+  [/^\/resources\/?$/, ResourcesPage.preload],
+  [/^\/people\/?$/, DirectoryPage.preload],
+  [/^\/committee\/?$/, CommitteePage.preload],
+  [/^\/publicity\/?$/, PublicityDesk.preload],
+  [/^\/finance\/?$/, FinanceDesk.preload],
+  [/^\/inventory/, InventoryPage.preload],
+  [/^\/mentoring\/?$/, GrowthPage.preload],
+  [/^\/prism/, EvaluationsPage.preload],
+  [/^\/my-part/, MyPartPage.preload],
+  [/^\/shared\/?$/, SharedWork.preload],
+  [/^\/guests\/?$/, SponsorPage.preload],
+  [/^\/overview\/?$/, Overview.preload],
+  [/^\/team\/setup\/?$/, TeamSetupPage.preload],
+  [/^\/team\/ask\/?$/, WhoToAskPage.preload],
+  [/^\/team\/committees/, CommitteeIndexPage.preload],
+  [/^\/event\/war-room\/?$/, WarRoomPage.preload],
+  [/^\/event\/speakers\/?$/, SpeakerTrackerPage.preload],
+  [/^\/event\/(?:online-contest|tedify)\/?$/, ContestBoardPage.preload],
+  [/^\/event\/run-of-show\/?$/, RunOfShowPage.preload],
+  [/^\/event\/qr\/?$/, EventQrPage.preload],
+  [/^\/admin\/?$/, OrganizationPage.preload],
+  [/^\/admin\/config/, ConfigurationPage.preload],
+  [/^\/admin\/data\/?$/, DataPage.preload],
+  [/^\/admin\/access\/?$/, AccessPage.preload],
+  [/^\/admin\/imports\/?$/, CsvPreparation.preload],
+  [/^\/admin\/process\/?$/, ProcessPage.preload],
+  [/^\/admin\/layouts\/?$/, LayoutsPage.preload],
+  [/^\/admin\/announcements\/?$/, AnnouncementPublisher.preload],
+  [/^\/admin\/privacy\/?$/, PrivacyAdministration.preload],
+  [/^\/privacy\/?$/, PrivacyPage.preload],
+]
 
 function FoundationPage({ environment }: { environment: ClientEnvironment }) {
   return (
@@ -343,5 +405,8 @@ export function createAppRouter() {
     VITE_TELEGRAM_BOT_USERNAME: import.meta.env.VITE_TELEGRAM_BOT_USERNAME,
     VITE_EMAIL_DIGEST_ENABLED: import.meta.env.VITE_EMAIL_DIGEST_ENABLED,
   })
-  return createBrowserRouter(createAppRoutes(environment), { basename: basePath || '/' })
+  const router = createBrowserRouter(createAppRoutes(environment), { basename: basePath || '/' })
+  // From Today the likely next stops are the Work hub (all four hubs share a chunk) and Calendar.
+  installRoutePrefetch(prefetchRules, [WorkHub.preload, CalendarPage.preload])
+  return router
 }

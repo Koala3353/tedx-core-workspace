@@ -1,0 +1,43 @@
+/* Searchable select: ARIA combobox with a grouped listbox popup. Matches the themed native select. */
+.search-select { position: relative; display: grid; gap: 4px; min-width: 0; width: 100%; }
+.search-select__label { font-size: .875rem; font-weight: 600; color: var(--color-ink-secondary); }
+.search-select__control { position: relative; min-width: 0; }
+.search-select .search-select__input {
+  width: 100%; min-width: 0; min-height: var(--control-min-size); padding: 8px 40px 8px 12px;
+  border: 1px solid var(--control-border, var(--color-line-strong)); border-radius: var(--radius-control);
+  background: var(--control-bg, var(--color-surface)); color: var(--color-ink); font: inherit; text-overflow: ellipsis;
+}
+.search-select__input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.search-select__chevron { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
+.search-select__selected-meta { color: var(--color-muted); font-size: .875rem; overflow-wrap: anywhere; }
+.search-select__list {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; min-width: min(20rem, 100%);
+  max-height: min(24rem, 60vh); overflow-y: auto; overscroll-behavior: contain;
+  margin: 0; padding: var(--space-1) 0; list-style: none;
+  border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel);
+  background: var(--color-surface-elevated); box-shadow: var(--control-picker-shadow, var(--shadow-md));
+}
+.search-select__list[hidden] { display: none; }
+.search-select__list ul { margin: 0; padding: 0; list-style: none; }
+.search-select__group {
+  position: sticky; top: calc(-1 * var(--space-1)); z-index: 1; display: flex; justify-content: space-between; gap: var(--space-2);
+  padding: 6px var(--space-3); background: var(--color-surface-elevated); border-bottom: 1px solid var(--color-line);
+  color: var(--color-muted); font-size: .8125rem; font-weight: 700;
+}
+.search-select__option {
+  display: grid; gap: 2px; align-content: center; min-height: var(--control-min-size); padding: var(--space-2) var(--space-3);
+  color: var(--color-ink); cursor: pointer; transition: background-color 120ms var(--ease-standard);
+}
+.search-select__option.is-active { background: var(--color-surface-subtle); box-shadow: inset 3px 0 0 var(--color-accent); }
+.search-select__option[aria-selected='true'] .search-select__name { font-weight: 700; }
+.search-select__option[aria-disabled='true'] { color: var(--color-muted); cursor: not-allowed; }
+.search-select__name { overflow-wrap: anywhere; }
+.search-select__meta { color: var(--color-muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.search-select__empty { padding: var(--space-3); color: var(--color-muted); }
+/* Inside a disabled fieldset the input is disabled by the browser; match the native select look. */
+.search-select__input:disabled { opacity: .6; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .search-select__option { transition: none; } }
+@media (forced-colors: active) {
+  .search-select__option.is-active { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
+}
+.search-select__option { scroll-margin-top: 34px; }

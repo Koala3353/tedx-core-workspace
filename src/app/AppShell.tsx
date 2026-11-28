@@ -1,3 +1,5 @@
+import '../styles/motion.css'
+import { Toaster } from '../components/Toast'
 import { NotificationBadge } from '../features/notifications/Notifications'
 import { ChevronLeft, CircleUser, LogOut, MessageSquareText, Moon, PenLine, Search, Settings, Sun } from 'lucide-react'
 import { DeveloperMessageDialog } from '../features/developer-message/DeveloperMessageDialog'
@@ -212,6 +214,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
       {live && !guest ? <Tutorial /> : null}
       {messaging && developerApi ? <DeveloperMessageDialog api={developerApi} onClose={() => setMessaging(false)} /> : null}
       {live ? <SetupWizard /> : preview && import.meta.env.DEV ? <SetupWizard preview /> : null}
+      <Toaster />
     </div>
   )
 }

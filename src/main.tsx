@@ -7,6 +7,7 @@ import { watchForStaleBuild } from './lib/appUpdate'
 import './lib/fonts.css'
 import './styles/tokens.css'
 import './styles/global.css'
+import './styles/controls.css'
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   // Registration is optional. Online access works even if the browser blocks installation.

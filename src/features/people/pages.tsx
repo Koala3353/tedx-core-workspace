@@ -3,8 +3,8 @@ import { Link, useRouteLoaderData, useSearchParams } from 'react-router'
 import type { WorkspaceContext } from '../auth/gateway'
 import { PageHeading, Panel } from '../../components/Page'
 import { EmptyState, ErrorState, LoadingState } from '../../components/FeedbackState'
-import { TextField } from '../../components/TextField'
-import type { PeopleGateway } from './gateway'
+import { EmptyResults, GroupedList, ListToolbar, useListFilter } from '../../components/list'
+import type { PeopleGateway, Person } from './gateway'
 import { ContactLinks } from './ContactLinks'
 
 export function DirectoryPage({ api }: { api: PeopleGateway }) {
@@ -16,14 +16,13 @@ export function PeoplePage({ api, termId,focusId }: { api: PeopleGateway; termId
   const [data, setData] = useState<Awaited<ReturnType<PeopleGateway['read']>> | null>(null)
   const [error, setError] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  const [search, setSearch] = useState('')
   useEffect(() => {
     let active = true
     void api.read(termId).then(result => { if (active) setData(result) }).catch(() => { if (active) setError(true) })
     return () => { active = false }
   }, [api, termId, attempt])
-  const query = search.trim().toLocaleLowerCase()
-  const people = data?.people.filter(person => (!focusId||person.id===focusId)&&[person.name, ...person.units, ...person.roles].some(text => text.toLocaleLowerCase().includes(query))) ?? []
+  const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
+  const selfIds = [context && 'memberId' in context ? context.memberId : null, context && 'termMembershipId' in context ? (context as { termMembershipId?: string }).termMembershipId : null].filter((id): id is string => !!id)
   return <>
     <PageHeading title="People" description="Who to ask for what, and everyone on the core team." />
     {error ? <ErrorState title="Couldn't load People" description="Check your connection and try again." action={<button className="button button--secondary" onClick={() => { setError(false); setData(null); setAttempt(attempt + 1) }}>Try again</button>} /> : !data ? <LoadingState /> : <>
@@ -34,16 +33,36 @@ export function PeoplePage({ api, termId,focusId }: { api: PeopleGateway; termId
         </li>)}</ul> : <p className="muted">No contacts yet. Ask your committee head.</p>}
       </Panel>
       <Panel title="Member directory">
-        <TextField id="people-search" label="Search people" hint="Search by name, committee or role." type="search" value={search} onChange={event => setSearch(event.target.value)} />
-        <p role="status">{people.length} {people.length === 1 ? 'person' : 'people'} found</p>
-        {people.length ? <ul className="guest-list">{people.map(person => <li key={person.id}>
-          <h3>{person.name}</h3><p>{person.units.join(' · ') || 'No committee yet'}</p>
-          <p>{person.roles.join(' · ') || 'No role yet'}</p>
+        <Directory people={data.people.filter(person => !focusId || person.id === focusId)} selfIds={selfIds} />
+      </Panel>
+    </>}
+  </>
+}
+
+/**
+ * Everyone on the core team, searchable (accent-insensitive) by name, committee or role and grouped by
+ * committee. Your own committee is listed first so the people you work with most are at the top.
+ */
+function Directory({ people, selfIds }: { people: Person[]; selfIds: string[] }) {
+  const mine = people.find(person => selfIds.includes(person.id))?.units[0]
+  const list = useListFilter(people, {
+    storageKey: 'people-directory',
+    text: person => [person.name, ...person.units, ...person.roles, person.course, person.skills],
+    filters: [{ key: 'committee', label: 'Committee', get: person => person.units, noneLabel: 'No committee', first: mine ? [mine] : [] }],
+  })
+  if (!people.length) return <EmptyState title="No people found" description="No one is in the directory for this term yet." />
+  const sorted = [...list.results].sort((a, b) => a.name.localeCompare(b.name))
+  return <>
+    <ListToolbar filter={list} label="Search people" placeholder="Search name, committee or role" noun={['person', 'people']} />
+    {!sorted.length ? <EmptyResults query={list.query} noun="people" onClear={list.clear} />
+      : <GroupedList items={sorted} listClassName="guest-list" forceOpen={list.active} storageKey="people-directory"
+        groupOf={person => person.units[0] ? { key: person.units[0], label: person.units[0] + (person.units[0] === mine ? ' (your committee)' : ''), order: person.units[0] === mine ? -2 : 0 } : person.roles.length ? { key: 'leadership', label: 'Leadership and other roles', order: -1 } : { key: 'none', label: 'No committee yet', order: 1 }}
+        renderItem={person => <li key={person.id}>
+          <h3>{person.name}</h3>
+          <p>{[person.roles.join(' · ') || 'No role yet', person.units.length > 1 ? 'Also ' + person.units.slice(1).join(', ') : null].filter(Boolean).join(' · ')}</p>
           <ContactLinks name={person.name} messenger={person.messenger} telegram={person.telegram} />
           {person.contact ? <p><a href={`mailto:${person.contact}`}>{person.contact}</a></p> : null}
           {person.course || person.year ? <p className="muted">{[person.course, person.year].filter(Boolean).join(' · ')}</p> : null}
-        </li>)}</ul> : <EmptyState title="No people found" description="Try another name, committee or role." />}
-      </Panel>
-    </>}
+        </li>} />}
   </>
 }

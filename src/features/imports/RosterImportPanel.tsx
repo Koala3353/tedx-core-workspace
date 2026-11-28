@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
+import {ReviewRows} from './ReviewRows'
 import {Panel} from '../../components/Page'
 import {RefreshButton} from '../shared/RefreshButton'
 import {formatDay} from '../shared/dates'
@@ -54,7 +55,7 @@ export function RosterImportPanel({api,term,input,enabled,onLoad,onDenied,onLock
   {pending?<button className="button" disabled={busy} onClick={()=>void execute(pending)}>Try again</button>:null}
   {currentReview&&!receipt?<section aria-label="Roster changes"><h3>Roster changes · {currentReview.termLabel} · {currentReview.listName}</h3>
    <p>New people are added as active members with the dates below. People already on the roster don't change.</p>
-   <ol>{currentReview.rows.map(r=><li key={r.record}><h4>Row {r.record}: {r.operation==='create'?'Add to roster':'Already on the roster'}</h4><p>Source key {r.sourceKey}</p><dl><dt>Before</dt><dd>{r.before?`${r.before.name} · ${r.before.email} · active · ${formatDay(r.before.joinedAt)} – ${formatDay(r.before.endsAt)}`:'Not on the roster yet'}</dd><dt>After</dt><dd>{r.after.name} · {r.after.email} · active · {formatDay(r.after.joinedAt)} – {formatDay(r.after.endsAt)}</dd></dl>{r.errors.length?<ul role="alert">{r.errors.map((e,i)=><li key={i}>{e}</li>)}</ul>:null}</li>)}</ol>
+   <ReviewRows rows={currentReview.rows} text={r=>[r.sourceKey,r.after.name,r.after.email,r.before?.name,r.before?.email]} operationLabel={op=>op==='create'?'Add to roster':'Already on the roster'} render={r=><li key={r.record}><h4>Row {r.record}: {r.operation==='create'?'Add to roster':'Already on the roster'}</h4><p>Source key {r.sourceKey}</p><dl><dt>Before</dt><dd>{r.before?`${r.before.name} · ${r.before.email} · active · ${formatDay(r.before.joinedAt)} – ${formatDay(r.before.endsAt)}`:'Not on the roster yet'}</dd><dt>After</dt><dd>{r.after.name} · {r.after.email} · active · {formatDay(r.after.joinedAt)} – {formatDay(r.after.endsAt)}</dd></dl>{r.errors.length?<ul role="alert">{r.errors.map((e,i)=><li key={i}>{e}</li>)}</ul>:null}</li>}/>
    {!currentReview.valid?<p>Fix every row error and save again. Partial imports aren't possible.</p>:null}
    <label className="csv-confirm"><input type="checkbox" checked={confirmed} disabled={locked||!currentReview.valid} onChange={e=>setConfirmed(e.target.checked)}/>I've checked these people and their dates.</label>
   </section>:null}

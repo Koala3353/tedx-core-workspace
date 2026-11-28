@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
+import {ReviewRows} from './ReviewRows'
 import {Link} from 'react-router'
 import {Panel} from '../../components/Page'
 import {RefreshButton} from '../shared/RefreshButton'
@@ -50,7 +51,7 @@ export function TaskImportPanel({api,term,input,enabled,onLoad,onDenied,onLockCh
   {message?<p role="status">{message}</p>:null}{error?<p role="alert">{error}</p>:null}
   {pending?<button className="button" disabled={busy} onClick={()=>void execute(pending)}>Try again</button>:null}
   {currentReview&&!receipt?<section aria-label="Changes to import"><h3>Changes to import · {currentReview.unitName} · {currentReview.listName}</h3><p>New tasks start with no description or checklist. Existing tasks keep everything except the title and date shown below.</p>
-   <ol>{currentReview.rows.map(r=><li key={r.record}><h4>Row {r.record}: {r.operation}</h4><p>{r.reference??'Reference given on import'} · source key {r.sourceKey}</p><dl><dt>Title</dt><dd>{r.before?`${r.before.title} → `:''}{r.after.title}</dd><dt>Person responsible</dt><dd>{r.after.assignee??'Not found'}</dd><dt>Due date</dt><dd>{r.before?`${r.before.dueOn?formatDay(r.before.dueOn):formatDateTime(r.before.dueAt)} → `:''}{r.after.dueOn?formatDay(r.after.dueOn):formatDateTime(r.after.dueAt)}</dd></dl>{r.errors.length?<ul role="alert">{r.errors.map((e,i)=><li key={i}>{e}</li>)}</ul>:null}</li>)}</ol>
+   <ReviewRows rows={currentReview.rows} text={r=>[r.sourceKey,r.reference,r.after.title,r.after.assignee,r.before?.title]} operationLabel={op=>op} render={r=><li key={r.record}><h4>Row {r.record}: {r.operation}</h4><p>{r.reference??'Reference given on import'} · source key {r.sourceKey}</p><dl><dt>Title</dt><dd>{r.before?`${r.before.title} → `:''}{r.after.title}</dd><dt>Person responsible</dt><dd>{r.after.assignee??'Not found'}</dd><dt>Due date</dt><dd>{r.before?`${r.before.dueOn?formatDay(r.before.dueOn):formatDateTime(r.before.dueAt)} → `:''}{r.after.dueOn?formatDay(r.after.dueOn):formatDateTime(r.after.dueAt)}</dd></dl>{r.errors.length?<ul role="alert">{r.errors.map((e,i)=><li key={i}>{e}</li>)}</ul>:null}</li>}/>
    {!currentReview.valid?<p>Fix every row error and save the draft again. Partial imports aren't possible.</p>:null}
    <label className="csv-confirm"><input type="checkbox" checked={confirmed} disabled={locked||!currentReview.valid} onChange={e=>setConfirmed(e.target.checked)}/>I've checked these changes.</label><button className="button" disabled={locked||!currentReview.valid||!confirmed} onClick={commit}>Import tasks</button>
   </section>:null}

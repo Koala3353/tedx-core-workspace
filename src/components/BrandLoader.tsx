@@ -1,29 +1,59 @@
 import { useState, type CSSProperties } from 'react'
-import { eventName } from './TedxLockup'
+
+/*
+ * The workspace loader: a short title sequence on a black stage. Letterbox bars part, a stage
+ * light strikes from above, "TED" pulls into focus, the red x draws in two strokes and blooms,
+ * then "AteneodeManilaU" tracks in. While loading continues, the light breathes and a glint
+ * passes over the lockup now and then. Styles live in public/boot.css and the same markup is
+ * served as the static boot screen in index.html, so the hand-off from boot to React does not
+ * flash. It never delays anything: it is shown only while something else is loading, and only
+ * after a 250ms delay so fast loads never flash.
+ */
+
+const NAME = 'AteneodeManilaU'
 
 /**
- * The workspace loader: "TED" rises letter by letter, the red x draws itself, then a thin red
- * line sweeps underneath until the app is ready. The same markup and classes are used by the
- * static boot screen in index.html (styles in public/boot.css), so the hand-off from boot to
- * React does not flash. --boot-t shifts every animation by the time since page start, so a
- * loader mounted mid-load continues the static one instead of replaying the intro. It never
- * delays anything: it is shown only while something else is loading.
+ * --boot-t shifts every animation delay. While the static boot screen from index.html is still on
+ * the page (React has not committed over it yet), the loader continues that screen's timeline:
+ * minus the time since page start, so the intro does not replay. Any later loader starts its own
+ * sequence from zero, show delay included.
  */
-export function BrandLoader({ label = 'Opening the workspace' }: { label?: string }) {
-  const [offset] = useState(() => ({ '--boot-t': `${-Math.round(performance.now())}ms` }) as CSSProperties)
-  return <div className="boot-loader" role="status" aria-live="polite" style={offset}>
+function useBootClock(): CSSProperties {
+  const [style] = useState(() => {
+    const continuesStaticBoot = document.querySelector('.boot-screen--static') !== null
+    return { '--boot-t': `${continuesStaticBoot ? -Math.round(performance.now()) : 0}ms` } as CSSProperties
+  })
+  return style
+}
+
+export function BrandLoader({ label = 'Loading' }: { label?: string }) {
+  const clock = useBootClock()
+  return <div className="boot-loader" role="status" aria-label={label} style={clock}>
     <span className="boot-loader__mark" aria-hidden="true">
-      <span className="boot-loader__ted"><span className="boot-loader__l"><span>T</span></span><span className="boot-loader__l"><span>E</span></span><span className="boot-loader__l"><span>D</span></span></span>
-      <svg className="boot-loader__x" viewBox="0 0 10 10" focusable="false"><path pathLength={1} d="M1.5 1.5 8.5 8.5" /><path pathLength={1} d="M8.5 1.5 1.5 8.5" /></svg>
+      <span className="boot-loader__ted"><span>T</span><span>E</span><span>D</span></span>
+      <span className="boot-loader__x">
+        <svg className="boot-loader__glow" viewBox="0 0 10 10" focusable="false"><path pathLength={1} d="M1 0 9 10M9 0 1 10" /></svg>
+        <svg viewBox="0 0 10 10" focusable="false"><path pathLength={1} d="M1 0 9 10" /><path pathLength={1} d="M9 0 1 10" /></svg>
+      </span>
+      <span className="boot-loader__name">{NAME.split('').map((letter, index) => <span key={index}>{letter}</span>)}</span>
+      <span className="boot-loader__glint" />
     </span>
-    <span className="boot-loader__line" aria-hidden="true" />
-    <span className="visually-hidden">{label} · {eventName}</span>
   </div>
 }
 
-/** Full-screen variant for route hydration and session checks. */
+/** Full-screen variant for route hydration and session checks: the lockup on a lit, letterboxed stage. */
 export function BootScreen({ label }: { label?: string }) {
-  return <main className="boot-screen"><BrandLoader label={label} /></main>
+  const clock = useBootClock()
+  return <main className="boot-screen" style={clock}>
+    <div className="boot-stage" aria-hidden="true">
+      <span className="boot-stage__beam" />
+      <span className="boot-stage__pool" />
+      <span className="boot-stage__vignette" />
+      <span className="boot-stage__bar boot-stage__bar--top" />
+      <span className="boot-stage__bar boot-stage__bar--bottom" />
+    </div>
+    <BrandLoader label={label} />
+  </main>
 }
 
 /** Placeholder rows shaped like list rows: title, meta line and a verb button. */

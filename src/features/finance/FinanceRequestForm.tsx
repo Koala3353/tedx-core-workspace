@@ -1,4 +1,5 @@
 import {useState} from 'react'
+import {PersonPicker,SearchSelect} from '../../components/list'
 import {Link} from 'react-router'
 import {Panel} from '../../components/Page'
 import {TextField} from '../../components/TextField'
@@ -21,8 +22,8 @@ export function FinanceRequestForm({data,m,refresh}:{data:FinanceIntake;m:Return
  <TextField id="finance-title" label="Plan title" required maxLength={240} value={m.fields.title} onChange={e=>m.change({...m.fields,title:e.target.value})}/>
  <div className="form-field"><label htmlFor="finance-kind">Plan type</label><select id="finance-kind" value={d.kind} onChange={e=>set({...d,kind:e.target.value as PlanKind})}>{(['cost','budget','expense','reimbursement','fundraising','sales']as const).map(k=><option key={k} value={k}>{k[0].toUpperCase()+k.slice(1)}</option>)}</select></div>
  {input('purpose','Plan purpose',2000)}{input('fundSource','Fund source',500)}
- <div className="form-field"><label htmlFor="finance-beneficiary">Beneficiary (required)</label><select id="finance-beneficiary" value={d.beneficiaryMemberId} onChange={e=>set({...d,beneficiaryMemberId:e.target.value})}><option value="">Choose a current member</option>{data.options?.members.map(v=><option key={v.id} value={v.id}>{v.label}</option>)}</select>{error('beneficiaryMemberId')?<p role="alert">{error('beneficiaryMemberId')}</p>:null}</div>
- <div className="form-field"><label htmlFor="finance-deliverable">Related deliverable (optional)</label><select id="finance-deliverable" value={d.relatedDeliverableId} onChange={e=>set({...d,relatedDeliverableId:e.target.value})}><option value="">No linked deliverable</option>{data.deliverables.map(v=><option key={v.id} value={v.id}>{v.label}</option>)}</select><p>Shows up to 100 deliverables you can see.</p></div>
+ <div className="form-field"><label htmlFor="finance-beneficiary">Beneficiary (required)</label><PersonPicker id="finance-beneficiary" value={d.beneficiaryMemberId} onChange={value=>set({...d,beneficiaryMemberId:value})} options={(data.options?.members??[]).map(v=>({value:v.id,label:v.label}))}/>{error('beneficiaryMemberId')?<p role="alert">{error('beneficiaryMemberId')}</p>:null}</div>
+ <div className="form-field"><label htmlFor="finance-deliverable">Related deliverable (optional)</label><SearchSelect id="finance-deliverable" value={d.relatedDeliverableId} onChange={value=>set({...d,relatedDeliverableId:value})} placeholder="Type a deliverable" options={[{value:'',label:'No linked deliverable'},...data.deliverables.map(v=>({value:v.id,label:v.label}))]}/><p>Shows up to 100 deliverables you can see.</p></div>
  {input('plannedOn','Planned date (YYYY-MM-DD)',10,false)}
  <TextField id="finance-requested-on" label="Requested service date" type="date" value={m.fields.requestedOn} min="0001-01-01" max="9999-12-31" hint="The date you'd like. The committee confirms the final date." onChange={e=>m.change({...m.fields,requestedOn:e.target.value})}/>
  {input('termsRisks','Terms, risks and school approval requirements',4000)}

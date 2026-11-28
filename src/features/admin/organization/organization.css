@@ -4,3 +4,26 @@
 .organization-editor select{font:inherit;min-height:44px;width:100%;max-width:100%;padding:10px;border:1px solid var(--color-line-strong);border-radius:6px}.organization-editor input[type=checkbox],.organization-confirm input{width:24px;height:24px;flex-shrink:0}
 .admin-team-setup { margin-bottom: 16px; }
 .admin-team-setup:empty { display: none; }
+/* The editor opens inline, under the row whose button opened it. */
+.organization-inline-editor { margin-top: 16px; padding: 16px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); background: var(--color-surface); }
+.organization-inline-editor > .panel { margin-bottom: 0; border-top: 0; padding-top: 0; }
+.organization-inline-editor .panel > h2 { margin-top: 0; }
+/* Compact rows for long lists: text on the left, actions on the right, the inline editor full width below. */
+.organization-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px var(--space-4); align-items: center; }
+.organization-row > .organization-inline-editor, .organization-row > form { grid-column: 1 / -1; }
+.organization-row__main { display: grid; gap: 2px; min-width: 0; }
+.organization-row__title { margin: 0; font-size: 1rem; }
+.organization-row__meta, .organization-row__sub { margin: 0; color: var(--color-ink-secondary); font-size: .9375rem; }
+.organization-row__sub { color: var(--color-muted); font-size: .875rem; }
+.organization-row__actions { display: flex; gap: var(--space-2); }
+.organization-list > li.organization-row { padding-block: 12px; }
+.organization-tag { display: inline-block; margin-left: var(--space-2); padding: 0 8px; border: 1px solid var(--color-line-strong); border-radius: 999px; color: var(--color-ink-secondary); font-size: .75rem; line-height: 1.6; vertical-align: 1px; }
+.organization-views { margin: var(--space-4) 0 var(--space-2); overflow-x: auto; scrollbar-width: thin; }
+.organization-history > li { display: grid; grid-template-columns: 12rem 14rem minmax(0, 1fr); gap: var(--space-3); padding-block: 10px; }
+.organization-history__action { font-weight: 600; }
+@media (max-width: 45rem) {
+  .organization-row { grid-template-columns: minmax(0, 1fr); }
+  .organization-row__actions, .organization-row > .button { justify-self: start; }
+  .organization-history > li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+.organization-editor .form-field > label { min-height: 0; }

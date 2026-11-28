@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { matchesWords } from '../../components/list'
 import { Link, useRouteLoaderData } from 'react-router'
 import { BellRing, ClipboardPaste, MessageCircle, Search, Send, UserPlus } from 'lucide-react'
 import { PageHeading } from '../../components/Page'
@@ -91,10 +92,10 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
   const people = useMemo(() => data?.people ?? [], [data])
   const filtered = useMemo(() => {
     const test = statusFilters.find(f => f.value === status)?.test ?? (() => true)
-    const q = query.trim().toLowerCase()
+    // Same matching as every other list: accents and case ignored, every word must appear somewhere.
     return people.filter(p => (!committee || (committee === 'none' ? !p.committeeCode : p.committeeCode === committee))
       && (!wave || (wave === 'none' ? !p.wave : p.wave === wave)) && test(p)
-      && (!q || p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)))
+      && matchesWords([p.name, p.email, p.committee, p.committeeCode, p.position].filter(Boolean).join(' '), query))
   }, [people, committee, wave, status, query])
   const committeeChoices = useMemo(() => {
     const seen = new Map<string, string>()
@@ -165,8 +166,8 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
       <div className="ts-filters">
         <div className="ts-search">
           <Search className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />
-          <label htmlFor="ts-search" className="visually-hidden">Search by name</label>
-          <input id="ts-search" type="search" placeholder="Search by name or email" value={query} onChange={e => setQuery(e.target.value)} />
+          <label htmlFor="ts-search" className="visually-hidden">Search people</label>
+          <input id="ts-search" type="search" placeholder="Search name, email, committee or position" value={query} onChange={e => setQuery(e.target.value)} />
         </div>
         <label className="ts-filter"><span>Committee</span>
           <select value={committee} onChange={e => setCommittee(e.target.value)}>

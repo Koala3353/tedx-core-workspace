@@ -1,0 +1,352 @@
+/*
+ * Themed native form controls.
+ *
+ * Every native control (select, checkbox, radio, date/time, search, number,
+ * file, range, scrollbars, selection, autofill) is drawn from the design
+ * tokens so nothing falls back to the operating system's look.
+ *
+ * Rules of thumb:
+ * - Red (--color-accent) only marks checked, selected or focused states.
+ * - Base box styles use :where() so feature stylesheets can still size and
+ *   space their own controls without fighting specificity.
+ * - Custom drawing sits inside @media (forced-colors: none); in Windows high
+ *   contrast (or a browser without that query) controls stay native.
+ * - Motion only runs under prefers-reduced-motion: no-preference.
+ */
+
+:root {
+  /* Mask icons: drawn in black, coloured through background-color. */
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 10.5l3.5 3.5 7.5-8'/%3E%3C/svg%3E");
+  --icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  --icon-calendar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E");
+  --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E");
+  --icon-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M4.5 4.5l7 7M11.5 4.5l-7 7'/%3E%3C/svg%3E");
+  /* A select's chevron is a background image, so its colour is baked per theme (stroke = --color-muted). */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a3a39e' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  --control-border: var(--color-line-strong);
+  --control-border-hover: var(--color-muted);
+  --control-bg: var(--color-surface);
+  --control-height: var(--control-min-size);
+  --control-selection: color-mix(in srgb, var(--color-ink) 24%, transparent);
+  --control-scrollbar: var(--color-line-strong);
+  --control-scrollbar-hover: var(--color-muted);
+  --control-picker-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  accent-color: var(--color-accent);
+}
+[data-theme='light'] {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235f5f5b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  --control-selection: color-mix(in srgb, var(--color-ink) 16%, transparent);
+  --control-picker-shadow: 0 16px 40px rgba(17, 17, 17, 0.14);
+}
+/* The sign-in stage is always dark, whatever the theme. */
+[data-theme='light'] .stage {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a3a39e' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  --control-picker-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Text selection, caret, scrollbars ---------- */
+::selection { background: var(--control-selection); color: inherit; }
+:where(input, textarea, [contenteditable]) { caret-color: var(--color-accent); }
+
+/* Thin, quiet scrollbars. scrollbar-color is inherited; features can still override it. */
+:root { scrollbar-color: var(--control-scrollbar) transparent; }
+:where(*) { scrollbar-width: thin; }
+/* Safari and older Chromium read the -webkit- pseudo elements instead. */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+  ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: var(--control-scrollbar) padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--control-scrollbar-hover); }
+  ::-webkit-scrollbar-corner { background: transparent; }
+}
+
+/* ---------- Text-like inputs and textarea (base box; features may restyle) ---------- */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden'], [type='button'], [type='submit'], [type='reset'], [type='image']), textarea) {
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  background-color: var(--control-bg);
+  color: var(--color-ink);
+}
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden'], [type='button'], [type='submit'], [type='reset'], [type='image'])) { min-height: var(--control-height); padding: 8px 12px; }
+:where(textarea) { padding: 10px 12px; resize: vertical; }
+::placeholder { color: var(--color-muted); opacity: 1; }
+:where(input, textarea):disabled { opacity: 0.6; cursor: not-allowed; }
+:where(input, textarea):read-only:not([type='checkbox'], [type='radio']) { cursor: default; }
+
+/* Autofill: keep the field on theme instead of the browser's yellow or blue wash. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-ink);
+  caret-color: var(--color-accent);
+  box-shadow: 0 0 0 1000px var(--control-bg) inset;
+  transition: background-color 100000s 0s, color 100000s 0s;
+}
+input:autofill { background-image: none; }
+
+/* Number: no spinner arrows (arrow keys and the keyboard still step). */
+input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { appearance: none; -webkit-appearance: none; margin: 0; }
+
+/* Date and time: theme the edit segments; color-scheme (from tokens.css) themes the native popover. */
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local']) { font-variant-numeric: tabular-nums; }
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit { padding: 0; }
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-text { color: var(--color-muted); padding: 0 1px; }
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-day-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-month-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-year-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-week-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-hour-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-minute-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-second-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-millisecond-field:focus,
+input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local'])::-webkit-datetime-edit-meridiem-field:focus {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+  border-radius: 2px;
+  outline: none;
+}
+
+/* File: the button part reads as a secondary button. */
+input[type='file'] { max-width: 100%; color: var(--color-muted); font-size: 0.9375rem; }
+input[type='file']::file-selector-button {
+  min-height: var(--control-height);
+  margin-inline-end: 12px;
+  padding: 8px 16px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+input[type='file']:hover:not(:disabled)::file-selector-button { border-color: var(--color-ink); background: var(--color-surface-subtle); }
+input[type='file']:disabled::file-selector-button { cursor: not-allowed; }
+
+/* Range and progress: no slider exists today; if one appears, it uses the accent. */
+input[type='range'], progress, meter { accent-color: var(--color-accent); }
+input[type='range'] { min-height: var(--control-height); cursor: pointer; }
+
+/* ---------- Select (base box) ---------- */
+:where(select) {
+  min-height: var(--control-height);
+  padding: 10px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  background-color: var(--control-bg);
+  color: var(--color-ink);
+  font: inherit;
+  cursor: pointer;
+}
+:where(select):disabled { opacity: 0.6; cursor: not-allowed; }
+:where(select) :where(option, optgroup) { background-color: var(--color-surface-elevated); color: var(--color-ink); }
+:where(select) :where(option):disabled { color: var(--color-muted); }
+/* Listboxes (multiple or size): a neutral surface, selected rows tinted. */
+select:is([multiple], [size]) { padding: 4px; }
+select:is([multiple], [size]) option { padding: 6px 8px; border-radius: 2px; }
+select:is([multiple], [size]) option:checked { background: linear-gradient(var(--color-accent-soft), var(--color-accent-soft)); color: var(--color-ink); }
+
+/* ---------- Custom-drawn pieces (skipped in forced colours) ---------- */
+@media (forced-colors: none) {
+  /* Drop-down select: own chevron. The !important longhands survive features that set the `background` or `padding` shorthand. */
+  select:not([multiple], [size]) {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: var(--select-chevron) !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px 16px !important;
+    padding-inline-end: 40px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  select:is(:hover, :focus-visible):not(:disabled) { border-color: var(--control-border-hover); }
+  select:focus-visible { border-color: var(--color-ink); }
+
+  /* Customizable select (Chromium 135+): style the open picker too. Others keep the closed-state styles above. */
+  @supports (appearance: base-select) {
+    select:not([multiple], [size]),
+    select:not([multiple], [size])::picker(select) { appearance: base-select; }
+    /* Keep the background chevron (it sits in the padding). The selected value cannot shrink inside
+       base-select, so clip it at the content edge rather than letting it run under the chevron. */
+    select:not([multiple], [size]) {
+      overflow: clip;
+      overflow-clip-margin: content-box;
+    }
+    select:not([multiple], [size])::picker-icon { display: none; }
+    select:not([multiple], [size])::picker(select) {
+      margin-block: 4px;
+      padding: 4px;
+      max-block-size: min(22rem, 60vh);
+      min-inline-size: anchor-size(self-inline);
+      border: 1px solid var(--color-line-strong);
+      border-radius: var(--radius-panel);
+      background: var(--color-surface-elevated);
+      color: var(--color-ink);
+      box-shadow: var(--control-picker-shadow);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    select:not([multiple], [size]) option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-block-size: 40px;
+      padding: 8px 10px;
+      border-radius: var(--radius-control);
+      background: transparent;
+      color: var(--color-ink);
+      font-weight: 400;
+      cursor: pointer;
+      outline: none;
+    }
+    select:not([multiple], [size]) option:is(:hover, :focus-visible):not(:disabled) { background: var(--color-surface-subtle); }
+    select:not([multiple], [size]) option:checked { background: var(--color-accent-soft); font-weight: 600; }
+    select:not([multiple], [size]) option:disabled { color: var(--color-muted); cursor: not-allowed; }
+    select:not([multiple], [size]) option::checkmark {
+      content: '';
+      order: 1;
+      flex: none;
+      inline-size: 16px;
+      block-size: 16px;
+      margin-inline-start: auto;
+      background-color: var(--color-accent-ink);
+      -webkit-mask: var(--icon-check) center / 16px no-repeat;
+      mask: var(--icon-check) center / 16px no-repeat;
+    }
+    select:not([multiple], [size]) optgroup { padding-block: 4px; color: var(--color-muted); font-size: 0.8125rem; font-weight: 600; }
+    select:not([multiple], [size]) hr { margin: 4px; border: 0; border-top: 1px solid var(--color-line); }
+    @media (prefers-reduced-motion: no-preference) {
+      select:not([multiple], [size])::picker(select) {
+        transition: opacity 140ms var(--ease-standard), translate 140ms var(--ease-standard), overlay 140ms allow-discrete, display 140ms allow-discrete;
+      }
+      select:not([multiple], [size]):not(:open)::picker(select) { opacity: 0; translate: 0 -4px; }
+      @starting-style {
+        select:not([multiple], [size]):open::picker(select) { opacity: 0; translate: 0 -4px; }
+      }
+    }
+  }
+
+  /* Checkbox and radio: 20px, drawn from tokens. Specificity (0,2,1) beats a feature's `.x input { background; padding }`;
+     a feature that sizes its own (e.g. `.x input[type=checkbox] { width: 24px }`) can still do so. */
+  input[type='checkbox']:not([hidden]),
+  input[type='radio']:not([hidden]) {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    place-items: center;
+    flex-shrink: 0;
+    inline-size: 20px;
+    block-size: 20px;
+    min-inline-size: 0;
+    min-block-size: 0;
+    max-inline-size: none;
+    padding: 0;
+    vertical-align: middle;
+    border: 1.5px solid var(--control-border);
+    border-radius: var(--radius-control);
+    background: var(--control-bg);
+    color: var(--color-on-accent);
+    cursor: pointer;
+  }
+  input[type='radio']:not([hidden]) { border-radius: 50%; }
+  input:is([type='checkbox'], [type='radio']):not([hidden])::before {
+    content: '';
+    inline-size: 100%;
+    block-size: 100%;
+    background-color: currentColor;
+    transform: scale(0);
+  }
+  input[type='checkbox']:not([hidden])::before {
+    -webkit-mask: var(--icon-check) center / 85% no-repeat;
+    mask: var(--icon-check) center / 85% no-repeat;
+  }
+  input[type='checkbox']:not([hidden]):indeterminate::before {
+    -webkit-mask: none;
+    mask: none;
+    inline-size: 55%;
+    block-size: 2px;
+    border-radius: 1px;
+  }
+  input[type='radio']:not([hidden])::before { inline-size: 45%; block-size: 45%; border-radius: 50%; }
+  input:is([type='checkbox'], [type='radio']):not([hidden]):hover:not(:disabled) { border-color: var(--color-ink-secondary); }
+  input[type='radio']:not([hidden]):checked,
+  input[type='checkbox']:not([hidden]):is(:checked, :indeterminate) {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+  }
+  input[type='radio']:not([hidden]):checked:hover:not(:disabled),
+  input[type='checkbox']:not([hidden]):is(:checked, :indeterminate):hover:not(:disabled) {
+    border-color: var(--color-accent-hover);
+    background: var(--color-accent-hover);
+  }
+  /* Radios only count :checked: a radio group with nothing chosen also matches :indeterminate. */
+  input[type='radio']:not([hidden]):checked::before,
+  input[type='checkbox']:not([hidden]):is(:checked, :indeterminate)::before { transform: scale(1); }
+  input:is([type='checkbox'], [type='radio']):not([hidden]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  input:is([type='checkbox'], [type='radio']):not([hidden]):disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  input[type='radio']:not([hidden]):disabled:not(:checked),
+  input[type='checkbox']:not([hidden]):disabled:not(:checked, :indeterminate) { background: var(--color-surface-subtle); }
+  input:is([type='checkbox'], [type='radio']):not([hidden])[aria-invalid='true'] { border-color: var(--color-danger); }
+  @media (prefers-reduced-motion: no-preference) {
+    input:is([type='checkbox'], [type='radio']):not([hidden]) { transition: background-color 120ms var(--ease-standard), border-color 120ms var(--ease-standard); }
+    input:is([type='checkbox'], [type='radio']):not([hidden])::before { transition: transform 140ms var(--ease-standard); }
+  }
+
+  /* Date and time picker button: our icon, in muted ink, instead of the platform glyph. */
+  input:is([type='date'], [type='month'], [type='week'], [type='datetime-local'])::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
+    inline-size: 18px;
+    block-size: 18px;
+    margin-inline-start: 8px;
+    padding: 2px;
+    border-radius: 2px;
+    background: var(--color-muted);
+    -webkit-mask: var(--icon-calendar) center / 18px no-repeat;
+    mask: var(--icon-calendar) center / 18px no-repeat;
+    opacity: 1;
+    cursor: pointer;
+  }
+  input[type='time']::-webkit-calendar-picker-indicator {
+    -webkit-mask-image: var(--icon-clock);
+    mask-image: var(--icon-clock);
+  }
+  input:is([type='date'], [type='month'], [type='week'], [type='time'], [type='datetime-local']):hover::-webkit-calendar-picker-indicator { background: var(--color-ink); }
+
+  /* Range (none in the app today): neutral track, accent thumb. */
+  input[type='range']:not([hidden]) { appearance: none; -webkit-appearance: none; padding: 0; border: 0; background: transparent; }
+  input[type='range']::-webkit-slider-runnable-track { block-size: 4px; border-radius: 2px; background: var(--color-line-strong); }
+  input[type='range']::-moz-range-track { block-size: 4px; border-radius: 2px; background: var(--color-line-strong); }
+  input[type='range']::-moz-range-progress { block-size: 4px; border-radius: 2px; background: var(--color-accent); }
+  input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; inline-size: 18px; block-size: 18px; margin-top: -7px; border: 2px solid var(--color-background); border-radius: 50%; background: var(--color-accent); }
+  input[type='range']::-moz-range-thumb { inline-size: 14px; block-size: 14px; border: 2px solid var(--color-background); border-radius: 50%; background: var(--color-accent); }
+  input[type='range']:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Search: our clear button. */
+  input[type='search'] { appearance: none; -webkit-appearance: none; }
+  input[type='search']::-webkit-search-decoration { appearance: none; -webkit-appearance: none; }
+  input[type='search']::-webkit-search-cancel-button {
+    appearance: none;
+    -webkit-appearance: none;
+    inline-size: 16px;
+    block-size: 16px;
+    margin-inline-start: 8px;
+    background: var(--color-muted);
+    -webkit-mask: var(--icon-close) center / 16px no-repeat;
+    mask: var(--icon-close) center / 16px no-repeat;
+    cursor: pointer;
+  }
+  input[type='search']::-webkit-search-cancel-button:hover { background: var(--color-ink); }
+}
+
+/* Forced colours (Windows high contrast): hand every control back to the system so nothing disappears. */
+@media (forced-colors: active) {
+  input[type='checkbox'], input[type='radio'], select { appearance: auto; }
+}

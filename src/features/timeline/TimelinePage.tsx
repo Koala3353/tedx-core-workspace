@@ -1,4 +1,6 @@
 import {useEffect,useState} from 'react'
+import {PersonPicker} from '../../components/list'
+import {refreshKey,settled} from '../shared/settled'
 import './timeline.css'
 import {Link,useRouteLoaderData,useSearchParams} from 'react-router'
 import {PageHeading,Panel} from '../../components/Page'
@@ -43,7 +45,7 @@ function Chart({items,edges,start,end,today}:{items:TimelineItem[];edges:Timelin
 }
 function TimelineBody({api,termId}:{api:TimelineApi;termId:string}){
  const[params,setParams]=useSearchParams(),today=manilaDay(new Date().toISOString()),q=parseTimelineQuery(params.toString(),today),query=timelineSearch(q),navScale=q.view==='list'?q.scale:'month',nav=windowFor(q.anchor,navScale),window=q.view==='list'?nav:viewWindow(q.anchor,q.view)
- const[epoch,setEpoch]=useState(0),[state,setState]=useState<{key:string;result:TimelineResult|null;error:boolean}|null>(null),key=query+':'+epoch
+ const[epoch,setEpoch]=useState(0),[state,setState]=useState<{key:string;result:TimelineResult|null;error:boolean}|null>(null),key=refreshKey(query,epoch)
  const refresh=()=>setEpoch(n=>n+1)
  useEffect(()=>{let live=true;const f={units:q.units,...(!q.overdue?{from:window.start}:{}),to:q.overdue?today:window.end,includeUnscheduled:q.includeUnscheduled,blocked:q.blocked,overdue:q.overdue,...(q.owner?{owner:q.owner}:{}),...(q.phase?{phase:q.phase}:{}),...(q.type?{type:q.type}:{})};const all=q.view!=='list'
  // Calendar and gantt draw everything in range at once, so they read every page (up to maxPages) instead of paging.
@@ -52,7 +54,7 @@ function TimelineBody({api,termId}:{api:TimelineApi;termId:string}){
  // The canonical URL is the dependency for every validated filter and calendar field.
  },[api,termId,key])
  useEffect(()=>{const visible=()=>{if(document.visibilityState==='visible')refresh()};globalThis.window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',visible);const timer=setInterval(visible,30000);return()=>{globalThis.window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible);clearInterval(timer)}},[])
- const current=state?.key===key?state:null,result=current?.result,options=result?.options
+ const current=settled(state,key),result=current?.result,options=result?.options
  function change(patch:Partial<TimelineQuery>,paging=false){setParams(timelineSearch({...q,...patch,...(paging?{}:{page:1})}).slice(1))}
  function shift(direction:number){try{change({anchor:direction<0?addDays(nav.start,-(navScale==='week'?7:1)):addDays(nav.end,1)})}catch{/* The supported calendar boundary disables navigation. */}}
  let previous=true,next=true;try{addDays(nav.start,-1)}catch{previous=false}try{addDays(nav.end,1)}catch{next=false}
@@ -67,7 +69,7 @@ function TimelineBody({api,termId}:{api:TimelineApi;termId:string}){
  <div className="timeline-controls"><label>Go to date<input type="date" min="0001-01-01" max="9999-12-31" value={q.anchor} onChange={e=>{if(e.target.value)change({anchor:parseTimelineQuery('?date='+e.target.value,today).anchor})}}/></label>{q.view==='list'?<label>Scale<select aria-label="Scale" value={q.scale} onChange={e=>change({scale:e.target.value as TimelineQuery['scale']})}><option value="week">Week</option><option value="month">Month</option></select></label>:null}</div>
  <details className="timeline-filter-panel"><summary>Filters</summary><div className="timeline-controls">
  <label>Committees (pick one or more)<select aria-label="Committees (pick one or more)" multiple size={3} value={q.units} onChange={e=>change({units:Array.from(e.target.selectedOptions,o=>o.value)})}>{q.units.filter(id=>!options?.units.some(u=>u.id===id)).map(id=><option key={id} value={id}>Selected committee</option>)}{options?.units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
- <label>Owner<select aria-label="Owner" value={q.owner} onChange={e=>change({owner:e.target.value})}><option value="">All owners</option>{q.owner&&!options?.owners.some(o=>o.id===q.owner)?<option value={q.owner}>Selected owner</option>:null}{options?.owners.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
+ <label>Owner<PersonPicker aria-label="Owner" value={q.owner} onChange={value=>change({owner:value})} options={[{value:'',label:'All owners'},...(q.owner&&!options?.owners.some(o=>o.id===q.owner)?[{value:q.owner,label:'Selected owner'}]:[]),...(options?.owners??[]).map(o=>({value:o.id,label:o.name}))]}/></label>
  <label>Phase<select aria-label="Phase" value={q.phase} onChange={e=>change({phase:e.target.value})}><option value="">All phases</option>{q.phase&&!options?.phases.includes(q.phase)?<option value={q.phase}>Selected phase</option>:null}{options?.phases.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
  <label>Work type<select aria-label="Work type" value={q.type} onChange={e=>change({type:e.target.value as TimelineQuery['type']})}><option value="">All work</option><option value="deliverable">Deliverables</option><option value="contribution">Work for other committees</option><option value="task">Tasks</option></select></label>
  </div><div className="timeline-checks">{(['blocked','overdue','includeUnscheduled']as const).map(k=><label key={k}><input type="checkbox" checked={q[k]} onChange={e=>change({[k]:e.target.checked})}/>{k==='blocked'?'Blocked only':k==='overdue'?'Overdue only (any date)':'Include work with no dates'}</label>)}</div><button className="button button--secondary" onClick={()=>change({units:[],owner:'',phase:'',type:'',blocked:false,overdue:false,includeUnscheduled:true})}>Clear filters</button></details>

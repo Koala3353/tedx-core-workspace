@@ -134,6 +134,10 @@ export default defineConfig(({ command, mode }) => {
             groups: [
               { name: 'react-vendor', test: /node_modules[\\/](?:react|react-dom|react-router|scheduler|cookie|set-cookie-parser)[\\/]/, priority: 3 },
               { name: 'supabase-vendor', test: /node_modules[\\/](?:@supabase[\\/]|tslib[\\/]|iceberg-js[\\/])/, priority: 2 },
+              // Everything else the first render needs (shell, sign-in, Today, lucide icons in use).
+              // Without this, code shared between the entry and lazy pages scatters into ~20 tiny
+              // chunks that all load up front anyway; one chunk is fewer requests for the same bytes.
+              { name: 'app-core', tags: ['$initial'], priority: 1 },
             ],
           },
         },

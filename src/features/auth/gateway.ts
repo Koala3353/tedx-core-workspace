@@ -1,69 +1,69 @@
 import { emailCodeErrorFrom } from './EmailCodeSignIn'
-import { createViewAsApi, type ViewAsApi } from '../view-as/api'
-import {createTurnoverApi,type TurnoverApi} from '../admin/turnover/api'
+import type { ViewAsApi } from '../view-as/api'
+import type { TurnoverApi } from '../admin/turnover/api'
 import {createPrivacyApi,type PrivacyApi} from '../admin/privacy/api'
 import {createOperationalExport,type OperationalExport} from '../exports/operational'
 import {createAnnouncementsApi,type AnnouncementsApi} from '../announcements/api'
 import {createSiteWordingApi,type SiteWordingApi} from '../admin/site/wording-api'
 import {createPublishedSiteApi,type PublishedSiteApi} from '../admin/site/published'
-import {createTaskImportsApi,type TaskImportsApi} from '../imports/task-import-api'
-import {createRosterImportsApi,type RosterImportsApi} from '../imports/roster-import-api'
-import {createProcessApi,type ProcessApi} from '../admin/process/api'
+import type { TaskImportsApi } from '../imports/task-import-api'
+import type { RosterImportsApi } from '../imports/roster-import-api'
+import type { ProcessApi } from '../admin/process/api'
 import {createSearchApi,type SearchApi} from '../search/api'
-import {createReportsApi,type ReportsApi} from '../reports/api'
-import {createLayoutAdminApi,type LayoutAdminApi} from '../admin/layouts/api'
+import type { ReportsApi } from '../reports/api'
+import type { LayoutAdminApi } from '../admin/layouts/api'
 import {createConfigurationApi,type ConfigurationApi} from '../admin/config/api'
-import {createAccessApi,type AccessApi} from '../admin/access/api'
+import type { AccessApi } from '../admin/access/api'
 import {createOrganizationApi,type OrganizationApi} from '../admin/organization/api'
-import {createResourcesApi,type ResourcesApi} from '../resources/api'
+import type { ResourcesApi } from '../resources/api'
 import {createCalendarApi,type CalendarApi} from '../calendar/api'
-import {createRoomBookingApi,type RoomBookingApi} from '../rooms/api'
-import {createInventoryApi,type InventoryApi} from '../inventory/api'
-import {createGrowthApi,type GrowthApi} from '../growth/api'
-import {createEvaluationsApi,type EvaluationsApi} from '../evaluations/api'
+import type { RoomBookingApi } from '../rooms/api'
+import type { InventoryApi } from '../inventory/api'
+import type { GrowthApi } from '../growth/api'
+import type { EvaluationsApi } from '../evaluations/api'
 import {createCalendarSyncApi} from '../integrations/calendar/api'
 import {createNotificationsApi,type NotificationsApi} from '../notifications/api'
 import {createTelegramApi} from '../integrations/telegram/api'
 import {createEmailDigestApi} from '../integrations/email/api'
-import {createReadinessApi,type ReadinessApi} from '../deliverables/readiness-api'
-import {createPublicityApi,type PublicityApi} from '../publicity/api'
-import {createLedgerApi,type LedgerApi} from '../finance/ledger-api'
-import {createFinAuthorityApi,type FinAuthorityApi} from '../finance/authority-api'
-import {createFinanceApi,type FinanceApi} from '../finance/api'
-import {createInboxApi,type InboxApi} from '../approvals/inbox-api'
-import {createApprovalsApi,type ApprovalsApi} from '../approvals/api'
+import type { ReadinessApi } from '../deliverables/readiness-api'
+import type { PublicityApi } from '../publicity/api'
+import type { LedgerApi } from '../finance/ledger-api'
+import type { FinAuthorityApi } from '../finance/authority-api'
+import type { FinanceApi } from '../finance/api'
+import type { InboxApi } from '../approvals/inbox-api'
+import type { ApprovalsApi } from '../approvals/api'
 import {createRequestsApi,type RequestsApi} from '../requests/api'
-import {createFormsApi,type FormsApi} from '../forms/api'
-import {createCatalogApi,type CatalogApi} from '../requests/catalog/api'
-import {createTimelineApi,type TimelineApi} from '../timeline/api'
-import {createHandoffsApi,type HandoffsApi} from '../handoffs/api'
-import {createDependenciesApi,type DependenciesApi} from '../tasks/dependenciesApi'
-import {createSynergiesApi,type SynergiesApi} from '../synergies/api'
+import type { FormsApi } from '../forms/api'
+import type { CatalogApi } from '../requests/catalog/api'
+import type { TimelineApi } from '../timeline/api'
+import type { HandoffsApi } from '../handoffs/api'
+import type { DependenciesApi } from '../tasks/dependenciesApi'
+import type { SynergiesApi } from '../synergies/api'
 import {createOverviewApi,type OverviewApi} from '../overview/api'
 import {createFilesApi,type FilesApi} from '../files/api'
 import {createDriveApi} from '../integrations/drive/api'
-import {createCommentsApi,type CommentsApi} from '../comments/api'
+import type { CommentsApi } from '../comments/api'
 import {createClientStateApi,type ClientStateApi} from '../../lib/clientState'
-import {createTeamSetupApi,type TeamSetupApi} from '../team-setup/api'
-import {createWarRoomApi,type WarRoomApi} from '../war-room/api'
-import {createWhoToAskApi,type WhoToAskApi} from '../who-to-ask/api'
-import {createDeveloperMessageApi,type DeveloperMessageApi} from '../developer-message/api'
-import {createAdminDataApi,type AdminDataApi} from '../admin/data/api'
-import {createCommitteePagesApi,type CommitteePagesApi} from '../committee-pages/api'
-import {createSpeakerPortalApi,type SpeakerPortalApi} from '../speaker-portal/api'
-import {createEventBoardsApi,type EventBoardsApi} from '../event-boards/api'
-import {createRunOfShowApi,type RunOfShowApi} from '../run-of-show/api'
-import {createEventQrApi,type EventQrApi} from '../event-qr/api'
+import type { TeamSetupApi } from '../team-setup/api'
+import type { WarRoomApi } from '../war-room/api'
+import type { WhoToAskApi } from '../who-to-ask/api'
+import type { DeveloperMessageApi } from '../developer-message/api'
+import type { AdminDataApi } from '../admin/data/api'
+import type { CommitteePagesApi } from '../committee-pages/api'
+import type { SpeakerPortalApi } from '../speaker-portal/api'
+import type { EventBoardsApi } from '../event-boards/api'
+import type { RunOfShowApi } from '../run-of-show/api'
+import type { EventQrApi } from '../event-qr/api'
 import type { ClientEnvironment } from '../../lib/env'
+import { announceUpdate } from '../../lib/appUpdate'
 import { createSupabaseClient } from '../../lib/supabase'
 import { callbackUrl, forgetSession, safeReturnPath } from './redirects'
 import { createGuestGateway, type GuestGateway } from '../guests/gateway'
-import { createPeopleGateway, type PeopleGateway } from '../people/gateway'
-import { createProfileGateway, type ProfileGateway } from '../account/gateway'
-import { createGuestContactGateway, type GuestContactGateway } from '../account/guestContacts'
-import { createDeliverablesApi, type DeliverablesApi } from '../deliverables/api'
-import { createDeliverableCommands, type DeliverableCommands } from '../deliverables/commands'
-
+import type { PeopleGateway } from '../people/gateway'
+import type { ProfileGateway } from '../account/gateway'
+import type { GuestContactGateway } from '../account/guestContacts'
+import type { DeliverablesApi } from '../deliverables/api'
+import type { DeliverableCommands } from '../deliverables/commands'
 import { createTasksApi, type TasksApi } from '../tasks/api'
 
 export type MemberContext = {
@@ -181,6 +181,37 @@ function transientAuthError(error: { name?: string; status?: number }): boolean 
 // Token refreshes and the first session read are routine; only real identity changes re-check access.
 const accessEvents = new Set(['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED'])
 
+// Members a lazy API must never report: promise detection, serialisation and React internals.
+const notApiMembers = new Set(['then', 'toJSON', '$$typeof', 'constructor'])
+
+/**
+ * A feature API whose module downloads on its first call instead of with the entry chunk.
+ * Only for APIs whose members are all methods returning promises (checked by the types the
+ * gateway declares): each call waits for the module, then calls the real method. Methods are
+ * memoised so `api.method` stays referentially stable for effect dependencies.
+ */
+function lazyApi<T extends object>(load: () => Promise<T>): T {
+  let pending: Promise<T> | undefined
+  const ready = () => pending ??= load().catch((error: unknown) => {
+    pending = undefined
+    // A missing chunk after a deploy: offer the new version; the call itself fails as any RPC would.
+    announceUpdate()
+    throw error
+  })
+  const methods = new Map<string, (...args: unknown[]) => Promise<unknown>>()
+  return new Proxy({} as T, {
+    get(_target, key) {
+      if (typeof key !== 'string' || notApiMembers.has(key)) return undefined
+      let method = methods.get(key)
+      if (!method) {
+        method = (...args) => ready().then(api => (api as Record<string, (...input: unknown[]) => Promise<unknown>>)[key](...args))
+        methods.set(key, method)
+      }
+      return method
+    },
+  })
+}
+
 export const returnStorageKey = 'tedx.auth.return'
 export function consumeReturnPath(): string {
   try { const path = safeReturnPath(sessionStorage.getItem(returnStorageKey)); sessionStorage.removeItem(returnStorageKey); return path } catch { return '/' }
@@ -235,67 +266,67 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
   return {
     privacy,
     clientState: createClientStateApi(clientReady),
-    teamSetup: createTeamSetupApi(clientReady),
-    warRoom: createWarRoomApi(clientReady),
-    whoToAsk: createWhoToAskApi(clientReady),
-    developerMessage: createDeveloperMessageApi(clientReady),
-    adminData: createAdminDataApi(clientReady),
-    committeePages: createCommitteePagesApi(clientReady),
-    speakerPortal: createSpeakerPortalApi(clientReady),
-    eventBoards: createEventBoardsApi(clientReady),
-    runOfShow: createRunOfShowApi(clientReady),
-    eventQr: createEventQrApi(clientReady),
-    viewAs: createViewAsApi(clientReady),
-    turnover: createTurnoverApi(clientReady),
+    teamSetup: lazyApi(() => import('../team-setup/api').then(m => m.createTeamSetupApi(clientReady))),
+    warRoom: lazyApi(() => import('../war-room/api').then(m => m.createWarRoomApi(clientReady))),
+    whoToAsk: lazyApi(() => import('../who-to-ask/api').then(m => m.createWhoToAskApi(clientReady))),
+    developerMessage: lazyApi(() => import('../developer-message/api').then(m => m.createDeveloperMessageApi(clientReady))),
+    adminData: lazyApi(() => import('../admin/data/api').then(m => m.createAdminDataApi(clientReady))),
+    committeePages: lazyApi(() => import('../committee-pages/api').then(m => m.createCommitteePagesApi(clientReady))),
+    speakerPortal: lazyApi(() => import('../speaker-portal/api').then(m => m.createSpeakerPortalApi(clientReady))),
+    eventBoards: lazyApi(() => import('../event-boards/api').then(m => m.createEventBoardsApi(clientReady))),
+    runOfShow: lazyApi(() => import('../run-of-show/api').then(m => m.createRunOfShowApi(clientReady))),
+    eventQr: lazyApi(() => import('../event-qr/api').then(m => m.createEventQrApi(clientReady))),
+    viewAs: lazyApi(() => import('../view-as/api').then(m => m.createViewAsApi(clientReady))),
+    turnover: lazyApi(() => import('../admin/turnover/api').then(m => m.createTurnoverApi(clientReady))),
     announcements: createAnnouncementsApi(clientReady),
     site: createPublishedSiteApi(clientReady),
     siteWording: createSiteWordingApi(clientReady),
-    process: createProcessApi(clientReady),
+    process: lazyApi(() => import('../admin/process/api').then(m => m.createProcessApi(clientReady))),
     configuration: createConfigurationApi(clientReady),
-    access: createAccessApi(clientReady),
+    access: lazyApi(() => import('../admin/access/api').then(m => m.createAccessApi(clientReady))),
     organization: createOrganizationApi(clientReady),
-    resources: createResourcesApi(clientReady),
+    resources: lazyApi(() => import('../resources/api').then(m => m.createResourcesApi(clientReady))),
     calendar: createCalendarApi(clientReady,environment.state==='configured'&&environment.calendarSync&&environment.appOrigin===origin
       ?createCalendarSyncApi(clientReady,environment.appOrigin):undefined),
-    roomBookings: createRoomBookingApi(clientReady),
-    inventory: createInventoryApi(clientReady),
-    growth: createGrowthApi(clientReady),
-    evaluations: createEvaluationsApi(clientReady),
+    roomBookings: lazyApi(() => import('../rooms/api').then(m => m.createRoomBookingApi(clientReady))),
+    inventory: lazyApi(() => import('../inventory/api').then(m => m.createInventoryApi(clientReady))),
+    growth: lazyApi(() => import('../growth/api').then(m => m.createGrowthApi(clientReady))),
+    evaluations: lazyApi(() => import('../evaluations/api').then(m => m.createEvaluationsApi(clientReady))),
     notifications: createNotificationsApi(clientReady,
       environment.state==='configured'&&environment.telegramBot&&environment.appOrigin===origin
         ?createTelegramApi(clientReady,environment.appOrigin,environment.telegramBot):undefined,
       environment.state==='configured'&&environment.emailDigest&&environment.appOrigin===origin
         ?createEmailDigestApi(clientReady,environment.appOrigin):undefined),
-    readiness: createReadinessApi(clientReady),
-    publicity: createPublicityApi(clientReady),
-    ledger: createLedgerApi(clientReady),
-    finAuthority: createFinAuthorityApi(clientReady),
-    finance: createFinanceApi(clientReady),
-    catalog: createCatalogApi(clientReady),
-    forms: createFormsApi(clientReady),
+    readiness: lazyApi(() => import('../deliverables/readiness-api').then(m => m.createReadinessApi(clientReady))),
+    publicity: lazyApi(() => import('../publicity/api').then(m => m.createPublicityApi(clientReady))),
+    ledger: lazyApi(() => import('../finance/ledger-api').then(m => m.createLedgerApi(clientReady))),
+    finAuthority: lazyApi(() => import('../finance/authority-api').then(m => m.createFinAuthorityApi(clientReady))),
+    finance: lazyApi(() => import('../finance/api').then(m => m.createFinanceApi(clientReady))),
+    catalog: lazyApi(() => import('../requests/catalog/api').then(m => m.createCatalogApi(clientReady))),
+    forms: lazyApi(() => import('../forms/api').then(m => m.createFormsApi(clientReady))),
     requests: createRequestsApi(clientReady),
-    approvals: createApprovalsApi(clientReady),
-    inbox: createInboxApi(clientReady),
-    timeline: createTimelineApi(clientReady),
-    handoffs: createHandoffsApi(clientReady),
-    dependencies: createDependenciesApi(clientReady),
-    synergies: createSynergiesApi(clientReady),
-    layouts: createLayoutAdminApi(clientReady),
+    approvals: lazyApi(() => import('../approvals/api').then(m => m.createApprovalsApi(clientReady))),
+    inbox: lazyApi(() => import('../approvals/inbox-api').then(m => m.createInboxApi(clientReady))),
+    timeline: lazyApi(() => import('../timeline/api').then(m => m.createTimelineApi(clientReady))),
+    handoffs: lazyApi(() => import('../handoffs/api').then(m => m.createHandoffsApi(clientReady))),
+    dependencies: lazyApi(() => import('../tasks/dependenciesApi').then(m => m.createDependenciesApi(clientReady))),
+    synergies: lazyApi(() => import('../synergies/api').then(m => m.createSynergiesApi(clientReady))),
+    layouts: lazyApi(() => import('../admin/layouts/api').then(m => m.createLayoutAdminApi(clientReady))),
     search: createSearchApi(clientReady),
-    reports: createReportsApi(clientReady),
+    reports: lazyApi(() => import('../reports/api').then(m => m.createReportsApi(clientReady))),
     exportOperationalWork: createOperationalExport(clientReady),
-    taskImports: createTaskImportsApi(clientReady),
-    rosterImports: createRosterImportsApi(clientReady),
+    taskImports: lazyApi(() => import('../imports/task-import-api').then(m => m.createTaskImportsApi(clientReady))),
+    rosterImports: lazyApi(() => import('../imports/roster-import-api').then(m => m.createRosterImportsApi(clientReady))),
     overview: createOverviewApi(clientReady),
     files: createFilesApi(clientReady,environment.state==='configured'&&environment.drivePicker&&environment.appOrigin===origin
       ?createDriveApi(clientReady,environment.appOrigin,environment.driveEvidence):undefined),
-    comments: createCommentsApi(clientReady),
+    comments: lazyApi(() => import('../comments/api').then(m => m.createCommentsApi(clientReady))),
     tasks: createTasksApi(clientReady),
-    deliverables: createDeliverablesApi(clientReady),
-    deliverableCommands: createDeliverableCommands(clientReady),
-    guestContacts: createGuestContactGateway(clientReady),
-    profile: createProfileGateway(clientReady),
-    people: createPeopleGateway(clientReady),
+    deliverables: lazyApi(() => import('../deliverables/api').then(m => m.createDeliverablesApi(clientReady))),
+    deliverableCommands: lazyApi(() => import('../deliverables/commands').then(m => m.createDeliverableCommands(clientReady))),
+    guestContacts: lazyApi(() => import('../account/guestContacts').then(m => m.createGuestContactGateway(clientReady))),
+    profile: lazyApi(() => import('../account/gateway').then(m => m.createProfileGateway(clientReady))),
+    people: lazyApi(() => import('../people/gateway').then(m => m.createPeopleGateway(clientReady))),
     guests: createGuestGateway(clientReady),
     readContext(signal,termId) {
       // Every access check settles: a superseded navigation aborts it, and a check that hangs

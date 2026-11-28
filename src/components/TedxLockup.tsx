@@ -18,7 +18,7 @@ export function TedxLockup({ to, size = 'sm' }: { to?: string; size?: 'sm' | 'lg
 function OfficialLogo() {
   const base = import.meta.env.BASE_URL
   // Large lockups sit on the always-black sign-in stage. tedx-logo-on-light.png is the version for white pages.
-  return <img className="tedx-logo" src={`${base}brand/tedx-logo-on-dark.png`} width={1200} height={161} alt={`${eventName}, x = independently organized TED event`} />
+  return <img className="tedx-logo" src={`${base}brand/tedx-logo-on-dark.png`} width={1200} height={161} fetchPriority="high" alt={`${eventName}, x = independently organized TED event`} />
 }
 
 export const licenseLine = 'This independent TEDx event is operated under license from TED.'

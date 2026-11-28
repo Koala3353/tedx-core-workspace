@@ -1,89 +1,175 @@
 /*
- * Boot screen and brand loader. Linked from index.html so it paints before the app
- * bundle loads (the CSP allows only same-origin stylesheets; no inline styles).
- * The React loader (src/components/BrandLoader.tsx) reuses these classes, so the
- * hand-off from static markup to the app is seamless. Colours fall back to the dark
- * theme until src/styles/tokens.css is loaded; public/theme.js sets data-theme first.
+ * Boot screen and brand loader: a short title sequence, like a stage going live.
+ * Linked from index.html so it paints before the app bundle loads (the CSP allows only
+ * same-origin stylesheets; no inline styles). The React loader (src/components/BrandLoader.tsx)
+ * renders the same markup and classes, so the hand-off from static markup to the app is seamless.
  *
- * The mark: "TED" rises letter by letter, the red x draws itself in two strokes, then a
- * thin red line keeps sweeping underneath until the app is ready. Transform, opacity and
- * SVG stroke only. Every delay is offset by --boot-t (0 for the static screen; the React
- * loader passes minus the time since page start), so when React takes over mid-animation
- * the intro does not replay: it picks up exactly where the static screen was.
+ * Sequence (after the 250ms show delay, so fast loads never flash):
+ *   0ms     letterbox bars part from the middle, like a shutter opening
+ *   150ms   a stage light strikes from above (one soft flicker) and pools on the centre
+ *   300ms   "TED" pulls into focus: blur to sharp, settling from a slight scale
+ *   700ms   the red x draws in two strokes, then blooms with a soft red glow
+ *   900ms   "AteneodeManilaU" tracks in from wide spacing, blur to sharp
+ *   1450ms  a single light glint passes across the lockup
+ *   1700ms  hold: the light breathes, the camera pushes in slowly, the glint returns every 4.8s
+ *
+ * Only transform, opacity, filter (on small text groups) and SVG stroke animate. Every delay
+ * is offset by --boot-t: 0 for the static screen; the React loader passes minus the time since
+ * page start when it takes over from the static screen, so the intro continues instead of replaying.
+ * The stage is always black (cinematic), in both themes.
  */
 html { background: #111111; }
 html[data-theme='light'] { background: #ffffff; }
 
 .boot-screen {
+  --boot-base: 250ms;
+  --boot-red: #eb0028;
+  --boot-light: 255 244 232;
+  --boot-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --boot-focus: cubic-bezier(0.22, 1, 0.36, 1);
+  --boot-shutter: cubic-bezier(0.76, 0, 0.24, 1);
+  --boot-draw: cubic-bezier(0.65, 0, 0.35, 1);
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
   display: grid;
   place-items: center;
   margin: 0;
-  padding: 24px;
-  background: var(--color-background, #111111);
+  padding: 24px 16px;
+  overflow: hidden;
+  background: #000000;
+  color: #f4f4f2;
 }
-html[data-theme='light'] .boot-screen { background: var(--color-background, #ffffff); }
 
+/* Stage: beam, light pool, vignette and letterbox bars. Decorative, never interactive. */
+.boot-stage { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: #070707; }
+.boot-stage > span { position: absolute; display: block; }
+
+.boot-stage__beam {
+  left: 50%;
+  top: 0;
+  width: min(140vw, 1100px);
+  height: 62%;
+  margin-left: calc(min(140vw, 1100px) / -2);
+  /* A soft cone from a light above the frame, fading out as it reaches the lockup. */
+  background: conic-gradient(from 156deg at 50% -8%, transparent 0deg, rgb(var(--boot-light) / 0.15) 24deg, transparent 48deg);
+  -webkit-mask-image: linear-gradient(to bottom, #000 10%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 10%, transparent 100%);
+  transform-origin: 50% 0;
+}
+.boot-stage__pool {
+  left: 50%;
+  top: 50%;
+  width: min(130vw, 980px);
+  height: min(56vh, 420px);
+  margin: calc(min(56vh, 420px) / -2) 0 0 calc(min(130vw, 980px) / -2);
+  background: radial-gradient(closest-side, rgb(var(--boot-light) / 0.075), rgb(var(--boot-light) / 0.025) 55%, transparent);
+}
+.boot-stage__vignette { inset: 0; background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.75) 100%); }
+.boot-stage__bar { left: 0; right: 0; height: 50%; background: #000000; z-index: 1; }
+.boot-stage__bar--top { top: 0; transform: translateY(-82%); }
+.boot-stage__bar--bottom { bottom: 0; transform: translateY(82%); }
+
+/* The lockup: "TED" and the x in TED red, the event name in white, Helvetica as in the official mark. */
 .boot-loader {
-  --boot-base: 250ms;
-  --boot-ease: cubic-bezier(0.23, 1, 0.32, 1);
-  display: inline-grid;
-  justify-items: start;
-  gap: 12px;
-  color: var(--color-ink, #f4f4f2);
+  display: grid;
+  place-items: center;
+  max-width: 100%;
 }
-
 .boot-loader__mark {
+  position: relative;
   display: inline-flex;
-  align-items: flex-start;
-  color: #eb0028;
-  font-family: 'Inter Variable', Inter, Helvetica, Arial, sans-serif;
-  font-weight: 800;
-  font-size: 2.5rem;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  align-items: baseline;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: clamp(1.5rem, 7.2vw, 3.5rem);
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
-.boot-loader__ted { display: inline-flex; }
-.boot-loader__l { display: inline-block; overflow: hidden; padding-bottom: 0.04em; margin-bottom: -0.04em; }
-.boot-loader__l > span { display: inline-block; }
-.boot-loader__x { display: block; width: 0.5em; height: 0.5em; margin: -0.02em 0 0 0.04em; overflow: visible; }
-.boot-loader__x path { fill: none; stroke: #eb0028; stroke-width: 2.4; stroke-linecap: square; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.boot-loader__ted { display: inline-flex; color: var(--boot-red); font-weight: 700; letter-spacing: -0.01em; }
+.boot-loader__x { position: relative; display: inline-block; width: 0.52em; height: 0.52em; margin: 0 0.05em 0 0.03em; }
+.boot-loader__x svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.boot-loader__x path { fill: none; stroke: var(--boot-red); stroke-width: 2.5; stroke-linecap: butt; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.boot-loader__glow { overflow: visible; filter: blur(5px); opacity: 0.5; }
+.boot-loader__glow path { stroke-width: 3.4; stroke-dasharray: none; }
+.boot-loader__name { display: inline-flex; font-weight: 400; color: #f4f4f2; }
+.boot-loader__name > span, .boot-loader__ted > span { display: inline-block; }
+.boot-loader__name > span:nth-child(2) { --o: 1; }
+.boot-loader__name > span:nth-child(3) { --o: 2; }
+.boot-loader__name > span:nth-child(4) { --o: 3; }
+.boot-loader__name > span:nth-child(5) { --o: 4; }
+.boot-loader__name > span:nth-child(6) { --o: 5; }
+.boot-loader__name > span:nth-child(7) { --o: 6; }
+.boot-loader__name > span:nth-child(8) { --o: 7; }
+.boot-loader__name > span:nth-child(9) { --o: 8; }
+.boot-loader__name > span:nth-child(10) { --o: 9; }
+.boot-loader__name > span:nth-child(11) { --o: 10; }
+.boot-loader__name > span:nth-child(12) { --o: 11; }
+.boot-loader__name > span:nth-child(13) { --o: 12; }
+.boot-loader__name > span:nth-child(14) { --o: 13; }
+.boot-loader__name > span:nth-child(15) { --o: 14; }
 
-.boot-loader__line {
-  display: block;
-  width: 100%;
-  min-width: 72px;
-  height: 2px;
-  background: #eb0028;
-  transform-origin: left;
-  clip-path: inset(0 100% 0 0);
+/* A soft band of light that passes over the lockup; clipped to the lockup's box. */
+.boot-loader__glint { position: absolute; inset: -0.3em -0.4em; overflow: hidden; pointer-events: none; }
+.boot-loader__glint::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(var(--boot-light) / 0.11) 50%, transparent 70%);
+  transform: translateX(-110%);
 }
+
+/* Show delay: nothing appears for the first 250ms, so fast loads never flash. */
+.boot-stage, .boot-loader { animation: boot-show 240ms ease-out calc(var(--boot-t, 0ms) + 250ms) both; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .boot-loader__l > span { animation: boot-rise 560ms var(--boot-ease) calc(var(--boot-t, 0ms) + var(--boot-base)) both; }
-  .boot-loader__l:nth-child(2) > span { animation-delay: calc(var(--boot-t, 0ms) + var(--boot-base) + 70ms); }
-  .boot-loader__l:nth-child(3) > span { animation-delay: calc(var(--boot-t, 0ms) + var(--boot-base) + 140ms); }
-  .boot-loader__x path { animation: boot-draw 240ms cubic-bezier(0.77, 0, 0.175, 1) calc(var(--boot-t, 0ms) + var(--boot-base) + 380ms) both; }
-  .boot-loader__x path + path { animation-delay: calc(var(--boot-t, 0ms) + var(--boot-base) + 500ms); }
-  /* After the intro, the line draws in from the left and leaves to the right, on a loop. */
-  .boot-loader__line { animation: boot-line-draw 1.1s cubic-bezier(0.77, 0, 0.175, 1) calc(var(--boot-t, 0ms) + var(--boot-base) + 720ms) infinite; }
+  .boot-stage__bar--top { animation: boot-bar-top 1000ms var(--boot-shutter) calc(var(--boot-t, 0ms) + var(--boot-base)) both; }
+  .boot-stage__bar--bottom { animation: boot-bar-bottom 1000ms var(--boot-shutter) calc(var(--boot-t, 0ms) + var(--boot-base)) both; }
+  .boot-stage__beam {
+    animation:
+      boot-beam-strike 1100ms var(--boot-out) calc(var(--boot-t, 0ms) + var(--boot-base) + 150ms) both,
+      boot-breathe 5200ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1700ms) infinite;
+  }
+  .boot-stage__pool { animation: boot-pool 1200ms var(--boot-out) calc(var(--boot-t, 0ms) + var(--boot-base) + 300ms) both; }
+  .boot-loader__ted { animation: boot-focus 820ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 300ms) both; }
+  .boot-loader__x path { animation: boot-draw 280ms var(--boot-draw) calc(var(--boot-t, 0ms) + var(--boot-base) + 700ms) both; }
+  .boot-loader__x path + path { animation-delay: calc(var(--boot-t, 0ms) + var(--boot-base) + 860ms); }
+  .boot-loader__glow {
+    animation:
+      boot-bloom 900ms ease-out calc(var(--boot-t, 0ms) + var(--boot-base) + 960ms) both,
+      boot-glow 5200ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1860ms) infinite;
+  }
+  .boot-loader__glow path { animation: none; }
+  .boot-loader__name { animation: boot-name 820ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 900ms) both; }
+  .boot-loader__name > span { animation: boot-track 900ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 900ms) both; }
+  /* A slow camera push on the lockup while loading continues. */
+  .boot-loader__mark { animation: boot-push 9000ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1700ms) infinite alternate; }
+  .boot-loader__glint::before { animation: boot-glint 4800ms var(--boot-shutter) calc(var(--boot-t, 0ms) + var(--boot-base) + 1450ms) infinite; }
 }
 
-@keyframes boot-rise { from { transform: translateY(105%); } to { transform: none; } }
+@keyframes boot-show { from { opacity: 0; } }
+@keyframes boot-bar-top { from { transform: none; } }
+@keyframes boot-bar-bottom { from { transform: none; } }
+/* The light strikes: a quick rise, one soft dip, then it settles fully on. */
+@keyframes boot-beam-strike {
+  0% { opacity: 0; transform: scaleX(0.55); }
+  16% { opacity: 0.7; }
+  24% { opacity: 0.35; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes boot-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+@keyframes boot-pool { from { opacity: 0; transform: scale(0.8); } }
+@keyframes boot-focus { from { opacity: 0; filter: blur(12px); transform: translateY(0.06em) scale(1.08); } }
 @keyframes boot-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes boot-line-draw {
-  0% { clip-path: inset(0 100% 0 0); }
-  50% { clip-path: inset(0 0 0 0); }
-  100% { clip-path: inset(0 0 0 100%); }
-}
+@keyframes boot-bloom { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0.5; } }
+@keyframes boot-glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+@keyframes boot-name { from { opacity: 0; filter: blur(8px); } }
+@keyframes boot-track { from { transform: translateX(calc(var(--o, 0) * 0.085em)); } }
+@keyframes boot-push { to { transform: scale(1.03); } }
+@keyframes boot-glint { 0% { transform: translateX(-110%); } 20%, 100% { transform: translateX(110%); } }
 
-/* Only show the boot loader if loading is not instant, so fast loads never flicker. */
-.boot-screen--static .boot-loader { opacity: 0; animation: boot-fade-in 200ms ease-out 250ms forwards; }
-@keyframes boot-fade-in { to { opacity: 1; } }
-
-/* Reduced motion: the mark stands still; the line breathes in place so it still reads as working. */
+/* Reduced motion: a still, composed final frame; only the light and the x glow pulse gently. */
 @media (prefers-reduced-motion: reduce) {
-  .boot-loader__line { clip-path: none; animation: boot-breathe 1.6s ease-in-out infinite; }
-  .boot-screen--static .boot-loader { animation: none; opacity: 1; }
+  .boot-stage__beam { animation: boot-breathe 2400ms ease-in-out infinite; }
+  .boot-loader__glow { animation: boot-glow 2400ms ease-in-out infinite; }
 }
-@keyframes boot-breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }

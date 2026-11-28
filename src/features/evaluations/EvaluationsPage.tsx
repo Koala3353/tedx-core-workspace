@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
+import {Reveal} from '../../components/Reveal'
 import {Link,useParams,useRouteLoaderData} from 'react-router'
 import {PageHeading,Panel} from '../../components/Page'
 import {EmptyState,ErrorState,LoadingState} from '../../components/FeedbackState'
@@ -98,7 +99,7 @@ function EvaluationBody({api,term,caseId,view}:{api:EvaluationsApi;term:string;c
               <p>Kept for {r.retention.days} days after the change deadline, unless it has to be held longer. Owner: {r.retention.owner}. Basis: {r.retention.basis}.</p>
               <p>{w.anonymity}</p></details>
           </Panel>
-          {edit?<EvaluationEditor key={edit.kind+draftId} edit={edit} {...actions} close={()=>setMode(null)}/>:null}
+          {edit?<Reveal key={edit.kind+draftId}><EvaluationEditor edit={edit} {...actions} close={()=>setMode(null)}/></Reveal>:null}
           {!r.reviewer?<Panel title={own?'Your submitted feedback':'Write your feedback'}>
             {own?<p>Revision {own.revision} · {own.state==='submitted'?'Submitted':'Withdrawn'}</p>:<p>You haven't submitted feedback yet.</p>}
             {!edit?<div className="auth-actions"><button className="button" onClick={()=>setMode('submit')}>{own?'Update my feedback':'Write feedback'}</button>

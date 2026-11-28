@@ -1,4 +1,5 @@
 import {useId,useRef,type FormEvent} from 'react'
+import {SearchSelect} from '../../../components/list'
 import {Panel} from '../../../components/Page'
 import {useFinDecision} from '../../finance/DecisionMemory'
 import {formatDay} from '../../shared/dates'
@@ -44,7 +45,7 @@ export function TurnoverEditor({api,term,workspace:w,setup,custody,edit,checking
       void send({kind:'custodyAction',term,id:edit.id,version,action:edit.action,values,reference})
     }
   }
-  const choice=(key:string,label:string,options:{id:string;name:string}[])=> <div className="form-field"><label htmlFor={input+key}>{label}</label><select id={input+key} required value={f[key]} onChange={e=>change(key,e.target.value)}><option value="">Choose {label.toLowerCase()}</option>{options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
+  const choice=(key:string,label:string,options:{id:string;name:string}[])=> <div className="form-field"><label htmlFor={input+key}>{label}</label>{options.length>12?<SearchSelect id={input+key} required value={f[key]} onChange={value=>change(key,value)} placeholder={'Type to find '+label.toLowerCase()} options={options.map(o=>({value:o.id,label:o.name}))}/>:<select id={input+key} required value={f[key]} onChange={e=>change(key,e.target.value)}><option value="">Choose {label.toLowerCase()}</option>{options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select>}</div>
   const checks=(prefix:string,items:{id:string;name:string}[])=>items.map(r=><label className="turnover-check" key={r.id}><input type="checkbox" checked={f[prefix+r.id]==='1'} onChange={e=>change(prefix+r.id,e.target.checked?'1':'')}/><span>{r.name}</span></label>)
   const requiresNote=!['prepare','freeze','archive','verify'].includes(edit.kind)
   return <Panel title={labels[edit.kind]}>

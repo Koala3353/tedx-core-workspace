@@ -1,0 +1,112 @@
+/*
+ * Motion and interaction polish, layered over global.css.
+ * Rules: transform/opacity only; press 140ms, hover 150ms, enters 180-220ms, exits faster;
+ * hover effects only on fine pointers; nothing moves under prefers-reduced-motion
+ * (global.css also zeroes every transition there). Red stays rare: no red here.
+ */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --motion-press: 140ms;
+  --motion-hover: 150ms;
+  --motion-enter: 200ms;
+}
+
+/* ── Press feedback ─────────────────────────────────────────
+ * Every pressable thing scales a touch on press so the UI visibly hears the click. */
+.button, .icon-button, .view-tabs__tab, .status-card, .menu__item, .toast__close, .update-toast button {
+  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+  transition-duration: var(--motion-hover), var(--motion-hover), var(--motion-hover), var(--motion-hover), var(--motion-press), var(--motion-hover);
+  transition-timing-function: ease, ease, ease, ease, var(--ease-out), ease;
+}
+.button:active:not(:disabled), .view-tabs__tab:active, .menu__item:active, .toast__close:active, .update-toast button:active { transform: scale(0.97); }
+.status-card:active { transform: scale(0.985); }
+
+/* Hover: a subtle lift for cards, a background shift for quiet buttons. Fine pointers only. */
+@media (hover: hover) and (pointer: fine) {
+  .status-card:hover { transform: translateY(-1px); border-color: var(--color-line-strong); }
+  .button--quiet:hover:not(:disabled) { background: var(--color-surface-subtle); }
+  .view-tabs__tab:hover:not([aria-selected="true"]) { color: var(--color-ink); }
+}
+
+/* Disabled buttons: not-allowed instead of global.css's wait cursor; only pending ones "wait". */
+button:disabled { cursor: not-allowed; }
+button[aria-busy="true"], button[data-pending] { cursor: progress; opacity: .8; }
+
+/* ── Pending state ──────────────────────────────────────────
+ * A small ring that inherits the button's text colour. Spins fast: faster spinners feel faster. */
+.pending-spinner {
+  display: inline-block; flex-shrink: 0; width: 1em; height: 1em; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; opacity: .9;
+  animation: pending-spin 600ms linear infinite;
+}
+.pending-label { display: inline-flex; align-items: center; gap: 8px; }
+@keyframes pending-spin { to { transform: rotate(360deg); } }
+
+/* ── Focus ─────────────────────────────────────────────────── */
+:where(.button, .icon-button, .view-tabs__tab, .status-card):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+/* Headings focused by code after a panel opens: no ring for mouse users, ring for keyboard. */
+:where(h2, h3, legend)[tabindex="-1"]:focus:not(:focus-visible) { outline: none; }
+
+/* ── Links ─────────────────────────────────────────────────── */
+.workspace-main a:not(.button):not(.status-card):not(.nav-link) { transition: color var(--motion-hover) ease, text-decoration-color var(--motion-hover) ease, text-underline-offset var(--motion-hover) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .workspace-main a:not(.button):not(.status-card):not(.nav-link):hover { text-underline-offset: 4px; }
+}
+
+/* ── Tabs: the underline grows in from the centre ─────────── */
+.view-tabs__tab { position: relative; border-bottom-color: transparent !important; }
+.view-tabs__tab::after {
+  content: ''; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; border-radius: 1px;
+  background: var(--color-accent); transform: scaleX(0); opacity: 0;
+  transition: transform 200ms var(--ease-out), opacity 120ms ease;
+}
+.view-tabs__tab[aria-selected="true"]::after { transform: scaleX(1); opacity: 1; }
+
+/* ── Panels, editors, dialogs: enter with fade + small rise ── */
+@keyframes motion-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes motion-pop { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes motion-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes motion-sheet { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.reveal-enter { animation: motion-rise var(--motion-enter) var(--ease-out) both; }
+.ts-overlay { animation: motion-fade 180ms ease-out both; }
+.ts-dialog { animation: motion-pop 200ms var(--ease-out) both; }
+.ts-dialog--sheet { animation: motion-sheet 220ms var(--ease-out) both; }
+/* Inline status lines and alerts that appear after an action. */
+.workspace-main [role="alert"], .inline-status { animation: motion-rise 180ms var(--ease-out) both; }
+.inline-status { display: flex; align-items: center; gap: 8px; color: var(--color-ok); font-weight: 600; }
+
+/* details/summary: content fades in when opened. */
+details[open] > :not(summary) { animation: motion-fade 180ms ease-out both; }
+summary { transition: color var(--motion-hover) ease; }
+
+/* ── Lists: new items rise in; the first few stagger slightly ── */
+.list-enter > li { animation: motion-rise 200ms var(--ease-out) both; }
+.list-enter > li:nth-child(2) { animation-delay: 30ms; }
+.list-enter > li:nth-child(3) { animation-delay: 60ms; }
+.list-enter > li:nth-child(4) { animation-delay: 90ms; }
+.list-enter > li:nth-child(5) { animation-delay: 120ms; }
+.list-enter > li:nth-child(n+6) { animation-delay: 150ms; }
+
+/* Row being edited: a quiet marker so the inline editor reads as belonging to it. */
+.is-editing { position: relative; }
+.is-editing::before { content: ''; position: absolute; left: -12px; top: 16px; bottom: 16px; width: 2px; border-radius: 1px; background: var(--color-line-strong); }
+
+/* Background refresh: keep content, dim nothing, just a thin hint in the corner. */
+.refreshing-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--color-muted); font-size: .875rem; }
+.refreshing-hint .pending-spinner { width: 12px; height: 12px; border-width: 1.5px; }
+
+/* ── Skeletons: a soft sweep rather than a blink ──────────── */
+.skeleton-bar {
+  background: linear-gradient(90deg, var(--color-surface-subtle) 0%, var(--color-line) 50%, var(--color-surface-subtle) 100%);
+  background-size: 200% 100%;
+  animation: motion-sweep 1.4s linear infinite;
+}
+@keyframes motion-sweep { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-enter, .ts-dialog, .ts-dialog--sheet, .list-enter > li, .workspace-main [role="alert"], .inline-status, details[open] > :not(summary) { animation: none !important; }
+  .button:active:not(:disabled), .view-tabs__tab:active, .status-card:active, .status-card:hover { transform: none; }
+  .pending-spinner { animation: pending-spin 1.2s linear infinite !important; }
+  .skeleton-bar { animation: none !important; }
+}

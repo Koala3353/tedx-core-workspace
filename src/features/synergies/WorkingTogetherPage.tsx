@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react'
+import {refreshKey,settled} from '../shared/settled'
 import {Link,useRouteLoaderData,useSearchParams} from 'react-router'
 import {PageHeading,Panel} from '../../components/Page'
 import {EmptyState,ErrorState,LoadingState} from '../../components/FeedbackState'
@@ -9,10 +10,10 @@ import type {SynergiesApi,SynergyList} from './api'
 
 export function CommitteeWork({api,termId,view,parentId}:{api:SynergiesApi;termId:string;view:string;parentId?:string}){
  const [params,setParams]=useSearchParams(),[reload,setReload]=useState(0)
- const n=Number(params.get('page')??1),page=Number.isInteger(n)&&n>=1&&n<=10000?n:1,key=termId+view+parentId+page+reload
+ const n=Number(params.get('page')??1),page=Number.isInteger(n)&&n>=1&&n<=10000?n:1,key=refreshKey(termId+view+parentId+':'+page,reload)
  const [state,setState]=useState<{key:string;result:SynergyList|null;error:boolean}|null>(null)
  useEffect(()=>{let live=true;void api.list(termId,view,parentId,page).then(result=>{if(live)setState({key,result,error:false})}).catch(()=>{if(live)setState({key,result:null,error:true})});return()=>{live=false}},[api,termId,view,parentId,page,key])
- const current=state?.key===key?state:null
+ const current=settled(state,key)
  useAutoRefresh(()=>setReload(n=>n+1))
  return <>{!current?<LoadingState title="Loading"/>:current.error?<ErrorState title="Couldn't load agreements" description="Check your connection, then refresh the page."/>:!current.result?<EmptyState title="Nothing to show" description="You can't see agreements here. Ask your committee head if that seems wrong."/>:<>
  {!current.result.agreements.length&&!current.result.contributions.length?<EmptyState title="No agreements yet" description="Ask another committee for help from any deliverable. Agreements show up here."/>:null}

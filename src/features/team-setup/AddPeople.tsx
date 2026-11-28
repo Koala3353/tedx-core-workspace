@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { FileUp } from 'lucide-react'
 import { Status } from '../../components/Status'
+import { celebrate, submitterOf } from '../../components/celebrate'
 import type { AddResult, Committee, NewPerson, OpenPosition, TeamPerson, TeamSetupApi, Wave } from './api'
 import { Dialog } from './Dialog'
 import { chunk, positionGroups, positionLabel, positionsFor, previewRows, schoolEmail, skipReason, waveOptions } from './model'
@@ -63,6 +64,7 @@ export function AddPersonDialog({ api, termId, committees, openPositions, roster
     event.preventDefault()
     setEmailTouched(true)
     if (emailError || nameError || busy) return
+    const button = submitterOf(event)
     const person: NewPerson = { name: name.trim(), email: normalized, committeeCode: committee || null, roleCode: position || null, wave: wave || null }
     const key = JSON.stringify(person)
     // Same details keep the same request id, so a retry after a dropped connection cannot add twice.
@@ -71,6 +73,7 @@ export function AddPersonDialog({ api, termId, committees, openPositions, roster
     const outcome = await api.add(termId, [person], request.current.id)
     setBusy(false)
     if (!outcome.ok) { setError(failureText[outcome.reason]); return }
+    if (outcome.value.added.length) void celebrate(button, 'create')
     setResult(outcome.value)
     if (outcome.value.added.length) onAdded()
   }
@@ -150,7 +153,7 @@ export function PasteListDialog({ api, termId, committees, openPositions, roster
     try { setText(await file.text()); setError('') } catch { setError("Couldn't read that file. Try copying the rows and pasting them instead.") }
   }
 
-  async function importRows() {
+  async function importRows(from?: HTMLElement) {
     if (!ready.length || busy) return
     const people = ready.map(r => r.person!)
     const batches = chunk(people, 50)
@@ -172,6 +175,7 @@ export function PasteListDialog({ api, termId, committees, openPositions, roster
     }
     setBusy(false); setProgress('')
     const merged = { added: current.done.flatMap(r => r.added), skipped: current.done.flatMap(r => r.skipped) }
+    if (merged.added.length) void celebrate(from, 'create')
     setResult(merged)
     if (merged.added.length) onAdded()
   }
@@ -187,7 +191,7 @@ export function PasteListDialog({ api, termId, committees, openPositions, roster
     description="Copy rows from Google Sheets and paste them here: name, email, committee, position, wave. A header row is optional."
     footer={<>
       <button type="button" className="button button--secondary" onClick={onClose}>Cancel</button>
-      <button type="button" className="button" disabled={!ready.length || busy} onClick={importRows}>{busy ? progress || 'Adding…' : ready.length ? `Import ${ready.length} ${ready.length === 1 ? 'person' : 'people'}` : 'Import'}</button>
+      <button type="button" className="button" disabled={!ready.length || busy} onClick={event => void importRows(event.currentTarget)}>{busy ? progress || 'Adding…' : ready.length ? `Import ${ready.length} ${ready.length === 1 ? 'person' : 'people'}` : 'Import'}</button>
     </>}>
     <div className="ts-form">
       <div className="form-field">

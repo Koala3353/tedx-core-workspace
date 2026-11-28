@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react'
+import {refreshKey,settled} from '../shared/settled'
 import {Link,useParams,useRouteLoaderData,useSearchParams} from 'react-router'
 import {PageHeading,Panel} from '../../components/Page'
 import {EmptyState,LoadingState,ErrorState} from '../../components/FeedbackState'
@@ -17,11 +18,11 @@ import {useAutoRefresh} from '../shared/useAutoRefresh'
 import {RefreshButton} from '../shared/RefreshButton'
 import './finance.css'
 export function FinanceCasePage({api,requests,files}:{api:FinanceApi;requests:RequestsApi;files?:FilesApi}){
- const context=useRouteLoaderData('workspace')as WorkspaceContext,{financeTermId='',financeId=''}=useParams(),[params,setParams]=useSearchParams(),rev=params.get('revision'),revision=rev&&/^[1-9][0-9]{0,2}$/.test(rev)?Number(rev):undefined,[reload,setReload]=useState(0),key=financeTermId+financeId+revision+reload+('memberId'in context?context.memberId:context.guestAccessId);
+ const context=useRouteLoaderData('workspace')as WorkspaceContext,{financeTermId='',financeId=''}=useParams(),[params,setParams]=useSearchParams(),rev=params.get('revision'),revision=rev&&/^[1-9][0-9]{0,2}$/.test(rev)?Number(rev):undefined,[reload,setReload]=useState(0),key=refreshKey(financeTermId+financeId+revision+':'+('memberId'in context?context.memberId:context.guestAccessId),reload);
  const[state,setState]=useState<{key:string;data:FinanceIntake|null;error:boolean}|null>(null);
  useEffect(()=>{let live=true;void api.read(financeTermId,financeId,revision).then(data=>{if(live)setState({key,data,error:false})}).catch(()=>{if(live)setState({key,data:null,error:true})});return()=>{live=false}},[api,financeTermId,financeId,revision,key]);
  useAutoRefresh(()=>setReload(n=>n+1));
- const current=state?.key===key?state:null;
+ const current=settled(state,key);
  return <><PageHeading title="Finance plan" description="Your plan, its evidence and where it is in FIN review."/><p><Link to="/finance">My finance plans</Link> · <Link to="/requests">Ask a committee</Link> <RefreshButton onRefresh={()=>setReload(n=>n+1)}/></p>
  {!current?<LoadingState/>:current.error?<ErrorState title="Couldn't load this finance plan" description="Check your connection, then refresh the page. What you typed is kept."/>:!current.data?<EmptyState title="You can't open this finance plan" description="It isn't shared with your account. Ask the person who sent you the link."/>:<FinanceBody key={financeTermId+financeId+revision+current.data.request.version} data={current.data} api={api} requests={requests} files={files} member={'memberId'in context?context.memberId:''} historical={revision!==undefined} refresh={()=>setReload(n=>n+1)} select={n=>setParams(n?{revision:String(n)}:{})}/>}
  </>

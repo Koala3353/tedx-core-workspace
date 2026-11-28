@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLoaderData, useNavigate, useRouteLoaderData } from 'react-router'
 import { PageHeading, Panel } from '../../components/Page'
 import { TextField } from '../../components/TextField'
+import { EmptyResults, ListToolbar, useListFilter } from '../../components/list'
 import { isGuest,type AuthGateway,type AuthResult,type WorkspaceContext } from '../auth/gateway'
 import { formatDateTime } from '../shared/dates'
 import { invitationUrl, readInvitationFragment, type GuestGateway, type GuestInvitation, type GuestWork } from './gateway'
@@ -60,6 +61,8 @@ export function SponsorPage({api}:{api:GuestGateway}) {
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [link,setLink]=useState('')
+  const invitationState=(item:GuestInvitation)=>item.revokedAt?'Revoked':Date.parse(item.expiresAt)<=Date.now()?'Expired':item.redeemedAt?'Accepted':'Not accepted yet'
+  const invitations=useListFilter(items,{storageKey:'guest-invitations',text:item=>[item.email],filters:[{key:'state',label:'Status',get:invitationState,options:['Accepted','Not accepted yet','Expired','Revoked'].map(value=>({value,label:value}))}]})
   const request=useRef<{key:string;id:string;expiry:string}|null>(null)
   useEffect(()=>{
     let active=true
@@ -101,11 +104,11 @@ export function SponsorPage({api}:{api:GuestGateway}) {
     {link?<Panel title="Copy this invitation now"><div className="guest-link-copy"><p>This link disappears when you leave the page.</p><button className="button" onClick={()=>void navigator.clipboard.writeText(link).then(()=>setNotice('Invitation link copied.')).catch(()=>setError('Couldn\'t copy automatically. Select the link below and copy it.'))}>Copy invitation link</button><TextField id="invite-link" label="Invitation link" value={link} readOnly onFocus={event=>event.target.select()} /><button className="button button--secondary" onClick={()=>setLink('')}>Hide invitation link</button></div></Panel>:null}
     <Panel title="Your invitations">
       <p>See who has accepted and when their access ends.</p>
-      {loading?<p role="status">Loading invitations…</p>:items.length===0?<p>No invitations yet.</p>:<ul className="guest-list">{items.map(item=><li key={item.id}>
-        <h3>{item.email}</h3><p>{item.revokedAt?'Revoked':Date.parse(item.expiresAt)<=Date.now()?'Expired':item.redeemedAt?'Accepted':'Not accepted yet'} · Ends {formatDateTime(item.expiresAt)}</p>
+      {loading?<p role="status">Loading invitations…</p>:items.length===0?<p>No invitations yet.</p>:<>{items.length>6?<ListToolbar filter={invitations} label="Search invitations" placeholder="Search by email" noun={['invitation','invitations']}/>:null}{!invitations.results.length?<EmptyResults query={invitations.query} noun="invitations" onClear={invitations.clear}/>:<ul className="guest-list">{invitations.results.map(item=><li key={item.id}>
+        <h3>{item.email}</h3><p>{invitationState(item)} · Ends {formatDateTime(item.expiresAt)}</p>
         <p className="muted">{item.scopeMode === 'explicit_records' ? (item.sharedRecordCount === undefined ? 'Some work shared' : `${item.sharedRecordCount} ${item.sharedRecordCount === 1 ? 'item' : 'items'} shared`) : 'Nothing shared yet'}</p>
-        {!item.revokedAt?<div className="auth-actions"><button className="button button--secondary" disabled={busy} onClick={()=>void create(undefined,item)}>Renew invitation for {item.email}</button><button className="button button--secondary" disabled={busy} onClick={()=>void mutate(async()=>{await api.revoke(item,crypto.randomUUID());setNotice('Access revoked. The guest is signed out of this invitation.')} )}>Revoke access for {item.email}</button></div>:null}
-      </li>)}</ul>}
+        {!item.revokedAt?<div className="auth-actions"><button className="button button--secondary" disabled={busy} onClick={()=>void create(undefined,item)}>Renew invitation for {item.email}</button><button className="button button--secondary" disabled={busy} onClick={()=>{if(window.confirm('Revoke this guest\'s access? They are signed out of this invitation right away.'))void mutate(async()=>{await api.revoke(item,crypto.randomUUID());setNotice('Access revoked. The guest is signed out of this invitation.')} )}}>Revoke access for {item.email}</button></div>:null}
+      </li>)}</ul>}</>}
     </Panel>
   </>
 }
