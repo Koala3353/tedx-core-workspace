@@ -16,6 +16,8 @@ import { MyCommitteeLinks } from '../../features/committee-links'
 import { filledSlots, type HubSlotName } from './slots'
 import '../../features/today/today.css'
 import './hubs.css'
+import { EmptyState } from '../../components/FeedbackState'
+import { AllDone } from '../../components/illustrations'
 
 type HubLink = { id: string; to: string; label: string; description: string; icon?: string; tour?: string; capability?: string }
 
@@ -136,7 +138,8 @@ function MyWork({ termId }: { termId: string }) {
   return <div className="hub-work">
     <TodaySection title="On you" items={mine} />
     <TodaySection title="Waiting on others" items={waiting} collapsible />
-    {!mine.length && !waiting.length ? <p className="hub-note">Nothing assigned to you right now.</p> : null}
+    {!mine.length && !waiting.length ? <EmptyState level={3} illustration={<AllDone size={96} />} title="Nothing on you right now"
+      description="Tasks and deliverables assigned to you show up here. Need help from another committee? Ask a committee." /> : null}
   </div>
 }
 
@@ -182,7 +185,9 @@ function ComingUp({ termId }: { termId: string }) {
     .filter(item => Number.isFinite(item.sortAt) && item.sortAt >= now - 86_400_000)
     .sort((a, b) => a.sortAt - b.sortAt)
     .slice(0, 4)
-  return upcoming.length ? <TodaySection title="Coming up" items={upcoming} /> : null
+  return upcoming.length ? <TodaySection title="Coming up" items={upcoming} />
+    : <section className="today-section" aria-label="Coming up"><h2 className="today-section__title">Coming up</h2>
+      <p className="hub-note">Nothing on the calendar for the next three weeks. <Link to="/calendar">Open the calendar</Link></p></section>
 }
 
 /** Team: people, committees and where to start. Route "/team". */

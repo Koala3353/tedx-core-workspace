@@ -8,6 +8,7 @@ import type { WorkspaceContext } from '../../auth/gateway'
 import { downloadCsv } from '../../exports/downloadCsv'
 import { DataError, datasets, type AdminDataApi, type Cell, type Column, type Dataset, type DatasetId } from './api'
 import './data.css'
+import { NoAccess, EmptyBoard, EmptySearch } from '../../../components/illustrations'
 
 type Sort = { key: string; desc: boolean } | null
 type Load = { key: string; data: Dataset | null; error: DataError | null }
@@ -118,7 +119,7 @@ export function DataPage({ api }: { api: AdminDataApi }) {
     </div>
 
     {current?.error ? current.error.code === 'denied'
-      ? <EmptyState title="Only full admins can open Data" description="You need both Admin and Roles & access. Ask a project manager." />
+      ? <EmptyState illustration={<NoAccess />} title="Only full admins can open Data" description="You need both Admin and Roles & access. Ask a project manager." />
       : <ErrorState title="Couldn't load this sheet" description="Check your connection and try again." action={<button type="button" className="button button--secondary" onClick={() => setReload(n => n + 1)}>Try again</button>} />
       : <div ref={gridRef} className="data-grid" tabIndex={0} role="region" aria-label={`${datasets.find(d => d.id === sheet)?.label} sheet`} aria-busy={busy} onKeyDown={move}>
         {data ? <table>
@@ -139,7 +140,9 @@ export function DataPage({ api }: { api: AdminDataApi }) {
             })}
           </tr>)}</tbody>
         </table> : <div className="data-grid__loading" role="status">Loading sheet</div>}
-        {data && !rows.length ? <p className="data-grid__empty">{query ? 'No rows match your search.' : 'Nothing here yet.'}</p> : null}
+        {data && !rows.length ? <div className="data-grid__empty"><EmptyState level={3} illustration={query ? <EmptySearch size={96} /> : <EmptyBoard size={96} />}
+          title={query ? 'No rows match your search' : `No ${(datasets.find(d => d.id === sheet)?.label ?? 'rows').toLowerCase()} yet`}
+          description={query ? 'Try another word, or clear the search.' : 'Rows appear here as soon as the workspace has some. Pick another sheet above.'} /></div> : null}
       </div>}
 
     <div className="data-foot">

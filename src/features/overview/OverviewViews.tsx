@@ -9,12 +9,13 @@ const dateLabel=(at:string|null|undefined,on:string|null|undefined)=>at?formatDa
 import {widgetCatalog} from '../../app/widgetCatalog'
 import type {OverviewRow} from './api'
 import type {Layout} from './layout'
+import { AllDone } from '../../components/illustrations'
 
 export function OverviewLane({items,lane,illustrative=false}:{items:OverviewRow[];lane:'actionable'|'waiting';illustrative?:boolean}){
  const rows=items.filter(i=>i.lane===lane)
  return <Panel title={lane==='actionable'?`Who is waiting on you · ${rows.length}`:`Waiting on someone else · ${rows.length}`}>
  <p>{lane==='actionable'?'Tasks, reviews and requests that need you next.':'Work you\'ve handed off or submitted, waiting on someone else.'}</p>
- {rows.length===0?<EmptyState title={lane==='actionable'?'You\'re all caught up.':'Nothing waiting on others.'} description={lane==='actionable'?'New tasks assigned to you will appear here.':'Work you hand off or submit will show here until someone acts on it.'}/>:<ul className="guest-list">{rows.map(i=><li key={i.source+':'+i.id}>
+ {rows.length===0?<EmptyState illustration={<AllDone />} title={lane==='actionable'?'You\'re all caught up.':'Nothing waiting on others.'} description={lane==='actionable'?'New tasks assigned to you will appear here.':'Work you hand off or submit will show here until someone acts on it.'}/>:<ul className="guest-list">{rows.map(i=><li key={i.source+':'+i.id}>
  <h3><Link className="overview-work-link" aria-disabled={illustrative||undefined} tabIndex={illustrative?-1:undefined} onClick={illustrative?e=>e.preventDefault():undefined} to={illustrative?'#':(i.source==='review'?'/reviews/'+i.termId+'/':i.source==='request'?'/requests/'+i.termId+'/':i.source==='task'?'/tasks/':i.source==='handoff'?'/working-together/handoffs/':'/deliverables/')+i.id}>{i.title}</Link></h3>
  {i.source==='task'||i.source==='deliverable'?<WorkReference compact reference={i.reference} id={i.id} kind={i.source}/>:null}
  <p>Owner: {i.owner} · Committee: {i.committee??'Not assigned'}</p><p>Next action: {i.action} · Next person: {i.person}</p>

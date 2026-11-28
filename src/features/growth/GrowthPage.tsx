@@ -11,6 +11,7 @@ import {GoalProgress,GrowthAction,GrowthEditor,type GrowthEdit} from './GrowthEd
 import {RefreshButton} from '../shared/RefreshButton'
 import {formatDateTime,formatDay,formatTime} from '../shared/dates'
 import './growth.css'
+import { NoAccess, NotSwitchedOn } from '../../components/illustrations'
 
 const during=(start:string,end:string)=>formatDateTime(start)+' – '+(formatDay(start)===formatDay(end)?formatTime(end):formatDateTime(end))
 const states={scheduled:'Scheduled',completed:'Completed',missed:'Missed',cancelled:'Cancelled',ended:'Mentorship ended'}
@@ -50,7 +51,7 @@ export function GrowthLink({api,term}:{api:GrowthApi;term:string}){
 
 export function GrowthPage({api}:{api:GrowthApi}){
   const workspace=useRouteLoaderData('workspace')as WorkspaceContext
-  if(!('memberId'in workspace))return <EmptyState title="Goals and mentoring aren't available" description="Only organizers on this term's roster can use goals and mentoring."/>
+  if(!('memberId'in workspace))return <EmptyState illustration={<NoAccess />} title="Goals and mentoring aren't available" description="Only organizers on this term's roster can use goals and mentoring."/>
   return <GrowthBody key={workspace.termId+':'+workspace.memberId} term={workspace.termId} api={api}/>
 }
 
@@ -110,7 +111,7 @@ function GrowthBody({term,api}:{term:string;api:GrowthApi}){
     {failed?<ErrorState title="Couldn't load goals and mentoring" description="Check your connection and try again. What you typed is kept."
       action={<button className="button button--secondary" onClick={()=>void load()}>Try again</button>}/>:null}
     {!workspace&&checking?<LoadingState title="Loading goals and mentoring"/>:null}
-    {!workspace&&!checking&&!failed?<EmptyState title="Mentoring isn't switched on yet" description="Goals and mentoring aren't open for this term yet. Ask your committee head about mentoring."
+    {!workspace&&!checking&&!failed?<EmptyState illustration={<NotSwitchedOn />} title="Mentoring isn't switched on yet" description="Goals and mentoring aren't open for this term yet. Ask your committee head about mentoring."
       action={<Link className="button button--secondary" to="/people">Find a contact</Link>}/>:null}
     {workspace?<div hidden={failed}>
       <p>Set a private goal for yourself or share one with a current mentor. Check-ins are optional.</p>

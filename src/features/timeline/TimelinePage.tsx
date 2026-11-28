@@ -16,6 +16,7 @@ import {ViewTabs} from '../shared/ViewTabs'
 import {Calendar} from './Calendar'
 import {Gantt} from './Gantt'
 import {monthLabel,viewWindow} from './views'
+import { EmptyCalendar, NoAccess } from '../../components/illustrations'
 const maxPages=10
 const offset=(a:string,b:string)=>(Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/86400000
 function dates(item:TimelineItem){const s=schedule(item.plannedStartOn,item.dueOn,item.dueAt);return s.kind==='range'?formatRange(s.start,s.end):s.kind==='deadline'?`Due ${formatDay(s.end)} · no start date`:s.start?`Starts ${formatDay(s.start)} · no due date`:'No dates set'}
@@ -74,18 +75,18 @@ function TimelineBody({api,termId}:{api:TimelineApi;termId:string}){
  <label>Work type<select aria-label="Work type" value={q.type} onChange={e=>change({type:e.target.value as TimelineQuery['type']})}><option value="">All work</option><option value="deliverable">Deliverables</option><option value="contribution">Work for other committees</option><option value="task">Tasks</option></select></label>
  </div><div className="timeline-checks">{(['blocked','overdue','includeUnscheduled']as const).map(k=><label key={k}><input type="checkbox" checked={q[k]} onChange={e=>change({[k]:e.target.checked})}/>{k==='blocked'?'Blocked only':k==='overdue'?'Overdue only (any date)':'Include work with no dates'}</label>)}</div><button className="button button--secondary" onClick={()=>change({units:[],owner:'',phase:'',type:'',blocked:false,overdue:false,includeUnscheduled:true})}>Clear filters</button></details>
  <h2>{q.view==='calendar'?'Month: '+monthLabel(q.anchor):q.view==='gantt'?'Weeks: '+formatRange(window.start,window.end):(q.scale==='week'?'Week':'Month')+': '+formatRange(window.start,window.end)}</h2>
- {!current?<LoadingState title="Loading timeline"/>:current.error?<ErrorState title="Couldn't load the timeline" description="Check your connection and try again." action={<button className="button button--secondary" onClick={refresh}>Try again</button>}/>:!result?<EmptyState title="You can't see the timeline" description="The committee timeline is only for organizers on this term's roster."/>:<>
+ {!current?<LoadingState title="Loading timeline"/>:current.error?<ErrorState title="Couldn't load the timeline" description="Check your connection and try again." action={<button className="button button--secondary" onClick={refresh}>Try again</button>}/>:!result?<EmptyState illustration={<NoAccess />} title="You can't see the timeline" description="The committee timeline is only for organizers on this term's roster."/>:<>
  <p role="status">{result.total} {result.total===1?'item':'items'}{q.view!=='list'&&result.items.length<result.total?`. Showing the first ${result.items.length}; narrow the filters to see the rest.`:''}</p>
  {q.view!=='list'&&unscheduled.length?<p>{unscheduled.length} {unscheduled.length===1?'item has':'items have'} no due date, so {unscheduled.length===1?"it isn't":"they aren't"} shown here. Switch to List to see {unscheduled.length===1?'it':'them'}.</p>:null}
- {result.items.length===0?<EmptyState title="Nothing in this window" description="Try another date or clear the filters."/>:<>
+ {result.items.length===0?<EmptyState illustration={<EmptyCalendar />} title="Nothing scheduled in this window" description="Deliverables and tasks with dates show up here. Try another date or clear the filters." action={<button type="button" className="button button--secondary" onClick={()=>change({anchor:today})}>Back to today</button>}/>:q.view!=='list'&&!dated.length?<EmptyState illustration={<EmptyCalendar />} title="Nothing here has dates yet" description="This chart only shows work with a due date. The list shows everything, dated or not." action={<button type="button" className="button button--secondary" onClick={()=>change({view:'list'})}>Show the list</button>}/>:<>
  {q.view==='calendar'?<Panel title="Calendar"><Calendar items={dated} start={window.start} end={window.end} month={q.anchor.slice(0,7)} today={today}/></Panel>:q.view==='gantt'?<Panel title={only?only.name+' gantt':'Project-wide gantt'}><Gantt items={dated} start={window.start} today={today} only={only} several={q.units.length>1} units={options?.units??[]} onCommittee={id=>change({units:id?[id]:[]})}/></Panel>:<>
  <Panel title="Day chart"><Chart items={result.items} edges={result.dependencies} start={window.start} end={window.end} today={today}/></Panel>
- <Panel title="By date">{dated.length?<Chronology items={dated} allItems={result.items} edges={result.dependencies}/>:<p>No dated work here.</p>}</Panel>
- <Panel title="No dates yet">{unscheduled.length?<Chronology items={unscheduled} allItems={result.items} edges={result.dependencies}/>:<p>Everything here has dates.</p>}</Panel>
+ <Panel title="By date">{dated.length?<Chronology items={dated} allItems={result.items} edges={result.dependencies}/>:<p className="muted">No dated work in this window. Work with a due date shows up here.</p>}</Panel>
+ <Panel title="No dates yet">{unscheduled.length?<Chronology items={unscheduled} allItems={result.items} edges={result.dependencies}/>:<p className="muted">Everything here has dates.</p>}</Panel>
  </>}
  </>}
  {q.view==='list'?<Pager label="Timeline pages" page={q.page} total={Math.min(result.total,result.pageSize*10000)} pageSize={result.pageSize} onMove={page=>change({page},true)}/>:null}
  </>}
  </>
 }
-export function TimelinePage({api}:{api:TimelineApi}){const context=useRouteLoaderData('workspace') as WorkspaceContext;if(isGuest(context))return <EmptyState title="Only organizers can see the timeline" description="Use the links that were shared with you."/>;return <TimelineBody key={context.termId+context.memberId} api={api} termId={context.termId}/>}
+export function TimelinePage({api}:{api:TimelineApi}){const context=useRouteLoaderData('workspace') as WorkspaceContext;if(isGuest(context))return <EmptyState illustration={<NoAccess />} title="Only organizers can see the timeline" description="Use the links that were shared with you."/>;return <TimelineBody key={context.termId+context.memberId} api={api} termId={context.termId}/>}

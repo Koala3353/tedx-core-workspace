@@ -1,0 +1,5 @@
+/* Empty-state spot illustrations: muted line art, one brand-red accent. */
+.illo { display: block; flex: none; color: var(--color-muted); overflow: visible; }
+.illo .illo-soft { opacity: .4; }
+.illo .illo-accent { stroke: var(--color-accent); }
+.illo .illo-dot { fill: var(--color-accent); stroke: none; }

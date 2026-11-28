@@ -12,6 +12,7 @@ import type { BoardDeliverable, BoardUnit } from '../committee-pages/board'
 import { buildWarRoom, firstName, healthLabel, healthTone, labelDay, primerPhase, progress, type Cell, type Health, type Row, type WarRoom } from './model'
 import type { WarRoomApi } from './api'
 import './war-room.css'
+import { EmptyBoard, NoAccess, NotSwitchedOn } from '../../components/illustrations'
 
 const healthIcon: Record<Health, LucideIcon> = { done: CircleCheck, on_track: CircleCheck, at_risk: Clock, behind: OctagonAlert, not_started: CircleDashed }
 
@@ -40,7 +41,7 @@ function cellText(row: Row, cell: Cell): string {
 export function WarRoomPage({ api }: { api?: WarRoomApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   const heading = <PageHeading title="War room" description="Every committee's deliverables, week by week, until April 17." />
-  if (!context || isGuest(context)) return <>{heading}<EmptyState title="Not available for guests" description="The war room is for core members." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
+  if (!context || isGuest(context)) return <>{heading}<EmptyState illustration={<NoAccess />} title="Not available for guests" description="The war room is for core members." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
   return <WarRoomBody key={context.termId} api={api} termId={context.termId} heading={heading} />
 }
 
@@ -56,7 +57,7 @@ function WarRoomBody({ api, termId, heading }: { api?: WarRoomApi; termId: strin
     return () => { live = false }
   }, [api, termId])
 
-  if (state.unavailable && !state.board) return <>{heading}<EmptyState title="The war room isn't switched on yet" description="It appears once the latest workspace update is installed. Ask the web team." /></>
+  if (state.unavailable && !state.board) return <>{heading}<EmptyState illustration={<NotSwitchedOn />} title="The war room isn't switched on yet" description="It appears once the latest workspace update is installed. Ask the web team." /></>
   if (!state.board) return <>{heading}{state.error
     ? <ErrorState title="The war room didn't load" description={state.error} action={<button className="button button--secondary" type="button" onClick={state.reload}>Try again</button>} />
     : <LoadingState title="Loading the war room" rows={5} />}</>
@@ -77,7 +78,7 @@ function WarRoomBody({ api, termId, heading }: { api?: WarRoomApi; termId: strin
       <button type="button" className="button" onClick={() => setPresenting(true)}><MonitorPlay className="icon" size={16} aria-hidden="true" />Present</button>
     </div>
     {state.error ? <p className="field-error" role="alert">{state.error} Showing the last loaded copy.</p> : null}
-    {!room.summary.total ? <EmptyState title="No deliverables yet" description="Once committees add deliverables with due dates, they show up here week by week." action={<Link className="button button--secondary" to="/deliverables">Go to deliverables</Link>} />
+    {!room.summary.total ? <EmptyState illustration={<EmptyBoard />} title="No deliverables yet" description="Once committees add deliverables with due dates, they show up here week by week." action={<Link className="button button--secondary" to="/deliverables">Go to deliverables</Link>} />
       : view === 'grid' ? <><Heatmap room={room} onOpen={(row, cell) => setOpen({ row, cell })} /><Legend /></>
       : <ListView room={room} units={state.board.units} />}
     {room.undated.length ? <p className="muted war-room__note">{room.undated.length} {room.undated.length === 1 ? 'deliverable has' : 'deliverables have'} no due date and {room.undated.length === 1 ? 'is' : 'are'} only in the list view.</p> : null}

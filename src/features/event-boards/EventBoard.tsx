@@ -9,6 +9,7 @@ import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import type { BoardData, BoardId, EventBoardsApi, SessionValues, TedifySession } from './api'
 import { boards, type BoardConfig } from './boards'
 import './event-boards.css'
+import { EmptyBoard, EmptyStage, NotSwitchedOn } from '../../components/illustrations'
 
 type Load = { state: 'loading' } | { state: 'ready'; data: BoardData } | { state: 'missing' } | { state: 'error' }
 
@@ -35,7 +36,7 @@ function EventBoard({ id, api }: { id: BoardId; api?: EventBoardsApi }) {
       </li>)}</ul>
     </section>
     {member && api ? <BoardWork key={member.termId + ':' + id} api={api} termId={member.termId} config={config} />
-      : <section className="board-section"><EmptyState title="Live work isn't connected yet" description="Tasks and deliverables for this board will show here once the workspace connection is set up." /></section>}
+      : <section className="board-section"><EmptyState illustration={<NotSwitchedOn />} title="Live work isn't connected yet" description="Tasks and deliverables for this board will show here once the workspace connection is set up." /></section>}
     <KeyDates config={config} />
     <RunChecklist config={config} />
   </div>
@@ -76,7 +77,7 @@ function BoardWork({ api, termId, config }: { api: EventBoardsApi; termId: strin
   const refresh = () => setRevision(v => v + 1)
   const hint = `Add "${config.keyword}" to a deliverable or task title to show it here.`
   if (load.state === 'loading') return <section className="board-section"><LoadingState title="Loading this board" /></section>
-  if (load.state === 'missing') return <section className="board-section"><h2>What's due</h2><EmptyState title="This board isn't switched on yet" description={`Ask WebDev to apply the event boards update. ${hint}`} /></section>
+  if (load.state === 'missing') return <section className="board-section"><h2>What's due</h2><EmptyState illustration={<NotSwitchedOn />} title="This board isn't switched on yet" description={`Ask WebDev to apply the event boards update. ${hint}`} /></section>
   if (load.state === 'error') return <section className="board-section"><ErrorState title="Couldn't load this board" description="Check your connection and try again."
     action={<button className="button button--secondary" type="button" onClick={refresh}>Try again</button>} /></section>
   const { data } = load
@@ -86,7 +87,7 @@ function BoardWork({ api, termId, config }: { api: EventBoardsApi; termId: strin
     {data.sessions ? <Sessions api={api} termId={termId} sessions={data.sessions} canManage={data.canManageSessions} onChanged={refresh} /> : null}
     <section className="board-section" aria-labelledby={config.id + '-due'}>
       <h2 id={config.id + '-due'}>What's due {data.items.length ? <span className="board-count">{open.length} open{late ? ` · ${late} late` : ''}</span> : null}</h2>
-      {!data.items.length ? <EmptyState title="Nothing on this board yet" description={hint}
+      {!data.items.length ? <EmptyState illustration={<EmptyBoard />} title="Nothing on this board yet" description={hint}
         action={<Link className="button button--secondary" to="/deliverables">Open deliverables</Link>} />
         : <>
           <ul className="board-list">{data.items.map(item => {
@@ -151,7 +152,7 @@ function Sessions({ api, termId, sessions, canManage, onChanged }: { api: EventB
   const [editing, setEditing] = useState<string | null>(null)
   return <section className="board-section" aria-labelledby="tedify-sessions">
     <h2 id="tedify-sessions">Breakout sessions {sessions.length ? <span className="board-count">{sessions.length}</span> : null}</h2>
-    {!sessions.length && editing !== 'new' ? <EmptyState title="No breakout sessions yet"
+    {!sessions.length && editing !== 'new' ? <EmptyState illustration={<EmptyStage />} title="No breakout sessions yet"
       description={canManage ? 'Add each session with its speaker, room and time. Everyone in the core team can see this list.' : 'ProgAct and TalRec heads add sessions here with the speaker, room and time.'} /> : null}
     {sessions.length ? <ul className="board-list">{sessions.map(s => editing === s.id
       ? <li key={s.id} className="board-row board-row--form"><SessionForm api={api} termId={termId} session={s} onDone={saved => { setEditing(null); if (saved) onChanged() }} /></li>

@@ -3,6 +3,7 @@ import { ChevronDown, Search, X } from 'lucide-react'
 import { sessionMemory } from './fold'
 import type { ListFilterState } from './useListFilter'
 import './list.css'
+import { EmptySearch } from '../illustrations'
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement
   && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
@@ -83,6 +84,7 @@ export function ListToolbar<T>({ filter, label, placeholder, noun, sort, group, 
 /** Shown in place of the list when a search or filter leaves nothing. */
 export function EmptyResults({ query, noun, onClear }: { query: string; noun: string; onClear: () => void }) {
   return <div className="list-empty" role="status">
+    <EmptySearch size={80} />
     <p>{query.trim() ? <>No {noun} match <strong>{query.trim()}</strong> with these filters.</> : <>No {noun} match these filters.</>}</p>
     <button type="button" className="button button--secondary" onClick={onClear}>Clear search and filters</button>
   </div>

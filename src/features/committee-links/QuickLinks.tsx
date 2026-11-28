@@ -11,6 +11,8 @@ import type { CommandError } from '../../lib/commands'
 import type { CommitteeLink, CommitteeLinks, CommitteeLinksApi, LinkValues, LinksRead, MyCommitteeLinks } from './api'
 import { NOTE_MAX, TITLE_MAX, checkUrl, domainOf, moved, ordered, suggestTitle } from './model'
 import './committee-links.css'
+import { EmptyState } from '../../components/FeedbackState'
+import { EmptyLinks } from '../../components/illustrations'
 
 type Loaded = { key: string; read: LinksRead | null; failed: boolean }
 
@@ -114,9 +116,11 @@ export function QuickLinks({ api, termId, unitId, unitName, compact = false }: {
     {full && data.canManage ? <p className="muted">This committee has {data.limit} links, the most it can keep. Remove one to add another.</p> : null}
     {editing === 'new' ? <LinkForm api={api} termId={termId} unitId={unitId} onDone={(value) => { setEditing(null); if (value) update(null, false, value) }} /> : null}
 
-    {!links.length && editing !== 'new' ? <p className="quick-links__empty">{data.canManage
-      ? 'Add the links your committee uses: drive folders, trackers, group chats.'
-      : `No links yet. ${unitName} heads add the drive folders, trackers and group chats here.`}</p> : null}
+    {!links.length && editing !== 'new' ? <EmptyState level={3} illustration={<EmptyLinks size={compact ? 80 : 96} />} title="No links yet"
+      description={data.canManage
+        ? 'Use Add link to save the drive folders, trackers and group chats your committee uses. Everyone in the committee sees them here.'
+        : `${unitName} heads add drive folders, trackers and group chats here. Ask them if you need one.`}
+      /> : null}
 
     {links.length > 8 ? <ListToolbar filter={filter} label={`Search ${unitName} links`} placeholder="Search links" noun={['link', 'links']} sticky={false} /> : null}
     {links.length > 8 && !shown.length ? <EmptyResults query={filter.query} noun="links" onClear={filter.clear} /> : null}
@@ -262,7 +266,7 @@ export function MyCommitteeLinks({ api, termId, limit = 4 }: { api?: CommitteeLi
     <h2 id="my-links-title" className="quick-links__title">Your committee's links</h2>
     <div className="my-links__grid">{units.map(u => <div key={u.unitId} className="my-links__unit">
       <h3>{u.name}</h3>
-      {!u.links.length ? <p className="muted">{u.canManage ? 'Add the links your committee uses: drive folders, trackers, group chats.' : 'No links yet.'}</p>
+      {!u.links.length ? <p className="muted">{u.canManage ? 'No links yet. Add the drive folders, trackers and group chats your committee uses.' : 'No links yet. Your committee heads add drive folders and trackers here.'}</p>
         : <ul className="my-links__list">{u.links.map(l => <li key={l.id}>
           <a href={l.url} target="_blank" rel="noopener noreferrer">
             <span>{l.title}<span className="visually-hidden"> (opens in a new tab)</span></span>

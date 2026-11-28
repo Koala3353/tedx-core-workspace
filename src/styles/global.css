@@ -198,6 +198,19 @@ a.tedx-lockup:hover { text-decoration: none; }
 .feedback-state > :last-child { margin-bottom: 0; }
 .feedback-state--error > .icon { color: var(--color-danger); }
 .feedback-state--loading { display: block; animation: none; }
+.feedback-state h3 { font-size: 1rem; margin-bottom: 4px; }
+/* With a spot illustration: centred column, the art fades in a beat after the text. */
+.feedback-state--illustrated { display: flex; flex-direction: column; align-items: center; text-align: center; padding: var(--space-6, 32px) 16px; }
+.feedback-state--illustrated > .feedback-state__art { margin-bottom: 12px; }
+.feedback-state--section { padding: 16px 8px; }
+.feedback-state--section > .feedback-state__art { margin-bottom: 8px; }
+.feedback-state--illustrated p { margin-inline: auto; max-width: 44ch; }
+.feedback-state--illustrated > .button, .feedback-state--illustrated > a.button { align-self: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .feedback-state__art { animation: emptyArt 420ms var(--ease-standard) 80ms both; }
+}
+@media (prefers-reduced-motion: reduce) { .feedback-state { animation: none; } }
+@keyframes emptyArt { from { opacity: 0; transform: translateY(4px) scale(.98); } to { opacity: 1; transform: none; } }
 .loading-label { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; color: var(--color-muted); font-size: .875rem; }
 .loading-line { flex: none; width: 20px; height: 2px; background: var(--color-accent); clip-path: inset(0 100% 0 0); animation: lineDraw 1.1s cubic-bezier(0.77, 0, 0.175, 1) infinite; }
 .skeleton-rows { list-style: none; margin: 0; padding: 0; max-width: 46rem; }

@@ -18,6 +18,7 @@ import { onPageReturn } from '../../lib/pageReturn'
 import { buildSections, comingUpWindow, type TodayItem } from './model'
 import { TodaySection } from './TodayList'
 import './today.css'
+import { AllDone } from '../../components/illustrations'
 
 type Loaded = { overview: OverviewResult | null; overviewError: boolean; announcements: Announcement[]; events: CalendarEvent[] }
 
@@ -122,6 +123,7 @@ function TodayBody({ context }: { context: Extract<WorkspaceContext, { memberId:
 
 function AllCaughtUp({ next }: { next: TodayItem | null }) {
   return <section className="today-clear" aria-label="All caught up">
+    <AllDone className="today-clear__art" size={88} />
     <p className="today-clear__title">You’re all caught up.</p>
     {next ? <p className="today-clear__next">Next deadline: <Link to={next.href}>{next.title}</Link>{next.when ? ` · ${next.when}` : ''}</p>
       : <p className="today-clear__next">New work, approvals and announcements will show up here. Need something from another committee? <Link to="/requests">Ask a committee</Link>.</p>}

@@ -17,6 +17,7 @@ import {HowThisWorks} from '../shared/HowThisWorks'
 import {useAutoRefresh} from '../shared/useAutoRefresh'
 import {RefreshButton} from '../shared/RefreshButton'
 import './finance.css'
+import { NoAccess } from '../../components/illustrations'
 export function FinanceCasePage({api,requests,files}:{api:FinanceApi;requests:RequestsApi;files?:FilesApi}){
  const context=useRouteLoaderData('workspace')as WorkspaceContext,{financeTermId='',financeId=''}=useParams(),[params,setParams]=useSearchParams(),rev=params.get('revision'),revision=rev&&/^[1-9][0-9]{0,2}$/.test(rev)?Number(rev):undefined,[reload,setReload]=useState(0),key=refreshKey(financeTermId+financeId+revision+':'+('memberId'in context?context.memberId:context.guestAccessId),reload);
  const[state,setState]=useState<{key:string;data:FinanceIntake|null;error:boolean}|null>(null);
@@ -24,7 +25,7 @@ export function FinanceCasePage({api,requests,files}:{api:FinanceApi;requests:Re
  useAutoRefresh(()=>setReload(n=>n+1));
  const current=settled(state,key);
  return <><PageHeading title="Finance plan" description="Your plan, its evidence and where it is in FIN review."/><p><Link to="/finance">My finance plans</Link> · <Link to="/requests">Ask a committee</Link> <RefreshButton onRefresh={()=>setReload(n=>n+1)}/></p>
- {!current?<LoadingState/>:current.error?<ErrorState title="Couldn't load this finance plan" description="Check your connection, then refresh the page. What you typed is kept."/>:!current.data?<EmptyState title="You can't open this finance plan" description="It isn't shared with your account. Ask the person who sent you the link."/>:<FinanceBody key={financeTermId+financeId+revision+current.data.request.version} data={current.data} api={api} requests={requests} files={files} member={'memberId'in context?context.memberId:''} historical={revision!==undefined} refresh={()=>setReload(n=>n+1)} select={n=>setParams(n?{revision:String(n)}:{})}/>}
+ {!current?<LoadingState/>:current.error?<ErrorState title="Couldn't load this finance plan" description="Check your connection, then refresh the page. What you typed is kept."/>:!current.data?<EmptyState illustration={<NoAccess />} title="You can't open this finance plan" description="It isn't shared with your account. Ask the person who sent you the link."/>:<FinanceBody key={financeTermId+financeId+revision+current.data.request.version} data={current.data} api={api} requests={requests} files={files} member={'memberId'in context?context.memberId:''} historical={revision!==undefined} refresh={()=>setReload(n=>n+1)} select={n=>setParams(n?{revision:String(n)}:{})}/>}
  </>
 }
 function FinanceBody({data,api,requests,files,member,historical,refresh,select}:{data:FinanceIntake;api:FinanceApi;requests:RequestsApi;files?:FilesApi;member:string;historical:boolean;refresh:()=>void;select:(n:number|undefined)=>void}){

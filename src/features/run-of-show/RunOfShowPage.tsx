@@ -12,6 +12,7 @@ import { SegmentEditor } from './SegmentEditor'
 import { clockLabel, delayLabel, durationLabel, kindLabels, plannedEnd } from './time'
 import { useRunOfShow } from './useRunOfShow'
 import './run-of-show.css'
+import { EmptyStage, NoAccess, NotSwitchedOn } from '../../components/illustrations'
 
 const statusLabels = { planned: 'Planned', live: 'On stage', done: 'Done', skipped: 'Skipped' }
 const statusStates = { planned: 'todo', live: 'in_progress', done: 'done', skipped: 'cancelled' }
@@ -19,7 +20,7 @@ const statusStates = { planned: 'todo', live: 'in_progress', done: 'done', skipp
 export function RunOfShowPage({ api }: { api: RunOfShowApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext
   if (!context || !('memberId' in context)) {
-    return <EmptyState title="Run of show isn't available" description="Only organizers on this term's roster can see the run of show." />
+    return <EmptyState illustration={<NoAccess />} title="Run of show isn't available" description="Only organizers on this term's roster can see the run of show." />
   }
   return <RunOfShowBody key={context.termId} api={api} term={context.termId} />
 }
@@ -89,7 +90,7 @@ function RunOfShowBody({ api, term }: { api: RunOfShowApi; term: string }) {
 
   if (status === 'unavailable') return <>
     <PageHeading title="Run of show" />
-    <EmptyState title="Run of show isn't set up yet" description="The run of show needs a workspace update. Ask the WebDev head to finish setup." />
+    <EmptyState illustration={<NotSwitchedOn />} title="Run of show isn't set up yet" description="The run of show needs a workspace update. Ask the WebDev head to finish setup." />
   </>
   if (!show) return <>
     <PageHeading title="Run of show" />
@@ -133,7 +134,7 @@ function RunOfShowBody({ api, term }: { api: RunOfShowApi; term: string }) {
     {notice ? <p className="ros-notice" role="status">{notice}</p> : null}
 
     <Panel title="Segments" className="ros-plan">
-      {segments.length === 0 ? <EmptyState title="No segments yet" description={canEdit
+      {segments.length === 0 ? <EmptyState illustration={<EmptyStage />} title="No segments yet" description={canEdit
         ? 'Build the plan from the OpSched: add each talk, performance, host spot, break and tech cue in show order. Times fill in from the start time.'
         : 'StageMan builds the run of show from the OpSched before the dry run. Check back closer to event day.'} /> :
         <ol className="ros-list">

@@ -7,11 +7,12 @@ import type {WorkspaceContext} from '../../auth/gateway'
 import type {ArchivedWork,ArchivePage as ArchiveResult,TurnoverApi} from './api'
 import {formatDateTime,formatDay} from '../../shared/dates'
 import './turnover.css'
+import { EmptyFiles, NoAccess } from '../../../components/illustrations'
 
 export const archivePath=(term:string,id?:string)=>'/archive'+(id?'/'+id:'')+'?term='+encodeURIComponent(term)
 export function ArchivePage({api}:{api:TurnoverApi}){
   const context=useRouteLoaderData('workspace')as WorkspaceContext,{archivedWorkId}=useParams()
-  if(!('memberId'in context))return <EmptyState title="Archive isn't available" description="Only core team members can open the archive."/>
+  if(!('memberId'in context))return <EmptyState illustration={<NoAccess />} title="Archive isn't available" description="Only core team members can open the archive."/>
   return <ArchiveBody key={context.memberId+context.termId+archivedWorkId} api={api} term={context.termId} id={archivedWorkId}/>
 }
 function ArchiveBody({api,term,id}:{api:TurnoverApi;term:string;id?:string}){
@@ -40,9 +41,9 @@ function ArchiveBody({api,term,id}:{api:TurnoverApi;term:string;id?:string}){
     {!checking&&!failed&&id?(record?<Panel title={record.title}>
       <ArchiveFacts record={record}/><p className="record-text">{record.body}</p>
       <p>Saved from {record.sourceTerm}. To correct it, contact the handover custodian.</p>
-    </Panel>:<EmptyState title="Can't open this record" description="It may not have been handed over to you. Ask the handover custodian." action={<Link className="button button--secondary" to={archivePath(term)}>Work archive</Link>}/>):null}
+    </Panel>:<EmptyState illustration={<NoAccess />} title="Can't open this record" description="It may not have been handed over to you. Ask the handover custodian." action={<Link className="button button--secondary" to={archivePath(term)}>Work archive</Link>}/>):null}
     {!checking&&!failed&&!id&&result?<>
-      {!result.items.length?<EmptyState title="No archived work" description="Work handed over to you from past terms appears here. Missing something? Ask the handover custodian."/>:
+      {!result.items.length?<EmptyState illustration={<EmptyFiles />} title="No archived work" description="Work handed over to you from past terms appears here. Missing something? Ask the handover custodian."/>:
         <ul className="turnover-list">{result.items.map(w=><li key={w.id}><h2><Link to={archivePath(term,w.id)}>{w.title}</Link></h2><ArchiveFacts record={w}/><p>{w.summary}</p></li>)}</ul>}
       <nav className="auth-actions" aria-label="Archive pages">{page>1?<Link className="button button--secondary" to={archivePath(term)+'&page='+(page-1)}>Previous</Link>:null}
         {page>1||result.hasMore?<p>Page {page}</p>:null}{result.hasMore?<Link className="button button--secondary" to={archivePath(term)+'&page='+(page+1)}>Next</Link>:null}</nav>

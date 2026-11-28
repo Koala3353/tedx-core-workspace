@@ -13,6 +13,7 @@ import {HowThisWorks} from '../../shared/HowThisWorks'
 import {PendingButton} from '../../../components/PendingButton'
 import {formatDateTime,formatDay} from '../../shared/dates'
 import './turnover.css'
+import { EmptyFiles, NoAccess } from '../../../components/illustrations'
 const stateName:Record<TurnoverState,string>={preparing:'Review unit and item outcomes',frozen:'Frozen. Name who keeps the archive, then export it',exporting:'Archive export needs attention',verified:'Archive checked. Waiting for successors to accept',rehearsal_verified:'Practice run checked. Waiting for successors to accept',complete:'Handover complete',rehearsal_complete:'Practice run complete'}
 export function TurnoverLinks({api,term}:{api:TurnoverApi;term:string}){
   const [w,setW]=useState<TurnoverWorkspace|null>(null),sequence=useRef(0)
@@ -22,7 +23,7 @@ export function TurnoverLinks({api,term}:{api:TurnoverApi;term:string}){
 }
 export function TurnoverPage({api}:{api:TurnoverApi}){
   const c=useRouteLoaderData('workspace')as WorkspaceContext,{turnoverCaseId}=useParams()
-  if(!('memberId'in c))return <EmptyState title="Handover isn't available" description="Only core team members can open the term handover."/>
+  if(!('memberId'in c))return <EmptyState illustration={<NoAccess />} title="Handover isn't available" description="Only core team members can open the term handover."/>
   return <TurnoverBody key={c.memberId+c.termId+turnoverCaseId} api={api} term={c.termId} membership={c.termMembershipId} caseId={turnoverCaseId}/>
 }
 function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;membership:string;caseId?:string}){
@@ -68,7 +69,7 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
     {completed.current?<Panel title="Handover recorded"><p role="status">{notice}</p></Panel>:null}
     {checking&&!w&&!failed?<LoadingState title="Loading handover"/>:null}
     {failed?<ErrorState title="Couldn't load the handover" description="Check your connection and try again. Your entries are kept." action={<PendingButton className="button button--secondary" pending={checking} pendingLabel="Trying again…" onClick={()=>load()}>Try again</PendingButton>}/>:null}
-    {!checking&&!failed&&w&&!c&&!w.approvals.length?<EmptyState title="No handover for you yet" description="You'll see the handover here once you're named as its custodian or a successor. Ask an admin if you expected one."/>:null}
+    {!checking&&!failed&&w&&!c&&!w.approvals.length?<EmptyState illustration={<EmptyFiles />} title="No handover for you yet" description="You'll see the handover here once you're named as its custodian or a successor. Ask an admin if you expected one."/>:null}
     {w?<div hidden={failed}>
       {c?<Panel title={c.term}><p><strong>{stateName[c.state]}</strong></p><p>Handover custodian: {c.custodian}</p>{c.scope==='synthetic'?<p role="note">Practice run with sample data. Nothing real is handed over.</p>:null}
         {w.runs[0]?.failure&&!w.runs[0].restored?<p role="alert">Archive operator: the {w.runs[0].failure.phase==='files'?'file checks':w.runs[0].failure.phase==='restore'?'restore rehearsal':'record checks'} need attention. Check the source, then resume the archive export. The archive can't be checked until this is fixed.</p>:null}

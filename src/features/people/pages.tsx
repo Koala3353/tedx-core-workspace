@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/FeedbackS
 import { EmptyResults, GroupedList, ListToolbar, useListFilter } from '../../components/list'
 import type { PeopleGateway, Person } from './gateway'
 import { ContactLinks } from './ContactLinks'
+import { EmptyPeople, EmptyInbox } from '../../components/illustrations'
 
 export function DirectoryPage({ api }: { api: PeopleGateway }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext; const [params]=useSearchParams()
@@ -30,7 +31,7 @@ export function PeoplePage({ api, termId,focusId }: { api: PeopleGateway; termId
         {data.processes.length ? <ul className="guest-list">{data.processes.map(process => <li key={process.id} id={`process-${process.id}`}>
           <h3>{process.name}</h3>
           {process.primary.length || process.backup.length ? <p>{process.primary.length ? 'Contact: ' + process.primary.map(p => p.name).join(', ') : 'Contact: not assigned yet'}{process.backup.length ? ' · Backup: ' + process.backup.map(p => p.name).join(', ') : ''}</p> : <p className="muted">No contact yet. Ask your committee head.</p>}
-        </li>)}</ul> : <p className="muted">No contacts yet. Ask your committee head.</p>}
+        </li>)}</ul> : <EmptyState level={3} illustration={<EmptyInbox size={88} />} title="No contacts set up yet" description="Who handles room bookings, budget and other jobs shows up here once admins set it up. Until then, ask your committee head." action={<Link className="button button--secondary" to="/team/ask">Who do I ask?</Link>} />}
       </Panel>
       <Panel title="Member directory">
         <Directory people={data.people.filter(person => !focusId || person.id === focusId)} selfIds={selfIds} />
@@ -50,7 +51,7 @@ function Directory({ people, selfIds }: { people: Person[]; selfIds: string[] })
     text: person => [person.name, ...person.units, ...person.roles, person.course, person.skills],
     filters: [{ key: 'committee', label: 'Committee', get: person => person.units, noneLabel: 'No committee', first: mine ? [mine] : [] }],
   })
-  if (!people.length) return <EmptyState title="No people found" description="No one is in the directory for this term yet." />
+  if (!people.length) return <EmptyState level={3} illustration={<EmptyPeople />} title="No one in the directory yet" description="Everyone on the core team shows up here once the PMs add this term's roster." />
   const sorted = [...list.results].sort((a, b) => a.name.localeCompare(b.name))
   return <>
     <ListToolbar filter={list} label="Search people" placeholder="Search name, committee or role" noun={['person', 'people']} />

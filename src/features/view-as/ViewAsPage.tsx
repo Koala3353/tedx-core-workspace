@@ -15,6 +15,7 @@ import type { DirectoryMember, MemberPreviewResult, PreviewView, ViewAsApi, View
 import { MemberCombobox, memberOption, sampleOption, sampleOptionId, type PreviewOption } from './MemberCombobox'
 import '../today/today.css'
 import './view-as.css'
+import { EmptyNotifications, NoAccess } from '../../components/illustrations'
 
 type Ready<V extends PreviewView> = Extract<MemberPreviewResult<V>, { state: 'ok' }>
 
@@ -138,7 +139,7 @@ function MemberContent({ path, ...shared }: Shared & { path: string }) {
   if (path === '/') return <PreviewToday {...shared} />
   if (path === '/work') return <PreviewWork {...shared} />
   if (path === '/notifications') return <PreviewNotifications {...shared} />
-  return <EmptyState title="Not part of this preview" description={`Only Today, Work and Notifications show ${shared.member.name}’s real data.`}
+  return <EmptyState illustration={<NoAccess />} title="Not part of this preview" description={`Only Today, Work and Notifications show ${shared.member.name}’s real data.`}
     action={<Link className="button button--secondary" to={memberPreviewPath}>Go to their Today</Link>} />
 }
 
@@ -155,10 +156,10 @@ function Gate<V extends PreviewView>({ outcome, member, onRetry, onSample, child
       action={<button className="button button--secondary" type="button" onClick={onRetry}>Try again</button>} />
   }
   const result = outcome.value
-  if (result.state === 'not_signed_in_yet') return <EmptyState title={`${member.name} has not signed in yet`}
+  if (result.state === 'not_signed_in_yet') return <EmptyState illustration={<NoAccess />} title={`${member.name} has not signed in yet`}
     description="Their pages fill in after their first sign-in. Pick someone else, or send a sign-in reminder from Team setup."
     action={<Link className="button button--secondary" to="/team/setup">Open Team setup</Link>} />
-  if (result.state === 'unavailable') return <EmptyState title={`${member.name} can’t open this page`} description="Their account does not have access to it right now." />
+  if (result.state === 'unavailable') return <EmptyState illustration={<NoAccess />} title={`${member.name} can’t open this page`} description="Their account does not have access to it right now." />
   return <>{children(result as Ready<V>)}</>
 }
 
@@ -258,7 +259,7 @@ function PreviewNotifications({ api, termId, member, onSample }: Shared) {
           {!item.read ? <Locked>Mark as read</Locked> : null}
         </li>)}
       </ul>
-      : <EmptyState title="No notifications" description={`${member.name} has nothing here yet.`} />}
+      : <EmptyState illustration={<EmptyNotifications />} title="No notifications" description={`${member.name} has nothing here yet.`} />}
     </Gate>
   </div>
 }

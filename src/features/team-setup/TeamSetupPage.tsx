@@ -14,6 +14,7 @@ import { AddPersonDialog, PasteListDialog } from './AddPeople'
 import { Dialog } from './Dialog'
 import { nudgeKinds, nudgeLabels, nudgeOpen, statusFilters, tutorialLabel, waveLabels, type StatusFilter } from './model'
 import './team-setup.css'
+import { EmptyPeople, EmptySearch, NoAccess, NotSwitchedOn as SwitchArt } from '../../components/illustrations'
 
 export const teamSetupCapabilities = ['roles.manage', 'admin.configure'] as const
 
@@ -46,7 +47,7 @@ export function useTeamSetup(api: TeamSetupApi | undefined, termId: string | und
 }
 
 function NotSwitchedOn() {
-  return <EmptyState title="Team setup isn't switched on yet" description="This page needs a workspace update that hasn't been applied yet. Ask the workspace maintainer to apply it. After that, you'll see who has signed in, installed the app and finished the tour here." />
+  return <EmptyState illustration={<SwitchArt />} title="Team setup isn't switched on yet" description="This page needs a workspace update that hasn't been applied yet. Ask the workspace maintainer to apply it. After that, you'll see who has signed in, installed the app and finished the tour here." />
 }
 
 function Kpi({ label, value, total, alert = false }: { label: string; value: number; total?: number; alert?: boolean }) {
@@ -105,13 +106,13 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
   }, [committees, people])
 
   if (!manager) {
-    return <><PageHeading title="Team setup" /><EmptyState title="Only project managers can open this" description="Ask a project manager if someone needs to be added to the team." action={<Link className="button button--secondary" to="/team">Back to Team</Link>} /></>
+    return <><PageHeading title="Team setup" /><EmptyState illustration={<NoAccess />} title="Only project managers can open this" description="Ask a project manager if someone needs to be added to the team." action={<Link className="button button--secondary" to="/team">Back to Team</Link>} /></>
   }
   const heading = <PageHeading title="Team setup" description="Add people, see who's set up, and nudge anyone who's stuck." />
   if (load.state === 'loading') return <>{heading}<LoadingState title="Loading the roster" rows={6} /></>
   if (load.state === 'failed') {
     if (load.reason === 'not_deployed') return <>{heading}<NotSwitchedOn /></>
-    if (load.reason === 'denied') return <>{heading}<EmptyState title="Only project managers can open this" description="Your current role can't manage the roster." /></>
+    if (load.reason === 'denied') return <>{heading}<EmptyState illustration={<NoAccess />} title="Only project managers can open this" description="Your current role can't manage the roster." /></>
     return <>{heading}<ErrorState title="Couldn't load the roster" description="Check your connection and try again." action={<button type="button" className="button button--secondary" onClick={refresh}>Try again</button>} /></>
   }
   const { totals, openPositions } = load.data
@@ -190,8 +191,8 @@ export function TeamSetupPage({ api: apiProp }: { api?: TeamSetupApi }) {
         </label>
       </div>
 
-      {!people.length ? <EmptyState title="No one on the roster yet" description="Add people one at a time, or paste a list from Google Sheets." />
-        : !filtered.length ? <EmptyState title="No one matches these filters" description="Clear the search or pick another filter." action={<button type="button" className="button button--secondary" onClick={() => { setQuery(''); setCommittee(''); setWave(''); setStatus('all') }}>Clear filters</button>} />
+      {!people.length ? <EmptyState illustration={<EmptyPeople />} title="No one on the roster yet" description="Add people one at a time, or paste a list from Google Sheets." />
+        : !filtered.length ? <EmptyState illustration={<EmptySearch />} title="No one matches these filters" description="Clear the search or pick another filter." action={<button type="button" className="button button--secondary" onClick={() => { setQuery(''); setCommittee(''); setWave(''); setStatus('all') }}>Clear filters</button>} />
           : <>
             <div className="ts-scroll ts-desktop" tabIndex={0} role="region" aria-labelledby="ts-people-title">
               <table className="ts-table">

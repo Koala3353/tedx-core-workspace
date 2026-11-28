@@ -16,6 +16,7 @@ import { refreshKey, settled } from '../shared/settled'
 import { useListEnter } from '../../components/useListEnter'
 import { QuickLinks } from '../committee-links'
 import type { CommitteeLinksApi } from '../committee-links/api'
+import { EmptyBoard, EmptyInbox, EmptyTasks, NoAccess } from '../../components/illustrations'
 
 type Unit = { id: string; name: string }
 type Loaded<T> = { key: string; value: T | null; error: boolean }
@@ -53,7 +54,7 @@ const retry = (onRetry: () => void) => <button className="button button--seconda
 
 export function CommitteePage(apis: Apis) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext
-  if (isGuest(context)) return <><PageHeading title="My committee" /><EmptyState title="No committee for guests" description="Guests aren't part of a committee. Use the links that were shared with you." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
+  if (isGuest(context)) return <><PageHeading title="My committee" /><EmptyState illustration={<NoAccess />} title="No committee for guests" description="Guests aren't part of a committee. Use the links that were shared with you." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
   return <CommitteeBody key={context.termId + context.termMembershipId} {...apis} termId={context.termId} />
 }
 
@@ -67,7 +68,7 @@ function CommitteeBody({ tasks, deliverables, handoffs, links, termId }: Apis & 
   if (!readOptions) return <>{heading}<EmptyState title="Couldn't load your committee" description="The connection isn't available right now. Try again later." action={<Link className="button button--secondary" to="/">Back to Overview</Link>} /></>
   if (!units) return <>{heading}<LoadingState title="Loading your committees" /></>
   if (units.error || !units.value) return <>{heading}<ErrorState title="Couldn't load your committees" description="Check your connection, then try again." action={<button className="button button--secondary" type="button" onClick={() => setReload(n => n + 1)}>Try again</button>} /></>
-  if (!units.value.length) return <>{heading}<EmptyState title="You don't head a committee" description="This page is for committee heads. If you head one this term, ask an admin to update the roster." action={<Link className="button button--secondary" to="/deliverables?mine=1">Deliverables involving my committee</Link>} /></>
+  if (!units.value.length) return <>{heading}<EmptyState illustration={<NoAccess />} title="You don't head a committee" description="This page is for committee heads. If you head one this term, ask an admin to update the roster." action={<Link className="button button--secondary" to="/deliverables?mine=1">Deliverables involving my committee</Link>} /></>
   const managed = units.value
   return <>
     {heading}
@@ -91,7 +92,7 @@ function CommitteeDeliverables({ api, termId, unit, epoch, onRetry }: Section & 
     {!api ? <EmptyState title="Deliverables unavailable" description="The connection isn't available right now. Try again later." />
       : !result ? <LoadingState title="Loading deliverables" />
       : result.error || !result.value ? <ErrorState title="Couldn't load deliverables" description="Check your connection, then try again." action={retry(onRetry)} />
-      : !result.value.items.length ? <EmptyState title="No deliverables yet" description="Nothing led by or involving this committee yet." action={all} />
+      : !result.value.items.length ? <EmptyState illustration={<EmptyBoard />} title="No deliverables yet" description="Nothing led by or involving this committee yet." action={all} />
       : <><p role="status">{result.value.total} {result.value.total === 1 ? 'deliverable' : 'deliverables'}{result.value.total > result.value.items.length ? ` · showing ${result.value.items.length}` : ''}</p>
         <div className="deliverable-list">{result.value.items.map((item: Deliverable) => <article className="panel deliverable-row" key={item.id}>
           <h3><Link to={'/deliverables/' + item.id}>{item.title}</Link></h3>
@@ -110,7 +111,7 @@ function CommitteeTasks({ api, termId, epoch, onRetry }: Section & { api?: Tasks
     {!list ? <EmptyState title="Tasks unavailable" description="The connection isn't available right now. Try again later." />
       : !result ? <LoadingState title="Loading tasks" />
       : result.error || !result.value ? <ErrorState title="Couldn't load tasks" description="Check your connection, then try again." action={retry(onRetry)} />
-      : !result.value.items.length ? <EmptyState title="No committee tasks yet" description="Tasks for your committees show up here." action={all} />
+      : !result.value.items.length ? <EmptyState illustration={<EmptyTasks />} title="No committee tasks yet" description="Tasks for your committees show up here." action={all} />
       : <><p role="status">{result.value.total} {result.value.total === 1 ? 'task' : 'tasks'}{result.value.total > result.value.items.length ? ` · showing ${result.value.items.length}` : ''}</p>
         <ul className={'committee-list ' + enter}>{result.value.items.map((t: TaskSummary) => <li key={t.id}>
           <h3><Link to={'/tasks/' + t.id}>{t.title}</Link></h3>
@@ -129,7 +130,7 @@ function CommitteeHandoffs({ api, termId, units, epoch, onRetry }: Section & { a
     {!api ? <EmptyState title="Handoffs unavailable" description="The connection isn't available right now. Try again later." />
       : !result ? <LoadingState title="Loading handoffs" />
       : result.error ? <ErrorState title="Couldn't load handoffs" description="Check your connection, then try again." action={retry(onRetry)} />
-      : !items.length ? <EmptyState title="No incoming handoffs" description="Nothing has been handed to your committees recently." action={all} />
+      : !items.length ? <EmptyState illustration={<EmptyInbox />} title="No incoming handoffs" description="Nothing has been handed to your committees recently." action={all} />
       : <><p className="muted">Recent handoffs to your committees.</p><ul className="committee-list">{items.map(h => <HandoffSummary key={h.id} h={h} />)}</ul>{all}</>}
   </Panel>
 }

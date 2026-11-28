@@ -7,6 +7,7 @@ import {formatDateTime} from '../shared/dates'
 import {Pager} from '../shared/Pager'
 import {useAutoRefresh} from '../shared/useAutoRefresh'
 import type {CommentsApi,CommentPage,CommentItem,CommentHistory,CommentInput,Candidate} from './api'
+import { NoAccess, EmptyComments } from '../../components/illustrations'
 
 const stamp=(value:string)=>formatDateTime(value)
 export function Comments({api,workId,quickUpdate=false}:{api:CommentsApi;workId:string;quickUpdate?:boolean}) {
@@ -23,9 +24,9 @@ function Thread({api,workId,quickUpdate}:{api:CommentsApi;workId:string;quickUpd
  useAutoRefresh(()=>setReload(n=>n+1))
  const discussion=<>
  {current&&current.key!==key?<p role="status">Updating…</p>:null}
- {!current?<LoadingState title="Loading comments"/>:current.error?<ErrorState title="Couldn't load comments" description="Check your connection and try again." action={<button className="button button--secondary" type="button" onClick={()=>setReload(n=>n+1)}>Try again</button>}/>:!current.data?<EmptyState title="You can't see comments here" description="You need access to this work to see its comments."/>:<>
+ {!current?<LoadingState title="Loading comments"/>:current.error?<ErrorState title="Couldn't load comments" description="Check your connection and try again." action={<button className="button button--secondary" type="button" onClick={()=>setReload(n=>n+1)}>Try again</button>}/>:!current.data?<EmptyState illustration={<NoAccess />} title="You can't see comments here" description="You need access to this work to see its comments."/>:<>
  {current.data.canComment?null:<p>You can read these comments but not add any.</p>}
- {current.data.items.length===0?<p>No comments yet.</p>:current.data.items.map(item=><CommentRow key={item.id} api={api} workId={workId} item={item} onSaved={()=>setReload(reload+1)}/>)}
+ {current.data.items.length===0?<EmptyState level={3} illustration={<EmptyComments size={88} />} title="No comments yet" description="Questions and updates about this work show up here. Start the thread below."/>:current.data.items.map(item=><CommentRow key={item.id} api={api} workId={workId} item={item} onSaved={()=>setReload(reload+1)}/>)}
  <Pager label="Comment pages" page={page} total={current.data.total} onMove={setPage}/>
  </>}
  </>

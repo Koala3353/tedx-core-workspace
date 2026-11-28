@@ -11,6 +11,7 @@ import {EvaluationAction,EvaluationEditor,type EvaluationEdit} from './Evaluatio
 import {HowThisWorks} from '../shared/HowThisWorks'
 import {formatDateTime} from '../shared/dates'
 import './evaluations.css'
+import { EmptyComments, NoAccess, NotSwitchedOn } from '../../components/illustrations'
 
 const date=(v:string)=>formatDateTime(v)
 const path=(term:string,id?:string,view='feedback')=>'/prism'+(id?'/'+id+'/'+view:'')+'?term='+term
@@ -32,7 +33,7 @@ export function EvaluationsLink({api,term}:{api:EvaluationsApi;term:string}){
 
 export function EvaluationsPage({api}:{api:EvaluationsApi}){
   const c=useRouteLoaderData('workspace')as WorkspaceContext,{evaluationId,view}=useParams()
-  if(!('memberId'in c))return <EmptyState title="Check-ins aren't available" description="Check-ins (PRISM) are only for organizers on this term's roster."/>
+  if(!('memberId'in c))return <EmptyState illustration={<NoAccess />} title="Check-ins aren't available" description="Check-ins (PRISM) are only for organizers on this term's roster."/>
   return <EvaluationBody key={c.termId+c.memberId+evaluationId+view} api={api} term={c.termId} caseId={evaluationId} view={view}/>
 }
 
@@ -85,7 +86,7 @@ function EvaluationBody({api,term,caseId,view}:{api:EvaluationsApi;term:string;c
     {failed?<ErrorState title="Couldn't load check-ins" description="Check your connection and try again. What you typed is kept."
       action={<button className="button button--secondary" onClick={()=>void load()}>Try again</button>}/>:null}
     {w?<div hidden={failed} inert={checking}>
-      {!w.enabled?<EmptyState title="Not switched on yet" description="Check-ins (PRISM) aren't switched on for this term yet. Ask a workspace admin when they'll open. Nothing is lost while they're off."/>:<>
+      {!w.enabled?<EmptyState illustration={<NotSwitchedOn />} title="Not switched on yet" description="Check-ins (PRISM) aren't switched on for this term yet. Ask a workspace admin when they'll open. Nothing is lost while they're off."/>:<>
         <div ref={focus} tabIndex={-1}>{notice?<p role="status">{notice}</p>:null}</div>
         {caseId?view==='summary'?summary?<Panel title={summary.round}>
           <p>{summary.purpose}</p><p><strong>{summary.state==='released'?'Your summary is ready':summary.state==='awaiting_updated_summary'?'Waiting for an updated summary':'Waiting for release'}</strong></p>
@@ -130,7 +131,7 @@ function EvaluationBody({api,term,caseId,view}:{api:EvaluationsApi;term:string;c
           </>}
           <ExportRecord api={api} term={term} caseId={r.caseId} grants={grants} checking={checking}/>
         </>:<Unavailable/>:<>
-          {!w.cases.length?<EmptyState title="Nothing here yet" description="When you're asked to give feedback, or your summary is ready, it shows up here. Feedback is optional."/>:null}
+          {!w.cases.length?<EmptyState illustration={<EmptyComments />} title="Nothing here yet" description="When you're asked to give feedback, or your summary is ready, it shows up here. Feedback is optional."/>:null}
           {w.cases.some(c=>c.asAuthor)?<DeskList title="Feedback I'm giving" cases={w.cases.filter(c=>c.asAuthor)} term={term}/>:null}
           {w.cases.some(c=>c.asReviewer)?<DeskList title="Feedback I'm reviewing" cases={w.cases.filter(c=>c.asReviewer)} term={term}/>:null}
           {w.cases.some(c=>c.asSubject)?<DeskList title="My summaries" cases={w.cases.filter(c=>c.asSubject)} term={term} subject/>:null}
@@ -149,7 +150,7 @@ function EvaluationBody({api,term,caseId,view}:{api:EvaluationsApi;term:string;c
     </div>:null}
   </div>
 }
-function Unavailable(){return <EmptyState title="You can't open this" description="It isn't assigned to you. Go back to Check-ins to see what is."/>}
+function Unavailable(){return <EmptyState illustration={<NoAccess />} title="You can't open this" description="It isn't assigned to you. Go back to Check-ins to see what is."/>}
 function Retention({item}:{item:EvaluationCase}){return <p>Kept for {item.retention.days} days after the round's change deadline, unless it has to be held longer. Owner: {item.retention.owner}. Basis: {item.retention.basis}.</p>}
 function DeskList({title,cases,term,subject=false}:{title:string;cases:EvaluationCase[];term:string;subject?:boolean}){
   return <Panel title={title}>{!cases.length?<p>Nothing here yet.</p>:<ul className="evaluation-list">{cases.map(c=><li key={c.id}>

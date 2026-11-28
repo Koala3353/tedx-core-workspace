@@ -21,6 +21,7 @@ import { DriveCallback } from '../features/integrations/drive/DriveSource'
 import { forgetSession, hadSession, rememberSession, safeReturnPath, isDeliverablePath, isTaskPath, isAnnouncementPath, isPrivacyPath } from '../features/auth/redirects'
 import { calendarCallback } from '../features/integrations/calendar/api'
 import { installRoutePrefetch, type Preload } from './prefetch'
+import { EmptyTasks } from '../components/illustrations'
 
 /**
  * Route-level code splitting. Each feature page loads on first visit, inside its own
@@ -205,7 +206,7 @@ function FoundationPage({ environment }: { environment: ClientEnvironment }) {
         </ul>
       </Panel>
       </div>
-      <EmptyState title="Your work will appear here" description="Once you're signed in and have work assigned, your next steps show up here." />
+      <EmptyState illustration={<EmptyTasks />} title="Your work will appear here" description="Once you're signed in and have work assigned, your next steps show up here." />
     </>
   )
 }

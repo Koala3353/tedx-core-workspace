@@ -17,6 +17,7 @@ import { DeliverableEditor } from './DeliverableEditor'
 import type { DeliverableCommands } from './commands'
 import { WorkCsvDownload } from '../exports/WorkCsvDownload'
 import type { OperationalExport } from '../exports/operational'
+import { EmptyBoard, EmptySearch } from '../../components/illustrations'
 export function DeliverablesRoute({ api, commands, exportCsv }: { api: DeliverablesApi; commands?: DeliverableCommands; exportCsv?: OperationalExport }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext
   return <DeliverablesPage key={context.termId} api={api} commands={commands} termId={context.termId}
@@ -84,7 +85,7 @@ export function DeliverablesPage({ api, commands, termId, exportControl }: { api
         <h2><Link to={`/deliverables/${item.id}`} state={{from:location.search}}>{item.title}</Link></h2>
         <WorkReference compact reference={item.reference} id={item.id} kind="deliverable"/>
         <p className="muted">Phase: {item.phase ?? 'Not set'}</p>{item.summary?<p>{item.summary}</p>:null}<DeliverableFacts item={item}/>
-      </article>)}</div> : data.total ? <EmptyState title="Nothing on this page" description="The list changed while you were browsing." action={<button className="button button--secondary" onClick={()=>move(1)}>Go to the first page</button>}/> : filtered ? <EmptyResults query={filter.query} noun="deliverables" onClear={clearAll}/> : <EmptyState title="No deliverables yet" description="Heads add their committee's outputs here. Each one has an owner, a due date and what counts as done." action={commands&&!creating?<button className="button button--secondary" onClick={()=>setCreating(true)}>New deliverable</button>:undefined}/>}
+      </article>)}</div> : data.total ? <EmptyState illustration={<EmptySearch />} title="Nothing on this page" description="The list changed while you were browsing." action={<button className="button button--secondary" onClick={()=>move(1)}>Go to the first page</button>}/> : filtered ? <EmptyResults query={filter.query} noun="deliverables" onClear={clearAll}/> : <EmptyState illustration={<EmptyBoard />} title="No deliverables yet" description="Heads add their committee's outputs here. Each one has an owner, a due date and what counts as done." action={commands&&!creating?<button className="button button--secondary" onClick={()=>setCreating(true)}>New deliverable</button>:undefined}/>}
       <Pager label="Deliverable pages" page={data.page} total={data.total} pageSize={data.pageSize} onMove={move}/>
     </> : null}
   </>

@@ -9,6 +9,7 @@ import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import type { Requirement, RequirementKind, RequirementStatus, SpeakerPortalApi, SpeakerTracker, TrackedSpeaker } from './api'
 import { invitationLabels, requirementKinds, requirementStatusLabel } from './labels'
 import './speaker-portal.css'
+import { EmptyStage, NotSwitchedOn } from '../../components/illustrations'
 
 type Load = { state: 'loading' } | { state: 'ready'; data: SpeakerTracker } | { state: 'missing' } | { state: 'error' }
 
@@ -17,7 +18,7 @@ export function SpeakerTrackerPage({ api }: { api?: SpeakerPortalApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   if (!context || isGuest(context)) return null
   if (!api) return <div className="speaker-page speaker-page--wide"><TrackerHeading />
-    <EmptyState title="Speaker tracking isn't switched on yet" description="Ask WebDev to finish setting it up. Until then, keep the speaker list where TalRec already tracks it." /></div>
+    <EmptyState illustration={<NotSwitchedOn />} title="Speaker tracking isn't switched on yet" description="Ask WebDev to finish setting it up. Until then, keep the speaker list where TalRec already tracks it." /></div>
   return <TrackerContent key={context.termId} api={api} termId={context.termId} />
 }
 
@@ -43,7 +44,7 @@ function TrackerContent({ api, termId }: { api: SpeakerPortalApi; termId: string
 
   if (load.state === 'loading') return <div className="speaker-page speaker-page--wide"><TrackerHeading /><LoadingState title="Loading speakers" /></div>
   if (load.state === 'missing') return <div className="speaker-page speaker-page--wide"><TrackerHeading />
-    <EmptyState title="Speaker tracking isn't switched on yet" description="Ask WebDev to apply the speaker update. Until then, keep the speaker list where TalRec already tracks it." /></div>
+    <EmptyState illustration={<NotSwitchedOn />} title="Speaker tracking isn't switched on yet" description="Ask WebDev to apply the speaker update. Until then, keep the speaker list where TalRec already tracks it." /></div>
   if (load.state === 'error') return <div className="speaker-page speaker-page--wide"><TrackerHeading />
     <ErrorState title="Couldn't load speakers" description="Only TalRec and admins can see this list. If you're one of them, try again."
       action={<button className="button button--secondary" type="button" onClick={refresh}>Try again</button>} /></div>
@@ -64,7 +65,7 @@ function TrackerContent({ api, termId }: { api: SpeakerPortalApi; termId: string
       ? <SpeakerForm api={api} termId={termId} data={data} onDone={saved => { setAdding(false); if (saved) refresh() }} />
       : <div className="speaker-row__actions speaker-add"><button className="button" type="button" onClick={() => setAdding(true)}><Plus className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />Add speaker</button></div>
       : null}
-    {!data.speakers.length ? <EmptyState title="No speakers yet"
+    {!data.speakers.length ? <EmptyState illustration={<EmptyStage />} title="No speakers yet"
       description={data.canManage ? 'Add a speaker with the email they\'ll sign in with. They get a checklist (bio, headshot, outline, script, slides, rehearsal RSVP) with dates before the event. Then invite them on the guest page so they can open My part.'
         : 'TalRec heads add speakers here. Each speaker gets a checklist with due dates.'} />
       : <>

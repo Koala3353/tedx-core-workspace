@@ -11,6 +11,7 @@ import {InventoryEditor,type InventoryAction} from './InventoryEditor'
 import type {InventoryApi,InventoryEntry,InventoryReceipt,InventoryWorkspace,Loan,StockItem} from './api'
 import {formatDay,formatDateTime} from '../shared/dates'
 import './inventory.css'
+import { NoAccess, NotSwitchedOn, EmptyCalendar, EmptyInbox, EmptySearch } from '../../components/illustrations'
 
 const loanStates={reserved:'Reserved',issued:'Picked up',partial:'Partial return',complete:'Complete',cancelled:'Cancelled'}
 const historyNames={reserve:'Reserved',issue:'Picked up',consume:'Picked up to use up',return:'Returned to stock',
@@ -65,7 +66,7 @@ export function InventoryOverviewActions({api,term}: {api:InventoryApi;term:stri
 
 export function InventoryPage({api}:{api:InventoryApi}){
   const c=useRouteLoaderData('workspace')as WorkspaceContext,{inventoryLoanId}=useParams(),[search]=useSearchParams()
-  if(!('memberId'in c))return <EmptyState title="Inventory isn't available" description="Only organizers on this term's roster can borrow inventory."/>
+  if(!('memberId'in c))return <EmptyState illustration={<NoAccess />} title="Inventory isn't available" description="Only organizers on this term's roster can borrow inventory."/>
   return <InventoryBody key={c.termId+':'+c.memberId+':'+inventoryLoanId} api={api} term={c.termId}
     loanId={inventoryLoanId??null} termQuery={search.has('term')?'?term='+c.termId:''}
     focusItem={/^[0-9a-f-]{36}$/i.test(search.get('item')??'')?search.get('item'):null}/>
@@ -152,7 +153,7 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
     {failed?<ErrorState title="Couldn't load inventory" description="Check your connection and try again. What you typed is kept."
       action={<PendingButton className="button button--secondary" pending={loud} pendingLabel="Trying again…" onClick={()=>load()}>Try again</PendingButton>}/>:null}
     {!workspace&&checking?<LoadingState title="Loading inventory"/>:null}
-    {!workspace&&!checking&&!failed?<EmptyState title="Inventory isn't switched on yet" description="Borrowing isn't open for this term yet. Ask Logistics if you need equipment."
+    {!workspace&&!checking&&!failed?<EmptyState illustration={<NotSwitchedOn />} title="Inventory isn't switched on yet" description="Borrowing isn't open for this term yet. Ask Logistics if you need equipment."
       action={<Link className="button button--secondary" to="/people">Find a contact</Link>}/>:null}
     {workspace?<div hidden={failed}>
       {receipt?<p ref={confirmation} tabIndex={-1} role="status" className="inventory-result">
@@ -194,7 +195,7 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
                     {i.needsCustodian?'Assign someone in charge':'Change who\'s in charge'} · {i.name}</button>:null}
                 {i.canStartFinance?<button className="button button--secondary" onClick={()=>choose({kind:'finance',item:i.id})}>Request purchase · {i.name}</button>:null}
               </div>:null}
-            </li>)}</ul>:<p>{query?'No items match this search.':'No items listed yet. Ask Logistics about available stock.'}</p>}
+            </li>)}</ul>:<EmptyState level={3} illustration={query?<EmptySearch size={96} />:<EmptyInbox size={96} />} title={query?'No items match this search':'No items listed yet'} description={query?'Try another word, or clear the search to see everything.':'Logistics lists the equipment you can borrow here. Ask them about available stock.'}/>}
             {itemPage>1||workspace.moreItems?<div className="auth-actions">
               <button className="button button--secondary" disabled={!!choice||itemPage===1} onClick={()=>{setPressed('items-prev');changeItemPage(v=>v-1)}}><Pending when={loud&&pressed==='items-prev'}>Previous</Pending></button>
               <button className="button button--secondary" disabled={!!choice||!workspace.moreItems} onClick={()=>{setPressed('items-next');changeItemPage(v=>v+1)}}><Pending when={loud&&pressed==='items-next'}>Next</Pending></button>
@@ -205,7 +206,7 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
               <h3><Link className="button button--secondary" to={'/inventory/'+l.id+termQuery}>{l.item} · {l.reference}</Link></h3>
               <p>{loanStates[l.state]} · {l.quantity} units{l.custodian?' · '+l.borrower:''}</p>
               <p>{l.kind==='returnable'?'Return by '+formatDay(l.dueOn):'Pickup '+formatDay(l.startsOn)}</p>
-            </li>)}</ul>:<p>No bookings yet. Reserve an item above to start one.</p>}
+            </li>)}</ul>:<EmptyState level={3} illustration={<EmptyCalendar size={96} />} title="No bookings yet" description="Reserve an item above. Your bookings and their return dates show up here."/>}
             {loanPage>1||workspace.moreLoans?<div className="auth-actions">
               <button className="button button--secondary" disabled={!!choice||loanPage===1} onClick={()=>{setPressed('loans-prev');changeLoanPage(v=>v-1)}}><Pending when={loud&&pressed==='loans-prev'}>Previous</Pending></button>
               <button className="button button--secondary" disabled={!!choice||!workspace.moreLoans} onClick={()=>{setPressed('loans-next');changeLoanPage(v=>v+1)}}><Pending when={loud&&pressed==='loans-next'}>Next</Pending></button>

@@ -9,6 +9,7 @@ import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import type { MyPart, PortalEvent, Requirement, SpeakerPortalApi } from './api'
 import { requirementStatusLabel } from './labels'
 import './speaker-portal.css'
+import { EmptyStage, NoAccess, EmptyTasks } from '../../components/illustrations'
 
 type Load = { state: 'loading' } | { state: 'ready'; part: MyPart } | { state: 'missing' } | { state: 'error' }
 
@@ -20,7 +21,7 @@ export function MyPartPage({ api }: { api?: SpeakerPortalApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   if (!context || !isGuest(context)) {
     return <div className="speaker-page">
-      <EmptyState title="This page is for invited speakers" description="Speakers see their checklist, rehearsal times and their contact here. To follow every speaker, open the speaker tracker."
+      <EmptyState illustration={<NoAccess />} title="This page is for invited speakers" description="Speakers see their checklist, rehearsal times and their contact here. To follow every speaker, open the speaker tracker."
         action={<Link className="button button--secondary" to="/event/speakers">Open speaker tracker</Link>} />
     </div>
   }
@@ -29,7 +30,7 @@ export function MyPartPage({ api }: { api?: SpeakerPortalApi }) {
 }
 
 function Unavailable() {
-  return <EmptyState title="Your page isn't ready yet" description="We're still setting things up for speakers. Check back soon, or email the person who invited you." />
+  return <EmptyState illustration={<EmptyStage />} title="Your page isn't ready yet" description="We're still setting things up for speakers. Check back soon, or email the person who invited you." />
 }
 
 function MyPartContent({ api, termId }: { api: SpeakerPortalApi; termId: string }) {
@@ -99,7 +100,7 @@ function Checklist({ api, termId, part, onSaved }: { api: SpeakerPortalApi; term
   return <section className="speaker-section" aria-labelledby="speaker-needs">
     <h2 id="speaker-needs">What we need from you</h2>
     {!part.requirements.length
-      ? <p className="speaker-muted">Nothing yet. Your contact will add what we need here, with a date for each.</p>
+      ? <EmptyState level={3} illustration={<EmptyTasks size={96} />} title="Nothing needed from you yet" description="Your contact will add what we need here, like your bio, photo or slides, with a date for each." />
       : <>
         <p className="speaker-muted">{left === 0 ? 'You\'re all caught up. Thank you.' : `${left} ${left === 1 ? 'thing' : 'things'} left. Send each one when it's ready.`}</p>
         <ul className="speaker-list">{part.requirements.map(item => <li key={item.id} className="speaker-row speaker-row--stack">

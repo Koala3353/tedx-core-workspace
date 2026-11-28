@@ -11,6 +11,7 @@ import { replayTour } from '../tutorial/events'
 import { whoToAskEntries } from '../who-to-ask/entries'
 import { parseQuickAdd, type Committee, type QuickAdd } from './parse'
 import './palette.css'
+import { EmptySearch } from '../../components/illustrations'
 
 /** Opens the palette from anywhere (header button, menus, other features). */
 export const paletteEvent = 'workspace-palette-open'
@@ -189,7 +190,7 @@ function PaletteDialog({ items, seed, initialMode, onClose }: { items: Navigatio
               </div>
             </div>
           })}
-          {!options.length && !searching ? <p className="palette__empty">No matches. Try another word, or press Esc.</p> : null}
+          {!options.length && !searching ? <div className="palette__empty"><EmptySearch size={72} /><p>No matches for “{trimmed}”. Try another word, or press Esc.</p></div> : null}
         </div>
         <p className="palette__status" role="status">{searching ? 'Searching…' : results?.failed && results.query === trimmed ? 'Search is unavailable right now. Pages and actions still work.' : ''}</p>
       </>}

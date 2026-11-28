@@ -16,17 +16,18 @@ import { useBoard } from './useBoard'
 import type { CommitteePagesApi } from './api'
 import { MyCommitteeLinks, QuickLinks } from '../committee-links'
 import './committee-pages.css'
+import { EmptyPeople, EmptySearch, NoAccess, NotSwitchedOn } from '../../components/illustrations'
 
 function useMember(): WorkspaceContext | null {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   return context && !isGuest(context) ? context : null
 }
 
-const guestState = (title: string) => <><PageHeading title={title} /><EmptyState title="Not available for guests" description="Committee pages are for core members." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
+const guestState = (title: string) => <><PageHeading title={title} /><EmptyState illustration={<NoAccess />} title="Not available for guests" description="Committee pages are for core members." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
 
 function BoardGate({ state, title, children }: { state: ReturnType<typeof useBoard>; title: ReactNode; children: (board: Board) => ReactNode }) {
   if (state.board) return <>{children(state.board)}</>
-  if (state.unavailable) return <>{title}<EmptyState title="Committee pages aren't switched on yet" description="They appear once the latest workspace update is installed. Meanwhile, check People." action={<Link className="button button--secondary" to="/people">People</Link>} /></>
+  if (state.unavailable) return <>{title}<EmptyState illustration={<NotSwitchedOn />} title="Committee pages aren't switched on yet" description="They appear once the latest workspace update is installed. Meanwhile, check People." action={<Link className="button button--secondary" to="/people">People</Link>} /></>
   if (state.error) return <>{title}<ErrorState title="This page didn't load" description={state.error} action={<PendingButton className="button button--secondary" pending={state.loading} pendingLabel="Trying again…" onClick={state.reload}>Try again</PendingButton>} /></>
   return <>{title}<LoadingState title="Loading committees" rows={4} /></>
 }
@@ -57,7 +58,7 @@ function CommitteeIndexBody({ api, termId }: { api?: CommitteePagesApi; termId: 
   const heading = <PageHeading title="Committees" description="What each committee does, who leads it and what it's working on now." />
   return <BoardGate state={state} title={heading}>{board => {
     const units = [...board.units].sort((a, b) => Number(b.delivery) - Number(a.delivery) || a.name.localeCompare(b.name))
-    if (!units.length) return <>{heading}<EmptyState title="No committees yet" description="Committees appear here once the roster is set up." /></>
+    if (!units.length) return <>{heading}<EmptyState illustration={<EmptyPeople />} title="No committees yet" description="Committees appear here once the roster is set up." /></>
     return <>
       {heading}
       <MyCommitteeLinks api={api} termId={termId} />
@@ -95,7 +96,7 @@ function CommitteeBody({ api, termId, code }: { api?: CommitteePagesApi; termId:
   const back = <Link className="committee-page__back" to="/team/committees"><ArrowLeft className="icon" size={16} aria-hidden="true" />All committees</Link>
   return <BoardGate state={state} title={<>{back}<PageHeading title="Committee" /></>}>{board => {
     const unit = findUnit(board.units, [code])
-    if (!unit) return <>{back}<PageHeading title="Committee not found" /><EmptyState title={`No committee called “${code}” this term`} description="It may have been renamed. Pick one from the list." action={<Link className="button button--secondary" to="/team/committees">All committees</Link>} /></>
+    if (!unit) return <>{back}<PageHeading title="Committee not found" /><EmptyState illustration={<EmptySearch />} title={`No committee called “${code}” this term`} description="It may have been renamed. Pick one from the list." action={<Link className="button button--secondary" to="/team/committees">All committees</Link>} /></>
     return <>{back}<CommitteeOnePager api={api} termId={termId} board={board} unit={unit} /></>
   }}</BoardGate>
 }
@@ -143,7 +144,7 @@ function CommitteeOnePager({ api, termId, board, unit }: { api?: CommitteePagesA
     </div> : null}
 
     <Panel title="People">
-      {!unit.people.length ? <p className="muted">No one is listed for {unit.name} yet, or the directory is hidden for you.</p>
+      {!unit.people.length ? <EmptyState level={3} illustration={<EmptyPeople size={88} />} title="No one listed yet" description={`People in ${unit.name} show up here once the roster is set up. Ask a PM if you expected to see someone.`} />
         : <ul className="committee-page__people">{unit.people.map(p => <li key={p.id}>
           <span className="committee-page__person">{p.name}</span>
           <span className="muted">{roleLabel[p.role]}</span>
@@ -229,7 +230,11 @@ function Upcoming({ api, termId, unit, today }: { api?: CommitteePagesApi; termI
 
 function Pinned({ api, termId, unit }: { api?: CommitteePagesApi; termId: string; unit: BoardUnit }) {
   const result = useLoad<Resource[]>(api ? () => api.pinned(termId, unit.id) : null, termId + unit.id)
-  if (!api || !result || result.failed || !result.value?.length) return null
+  if (!api || !result || result.failed || !result.value) return null
+  if (!result.value.length) return <Panel title="Pinned guides">
+    <p className="muted">No pinned guides yet. Heads pin their committee's how-tos from Start here.</p>
+    <Link className="button button--secondary" to="/resources">Start here<ArrowRight className="icon" size={16} aria-hidden="true" /></Link>
+  </Panel>
   return <Panel title="Pinned guides">
     <ul className="committee-page__list">{result.value.map(r => <li key={r.id}>
       <Link to={'/resources?resource=' + r.id}>{r.label}</Link>{r.essential ? <span className="muted"> · Start here</span> : null}

@@ -11,13 +11,14 @@ import type { CheckInLink, CrewArrivals, CrewPerson, EventQrApi } from './api'
 import { QrCode } from './QrCode'
 import { checkInLink, itemLink } from './links'
 import './event-qr.css'
+import { EmptyInbox, NoAccess, NotSwitchedOn } from '../../components/illustrations'
 
 type View = 'labels' | 'door'
 
 export function EventQrPage({ api, inventory }: { api?: EventQrApi; inventory?: InventoryApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext
   if (!context || !('memberId' in context)) {
-    return <EmptyState title="Event QR codes aren't available" description="Only organizers on this term's roster can print event QR codes." />
+    return <EmptyState illustration={<NoAccess />} title="Event QR codes aren't available" description="Only organizers on this term's roster can print event QR codes." />
   }
   const crewManager = context.capabilities.includes('admin.configure') || context.capabilities.includes('roles.manage')
   return <EventQrBody key={context.termId} term={context.termId} api={api} inventory={inventory} crewManager={crewManager && !!api} />
@@ -32,7 +33,7 @@ function EventQrBody({ term, api, inventory, crewManager }: { term: string; api?
   ]
   if (views.length === 0) return <>
     <PageHeading title="Event QR codes" />
-    <EmptyState title="Nothing to print here yet" description="Inventory labels need inventory to be set up. Crew check-in is for PMs and admins." />
+    <EmptyState illustration={<EmptyInbox />} title="Nothing to print here yet" description="Inventory labels need inventory to be set up. Crew check-in is for PMs and admins." />
   </>
   return <div className="eqr">
     <PageHeading title="Event QR codes" description="Print item labels for borrowing and returns, and the crew door code for check-in." />
@@ -79,7 +80,7 @@ function ItemLabels({ term, inventory }: { term: string; inventory: InventoryApi
   if (state === 'loading') return <LoadingState title="Loading inventory items" />
   if (state === 'failed') return <ErrorState title="Couldn't load inventory" description="Check your connection and try again."
     action={<button className="button button--secondary" onClick={() => void load()}>Try again</button>} />
-  if (state === 'none' || !items?.length) return <EmptyState title="No items to label yet"
+  if (state === 'none' || !items?.length) return <EmptyState illustration={<EmptyInbox />} title="No items to label yet"
     description="Logistics adds items on the Inventory page. Their labels show up here." />
 
   const toggle = (id: string) => setSkipped(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
@@ -148,7 +149,7 @@ function CrewDoor({ term, api }: { term: string; api: EventQrApi }) {
   }
 
   if (state === 'loading') return <LoadingState title="Loading crew check-in" />
-  if (state === 'unavailable') return <EmptyState title="Crew check-in isn't set up yet" description="It needs a workspace update. Ask the WebDev head to finish setup." />
+  if (state === 'unavailable') return <EmptyState illustration={<NotSwitchedOn />} title="Crew check-in isn't set up yet" description="It needs a workspace update. Ask the WebDev head to finish setup." />
   if (state === 'failed' || !link || !arrivals) return <ErrorState title="Couldn't load crew check-in" description="Check your connection and try again."
     action={<button className="button button--secondary" onClick={() => void load()}>Try again</button>} />
 

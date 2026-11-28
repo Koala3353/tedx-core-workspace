@@ -24,6 +24,7 @@ import { filterSearch, parseFilters, type DeliverablesApi, type DeliverableDetai
 import { dateLabel, DeliverableFacts } from './DeliverableFacts'
 import { DeliverableEditor } from './DeliverableEditor'
 import type { DeliverableCommands } from './commands'
+import { NoAccess } from '../../components/illustrations'
 export function DeliverablePage({ process, api, commands, comments, files, synergies, timeline, finance, publicity, readiness }: { process?:ProcessApi;readiness?:ReadinessApi;publicity?:PublicityApi;finance?:FinanceApi; timeline?:TimelineApi;api: DeliverablesApi; commands?: DeliverableCommands; comments?:CommentsApi; files?:FilesApi; synergies?:SynergiesApi }) {
   const {deliverableId=''}=useParams(); const location=useLocation()
   const context=useRouteLoaderData('workspace') as WorkspaceContext|undefined
@@ -36,7 +37,7 @@ export function DeliverablePage({ process, api, commands, comments, files, syner
   const loaded=state?.key===key;const item=loaded?state.data:null
   return <>
     <p><Link className="button button--quiet" to={back}>{guest?'Back to shared with me':'Back to deliverables'}</Link></p>
-    {!loaded?<LoadingState title="Loading deliverable"/>:state.error?<ErrorState title="Deliverable unavailable" description="Check your connection and try again." action={<button className="button" onClick={()=>setReload(reload+1)}>Try again</button>}/>:!item?<><PageHeading title="Deliverable unavailable"/><EmptyState title="This deliverable cannot be shown" description="It may have been removed, or you no longer have access." action={<Link className="button button--secondary" to={back}>Go back</Link>}/></>:<>
+    {!loaded?<LoadingState title="Loading deliverable"/>:state.error?<ErrorState title="Deliverable unavailable" description="Check your connection and try again." action={<button className="button" onClick={()=>setReload(reload+1)}>Try again</button>}/>:!item?<><PageHeading title="Deliverable unavailable"/><EmptyState illustration={<NoAccess />} title="This deliverable cannot be shown" description="It may have been removed, or you no longer have access." action={<Link className="button button--secondary" to={back}>Go back</Link>}/></>:<>
       <PageHeading title={item.title} description="What's being delivered, who owns it and what's left before it's accepted."/>
       <PublishedStatus api={process} kind="deliverable" state={item.workflowState??item.readiness}/><WorkReference reference={item.reference} id={item.id} kind="deliverable"/>
       <Panel title="Next step"><p>{item.nextAction}</p><p>State: {readinessLabel(item.readiness)}</p><p>Owner: {item.owner.name}{!item.owner.active?' · Reassignment needed':''} · Target: {dateLabel(item.dueAt,item.dueOn)}{item.overdue?' · Overdue':''}</p><p>{item.blocked?item.blocker??'Ask the owner to clarify the blocker.':'No blocker recorded'}</p><Link to={guest?'/account':'/resources'}>Get help</Link></Panel>

@@ -9,11 +9,12 @@ import { findUnit, leadContacts, roleLabel, type BoardUnit } from '../committee-
 import { bestService, resolveNeed, type WhoToAskApi } from './api'
 import { matchTopics, needs, type Need } from './topics'
 import './who-to-ask.css'
+import { NoAccess, NotSwitchedOn, EmptySearch } from '../../components/illustrations'
 
 export function WhoToAskPage({ api }: { api?: WhoToAskApi }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   const heading = <PageHeading title="Who do I ask?" description="Pick what you need. You'll see the committee that handles it and who to message." />
-  if (!context || isGuest(context)) return <>{heading}<EmptyState title="Not available for guests" description="Ask the person who shared this workspace with you." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
+  if (!context || isGuest(context)) return <>{heading}<EmptyState illustration={<NoAccess />} title="Not available for guests" description="Ask the person who shared this workspace with you." action={<Link className="button button--secondary" to="/shared">Shared with me</Link>} /></>
   return <WhoToAskBody key={context.termId} api={api} termId={context.termId} heading={heading} />
 }
 
@@ -40,7 +41,7 @@ function WhoToAskBody({ api, termId, heading }: { api?: WhoToAskApi; termId: str
 
     {selected ? <section className="who-to-ask__answer" aria-live="polite">
       {!state.board ? (state.unavailable
-        ? <EmptyState title="Contacts aren't switched on yet" description="They appear once the latest workspace update is installed. Meanwhile, check People." action={<Link className="button button--secondary" to="/people">People</Link>} />
+        ? <EmptyState illustration={<NotSwitchedOn />} title="Contacts aren't switched on yet" description="They appear once the latest workspace update is installed. Meanwhile, check People." action={<Link className="button button--secondary" to="/people">People</Link>} />
         : state.error ? <ErrorState title="Contacts didn't load" description={state.error} action={<button className="button button--secondary" type="button" onClick={state.reload}>Try again</button>} />
         : <LoadingState title="Finding who to ask" rows={2} />)
         : <NeedAnswer need={selected} unit={resolveNeed(selected, units)} />}
@@ -54,7 +55,7 @@ function WhoToAskBody({ api, termId, heading }: { api?: WhoToAskApi; termId: str
           onChange={e => { setQuery(e.target.value); setParams(p => { const next = new URLSearchParams(p); if (e.target.value.trim()) next.set('q', e.target.value); else next.delete('q'); return next }, { replace: true, preventScrollReset: true }) }} />
       </div>
       {query.trim() ? <div aria-live="polite">
-        {!matches.length && !needHits.length ? <p className="muted">No committee lists “{query.trim()}” yet. Try another word, or ask the Project Managers.</p> : null}
+        {!matches.length && !needHits.length ? <EmptyState level={3} illustration={<EmptySearch size={88} />} title={`No committee lists “${query.trim()}” yet`} description="Try another word, or pick a need above. Still stuck? Ask the Project Managers." /> : null}
         {needHits.length ? <div className="who-to-ask__chips who-to-ask__chips--small">{needHits.map(n => <button key={n.id} type="button" className="who-to-ask__chip" aria-pressed={selected?.id === n.id} onClick={() => choose(n)}>I need {n.label}</button>)}</div> : null}
         {matches.length ? <ul className="who-to-ask__results">{dedupe(matches.map(m => ({ ...m, unit: findUnit(units, m.group.codes) }))).map(m => <li key={m.key}>
           <TopicResult name={m.group.name} hits={m.hits} unit={m.unit} loaded={!!state.board} />
