@@ -17,7 +17,7 @@ export function countLabel(shown: number, total: number, noun: [string, string])
  * Search box, filter chips and a live result count for one list. Sticks under the page header while
  * the list scrolls. Press "/" anywhere on the page (outside a field) to jump to the first search box.
  */
-export function ListToolbar<T>({ filter, label, placeholder, noun, sort, group, actions, sticky = true }: {
+export function ListToolbar<T>({ filter, label, placeholder, noun, sort, group, actions, sticky = true, count }: {
   filter: ListFilterState<T>
   /** Accessible name of the search box, e.g. "Search the roster". */
   label: string
@@ -27,6 +27,8 @@ export function ListToolbar<T>({ filter, label, placeholder, noun, sort, group, 
   group?: { on: boolean; onChange: (on: boolean) => void; label: string }
   actions?: ReactNode
   sticky?: boolean
+  /** For server-paged lists: matching rows and the unfiltered total ("12 of 340"). Defaults to the client filter's counts. */
+  count?: { shown: number; total: number }
 }) {
   const id = useId()
   const input = useRef<HTMLInputElement>(null)
@@ -60,7 +62,7 @@ export function ListToolbar<T>({ filter, label, placeholder, noun, sort, group, 
           {sort.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select></label> : null}
       {group ? <label className="list-toolbar__toggle"><input type="checkbox" checked={group.on} onChange={event => group.onChange(event.target.checked)} />{group.label}</label> : null}
-      <p className="list-toolbar__count numeric" role="status" aria-live="polite">{countLabel(filter.results.length, filter.total, noun)}</p>
+      <p className="list-toolbar__count numeric" role="status" aria-live="polite">{count ? countLabel(count.shown, count.total, noun) : countLabel(filter.results.length, filter.total, noun)}</p>
       {filter.active ? <button type="button" className="button button--quiet list-toolbar__clear" onClick={filter.clear}><X className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />Clear</button> : null}
       {actions}
     </div>

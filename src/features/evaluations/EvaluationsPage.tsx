@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
+import {useAutoRefresh} from '../shared/useAutoRefresh'
 import {Reveal} from '../../components/Reveal'
 import {Link,useParams,useRouteLoaderData} from 'react-router'
 import {PageHeading,Panel} from '../../components/Page'
@@ -64,11 +65,10 @@ function EvaluationBody({api,term,caseId,view}:{api:EvaluationsApi;term:string;c
     finally{if(sequence.current===current)setChecking(false)}
   },[api,term,caseId,view,page])
   useEffect(()=>{
-    const check=()=>{if(document.visibilityState!=='hidden')void load()};check()
-    window.addEventListener('focus',check);document.addEventListener('visibilitychange',check)
-    const timer=setInterval(check,30000)
-    return()=>{sequence.current++;clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}
+    void load()
+    return()=>{sequence.current++}
   },[load])
+  useAutoRefresh(()=>void load(),{intervalMs:30_000})
   useEffect(()=>{if(mode||notice)focus.current?.focus()},[mode,notice])
   function saved(message:string){setMode(null);setDraftId(null);setNotice(message);void load()}
   const actions={api,term,checking,saved,refresh:()=>void load()}

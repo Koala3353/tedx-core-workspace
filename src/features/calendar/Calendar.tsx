@@ -1,4 +1,5 @@
 import {formatDateTime,formatDay,formatRange} from '../shared/dates'
+import{useAutoRefresh}from'../shared/useAutoRefresh'
 import {refreshKey,settled} from '../shared/settled'
 import{useEffect,useId,useLayoutEffect,useRef,useState,type ReactNode}from 'react'
 import{Plus,X}from 'lucide-react'
@@ -37,13 +38,7 @@ function BookingEvent({api,term,booking,browse}:{api:CalendarApi;term:string;boo
       .catch(()=>{if(active)setState({version,event:null,failed:true})})
     return()=>{active=false}
   },[api,term,booking,version])
-  useEffect(()=>{
-    const check=()=>{if(document.visibilityState!=='hidden')refresh(v=>v+1)}
-    window.addEventListener('focus',check)
-    document.addEventListener('visibilitychange',check)
-    const timer=setInterval(check,30000)
-    return()=>{clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}
-  },[])
+  useAutoRefresh(()=>refresh(v=>v+1),{intervalMs:30_000})
   const current=state?.version===version?state:null
   return <>
     <PageHeading title="Room booking"/>
@@ -55,7 +50,7 @@ function BookingEvent({api,term,booking,browse}:{api:CalendarApi;term:string;boo
   </>
 }
 function CalendarBrowse({api}:{api:CalendarApi}){const c=useRouteLoaderData('workspace')as WorkspaceContext,[search,setSearch]=useSearchParams(),month=search.get('month')??today().slice(0,7),view=search.get('view')==='list'?'list':'month',unit=search.get('unit')??'',[page,setPage]=useState(1),[epoch,setEpoch]=useState(0),[selected,setSelected]=useState<string|null>(null),[day,setDay]=useState<string|null>(null),[peek,setPeek]=useState<{day:string;key:string|null}|null>(null),[notice,setNotice]=useState('');let from='',to='',inputError='';try{calendarDay(month+'-01');const r=windowFor(month+'-01','month');from=r.start;to=addDays(r.end,1)}catch{inputError='Choose a valid month.'}const identity='memberId'in c?c.memberId:c.guestAccessId,scope=JSON.stringify([c.termId,identity,month,unit,page]),key=refreshKey(scope,epoch),[state,setState]=useState<{key:string;scope:string;value:CalendarResult|null;error:boolean}|null>(null),[good,setGood]=useState<{scope:string;value:CalendarResult}|null>(null);
- useEffect(()=>{if(inputError)return;let live=true;void api.read(c.termId,from,to,unit||null,page).then(value=>{if(live){setState({key,scope,value,error:false});setGood({scope,value})}}).catch(()=>{if(live)setState({key,scope,value:null,error:true})});return()=>{live=false}},[api,c.termId,from,to,unit,page,key,scope,inputError]);useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')setEpoch(n=>n+1)};window.addEventListener('focus',check);document.addEventListener('visibilitychange',check);const timer=setInterval(check,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}},[]);
+ useEffect(()=>{if(inputError)return;let live=true;void api.read(c.termId,from,to,unit||null,page).then(value=>{if(live){setState({key,scope,value,error:false});setGood({scope,value})}}).catch(()=>{if(live)setState({key,scope,value:null,error:true})});return()=>{live=false}},[api,c.termId,from,to,unit,page,key,scope,inputError]);useAutoRefresh(()=>setEpoch(n=>n+1),{intervalMs:30_000});
  const current=settled(state,key),v=current?.value;function filter(name:string,value:string){const next=new URLSearchParams(search);next.set(name,value);setSearch(next);setPage(1)}function shift(n:number){try{const date=new Date(month+'-01T00:00:00Z');date.setUTCMonth(date.getUTCMonth()+n);filter('month',calendarDay(date.toISOString().slice(0,10)).slice(0,7))}catch{setNotice('Pick a month between year 1 and 9999.')}}
  // The last good read for this scope keeps open dialogs steady through background refreshes.
  const draftBase=!inputError&&good?.scope===scope?good.value:null,selectedItem=draftBase?.items.find(e=>e.key===selected),sync='memberId'in c?api.sync:undefined,peekItems=peek&&draftBase?draftBase.items.filter(e=>peek.key?e.key===peek.key:onDay(e,peek.day)):[];

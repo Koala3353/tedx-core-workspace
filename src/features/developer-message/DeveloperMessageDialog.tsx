@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { CircleAlert, CircleCheck, Clock3, WifiOff, X } from 'lucide-react'
 import { useLocation } from 'react-router'
 import { celebrate, submitterOf } from '../../components/celebrate'
@@ -56,7 +56,8 @@ export function DeveloperMessageDialog({ api, onClose }: { api: DeveloperMessage
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
 
-  useEffect(() => {
+  // Layout effect so close() runs while the dialog is still attached and focus returns to the opener.
+  useLayoutEffect(() => {
     const dialog = ref.current
     if (dialog && !dialog.open) dialog.showModal()
     subjectRef.current?.focus()

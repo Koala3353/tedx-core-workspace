@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useState} from 'react'
+import{useAutoRefresh}from'../../shared/useAutoRefresh'
 import {Link,useParams,useRouteLoaderData} from 'react-router'
 import {PageHeading} from '../../../components/Page'
 import {isGuest,type WorkspaceContext} from '../../auth/gateway'
@@ -14,7 +15,7 @@ export function PrivacyPage({api}:{api:PrivacyApi}){const c=useRouteLoaderData('
 function PrivacyHubPage({api,context}:{api:PrivacyApi;context:WorkspaceContext}){
  const term=context.termId,record='privacy-'+term,[data,setData]=useState<PrivacyHub|null>(null),[state,setState]=useState('loading'),[epoch,setEpoch]=useState(0),[page,setPage]=useState(1),[revision,setRevision]=useState(0),[notice,setNotice]=useState('')
  useEffect(()=>{let live=true;setState('loading');void api.read(term,page).then(v=>{if(live){setData(v);setState('ready')}}).catch(e=>{if(!live)return;if(e?.denied){forgetRecordDrafts(record);setData(null)}setState('error')});return()=>{live=false}},[api,term,page,epoch,context,record])
- useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')setEpoch(n=>n+1)};window.addEventListener('focus',check);return()=>window.removeEventListener('focus',check)},[])
+ useAutoRefresh(()=>setEpoch(n=>n+1))
  useEffect(()=>()=>{forgetRecordDrafts(record);forgetRecordDrafts('privacy-notice-'+term)},[record,term])
  return <section className="privacy-page"><PageHeading title="Privacy and help" description="How your information is used, and how to ask for a copy or a correction."/><p><Link to="/account">My sharing settings</Link> · <Link to="/resources">Help contacts</Link></p>{notice?<p role="status">{notice}</p>:null}
  {state==='loading'?<p role="status">Loading…</p>:state==='error'?<p role="alert">Couldn't load privacy information. Check your connection and try again.</p>:<>{data?.notice?<><NoticeText notice={data.notice.definition}/>{!data.notice.approved?<p role="alert">Privacy requests are paused while this notice is being reviewed.</p>:<NoticeAck api={api} term={term} noticeId={data.notice.revisionId} acknowledged={data.notice.acknowledged} refresh={()=>setEpoch(n=>n+1)}/>}</>:null}
@@ -34,7 +35,7 @@ function PrivacyRequestBody({api,context,id}:{api:PrivacyApi;context:WorkspaceCo
  const[request,setRequest]=useState<RequestDetail|null>(null),[state,setState]=useState('loading'),[epoch,setEpoch]=useState(0),[revision,setRevision]=useState(0)
  const refresh=useCallback(()=>setEpoch(n=>n+1),[])
  useEffect(()=>{let live=true;setState('loading');void api.detail(context.termId,id).then(v=>{if(!live)return;setRequest(v);setState(v?'ready':'missing');if(!v)forgetRecordDrafts(id)}).catch(e=>{if(!live)return;if(e?.denied){forgetRecordDrafts(id);setRequest(null)}setState('error')});return()=>{live=false}},[api,context,id,epoch])
- useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')setEpoch(n=>n+1)};window.addEventListener('focus',check);return()=>window.removeEventListener('focus',check)},[])
+ useAutoRefresh(()=>setEpoch(n=>n+1))
  useEffect(()=>()=>forgetRecordDrafts(id),[id])
  return <section className="privacy-page"><Link to="/privacy">Back to Privacy and help</Link>{state==='loading'?<p role="status">Loading…</p>:state==='missing'?<p>This request doesn't exist or isn't shared with you.</p>:state==='error'?<p role="alert">Couldn't load this request. Check your connection and try again.</p>:request?<><PageHeading title={request.reference} description={kindNames[request.kind]}/><p>Account: {request.accountName}</p><p>{stateNames[request.state]} · {formatDateTime(request.createdAt)}</p><p className="privacy-text">{request.message||'No extra details.'}</p><h2>Replies</h2>{request.replies.length?request.replies.map(r=><section key={r.version}><p>{stateNames[r.state]} · {formatDateTime(r.at)}</p><p className="privacy-text">{r.reply}</p></section>):<p>No reply yet.</p>}</>:null}
  {api.fulfillment&&state==='ready'&&request&&['access','export','correction'].includes(request.kind)&&['in_review','fulfilled'].includes(request.state)?<FulfillmentPanel api={api.fulfillment} term={context.termId} request={request} refresh={refresh}/>:null}

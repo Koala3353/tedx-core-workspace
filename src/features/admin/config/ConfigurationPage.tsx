@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
+import{useAutoRefresh}from'../../shared/useAutoRefresh'
 import {Check,Minus,X} from 'lucide-react'
 import {Status} from '../../../components/Status'
 import {formatDateTime} from '../../shared/dates'
@@ -26,7 +27,7 @@ export function ConfigurationHub({api,term,identity,type,catalog}:{api:Configura
    setState({epoch,data,items:[...items],error:false})
   }catch(error){if(live){if(type&&error&&typeof error==='object'&&'denied'in error&&error.denied===true)forgetRecordDrafts(type);setState({epoch,data:null,items:[],error:true})}}
  };void read();return()=>{live=false}},[api,term,type,identity,epoch])
- useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')setEpoch(n=>n+1)};window.addEventListener('focus',check);const timer=setInterval(check,30000);return()=>{window.removeEventListener('focus',check);clearInterval(timer)}},[])
+ useAutoRefresh(()=>setEpoch(n=>n+1),{intervalMs:30_000})
  const current=state?.epoch===epoch?state:null
  return <><PageHeading title={current?.data?.typeLabel??'Service setup'} description={type?'Edit a draft, check it, then publish. Requests already sent keep the version they were sent with.':'Each service needs a receiving committee, a contact, a lead time, a form and a workflow before members can send requests.'}/>
  <nav className="page-actions" aria-label="Service setup"><Link className="button button--quiet" to={type?'/admin/config':'/admin'}>{type?'All services':'Admin'}</Link><Link className="button button--quiet" to="/requests">Member view</Link></nav>

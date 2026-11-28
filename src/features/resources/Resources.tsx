@@ -1,4 +1,5 @@
 import {formatDay} from '../shared/dates'
+import{useAutoRefresh}from'../shared/useAutoRefresh'
 import {PersonPicker,personOptions} from '../../components/list'
 import {toast} from '../../components/Toast'
 import {Reveal} from '../../components/Reveal'
@@ -21,7 +22,7 @@ export function ResourcesPage({api,people}:{api:ResourcesApi;people?:PeopleGatew
 export function ResourcesHub({api,people,term,identity,guest}:{api:ResourcesApi;people?:PeopleGateway;term:string;identity:string;guest:boolean}){
  const[params]=useSearchParams(),alias=params.get('alias'),selected=params.get('resource'),[epoch,setEpoch]=useState(0),[tour,setTour]=useState(false),[edit,setEdit]=useState<Resource|null|undefined>(undefined),[state,setState]=useState<{key:string;value:ResourcePage|null;error:boolean}|null>(null),key=refreshKey(term+identity+'|'+alias,epoch);
  useEffect(()=>{if(guest)return;let live=true;void api.read(term,alias).then(value=>{if(live)setState({key,value,error:false})}).catch(()=>{if(live)setState({key,value:null,error:true})});return()=>{live=false}},[api,term,guest,alias,key]);
- useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')setEpoch(x=>x+1)};window.addEventListener('focus',check);document.addEventListener('visibilitychange',check);const timer=setInterval(check,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}},[]);
+ useAutoRefresh(()=>setEpoch(x=>x+1),{intervalMs:30_000});
  const current=settled(state,key),v=current?.value,refresh=()=>setEpoch(x=>x+1),guides=v?.items.filter(r=>!selected||r.id===selected)??[];
  const tourProgress=v?.progress.find(p=>p.item==='tour'&&p.revision===1),steps:{item:typeof essentials[number][0];label:string;action:ReactNode}[]=[
   {item:'profile',label:'Check your profile',action:<Link to="/account">Open account</Link>},

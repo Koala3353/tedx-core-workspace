@@ -6,6 +6,8 @@ import { TextField } from '../../components/TextField'
 import { EmptyResults, ListToolbar, useListFilter } from '../../components/list'
 import { isGuest,type AuthGateway,type AuthResult,type WorkspaceContext } from '../auth/gateway'
 import { formatDateTime } from '../shared/dates'
+import { refreshKey, settled } from '../shared/settled'
+import { Pending, PendingButton } from '../../components/PendingButton'
 import { invitationUrl, readInvitationFragment, type GuestGateway, type GuestInvitation, type GuestWork } from './gateway'
 
 export function SharedWork({api}:{api?:GuestGateway}) {
@@ -18,12 +20,15 @@ function SharedWorkList({api,term}:{api:GuestGateway;term:string}) {
   const [page,setPage]=useState(1)
   const [revision,setRevision]=useState(0)
   const [loaded,setLoaded]=useState<{key:string;work:GuestWork|null}|null>(null)
-  const key=term+':'+page+':'+revision
+  const [paging,setPaging]=useState('')
+  // Scope is the term only, so paging keeps the current page up (with a spinner on the pressed
+  // button) instead of blanking, and focus refreshes never flash the loading line.
+  const key=refreshKey(term,revision)+'.'+page
   useEffect(()=>{
     if(!api.listShared)return
     let active=true
     void api.listShared(term,page).then(work=>{if(active)setLoaded({key,work})})
-      .catch(()=>{if(active)setLoaded({key,work:null})})
+      .catch(()=>{if(active)setLoaded({key,work:null})}).finally(()=>{if(active)setPaging('')})
     return()=>{active=false}
   },[api,key,page,term])
   useEffect(()=>{
@@ -35,15 +40,15 @@ function SharedWorkList({api,term}:{api:GuestGateway;term:string}) {
       document.removeEventListener('visibilitychange',check)
     }
   },[])
-  const current=loaded?.key===key?loaded:null
+  const current=settled(loaded,key)
   return <Panel title="Shared work">
     {!current?<p role="status">Loading your shared work…</p>:current.work?<>{current.work.items.length?
       <ul className="guest-list">{current.work.items.map(item=><li key={item.id}>
         <Link className="button button--secondary" to={(item.kind==='task'?'/tasks/':'/deliverables/')+item.id}>{item.title}</Link>
       </li>)}</ul>:<p>Nothing has been shared with you yet. The organizer who invited you can share tasks or deliverables.</p>}
       {page>1||current.work.hasMore?<div className="auth-actions">
-        {page>1?<button className="button button--secondary" type="button" onClick={()=>setPage(page-1)}>Previous</button>:null}
-        {current.work.hasMore?<button className="button button--secondary" type="button" onClick={()=>setPage(page+1)}>Next</button>:null}
+        {page>1?<button className="button button--secondary" type="button" disabled={!!paging} onClick={()=>{setPaging('prev');setPage(page-1)}}><Pending when={paging==='prev'}>Previous</Pending></button>:null}
+        {current.work.hasMore?<button className="button button--secondary" type="button" disabled={!!paging} onClick={()=>{setPaging('next');setPage(page+1)}}><Pending when={paging==='next'}>Next</Pending></button>:null}
       </div>:null}
     </>:<><p role="alert">Couldn't load your shared work. Try again, or ask the organizer who invited you.</p>
       <button className="button button--secondary" type="button" onClick={()=>setRevision(value=>value+1)}>Try again</button>
@@ -58,6 +63,9 @@ export function SponsorPage({api}:{api:GuestGateway}) {
   const [days,setDays]=useState('14')
   const [loading,setLoading]=useState(true)
   const [busy,setBusy]=useState(false)
+  const [acting,setActing]=useState('')
+  const [attempt,setAttempt]=useState(0)
+  const [loadFailed,setLoadFailed]=useState(false)
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [link,setLink]=useState('')
@@ -66,14 +74,14 @@ export function SponsorPage({api}:{api:GuestGateway}) {
   const request=useRef<{key:string;id:string;expiry:string}|null>(null)
   useEffect(()=>{
     let active=true
-    void api.list(context.termId).then(rows=>{if(active)setItems(rows)}).catch(()=>{if(active)setError('Couldn\'t load your invitations. Refresh the page to try again.')}).finally(()=>{if(active)setLoading(false)})
+    void api.list(context.termId).then(rows=>{if(active){setItems(rows);setLoadFailed(false)}}).catch(()=>{if(active)setLoadFailed(true)}).finally(()=>{if(active)setLoading(false)})
     return ()=>{active=false}
-  },[api,context.termId])
-  async function mutate(action:()=>Promise<void>) {
-    setBusy(true);setError('');setNotice('');setLink('')
+  },[api,context.termId,attempt])
+  async function mutate(action:()=>Promise<void>,which:string) {
+    setBusy(true);setActing(which);setError('');setNotice('');setLink('')
     try {await action();setItems(await api.list(context.termId))}
     catch {setError('We couldn\'t confirm that change. Refresh the page and try again. If it keeps failing, you may no longer be an access admin.')}
-    finally {setBusy(false)}
+    finally {setBusy(false);setActing('')}
   }
   async function create(event?:FormEvent,replaces?:GuestInvitation) {
     event?.preventDefault()
@@ -86,7 +94,7 @@ export function SponsorPage({api}:{api:GuestGateway}) {
       if(result.token)setLink(invitationUrl(window.location.origin,result.token))
       setNotice(result.token ? 'Invitation created. Copy the link now. You won\'t be able to see it again after you leave this page.' : 'This invitation was already created, but its link can\'t be shown again. Renew it to get a new link.')
       request.current=null
-    })
+    },replaces?'renew:'+replaces.id:'create')
   }
   return <>
     <PageHeading title="Guest invitations" description="Invite people outside the org to see specific tasks or deliverables. Only access admins can invite guests." />
@@ -95,7 +103,7 @@ export function SponsorPage({api}:{api:GuestGateway}) {
       <form className="guest-form" onSubmit={event=>void create(event)}>
         <TextField id="guest-email" label="Guest Google email" type="email" required value={email} autoComplete="off" onChange={event=>setEmail(event.target.value)} hint="The email they'll sign in with. It doesn't have to be a school account." />
         <TextField id="guest-days" label="Days of access" type="number" min="1" max="14" required value={days} onChange={event=>setDays(event.target.value)} hint="Default 14 days. Renewing creates a new link and the old one stops working." />
-        <button className={link?'button button--secondary':'button'} disabled={busy||loading}>Create invitation link</button>
+        <button className={link?'button button--secondary':'button'} disabled={busy||loading} aria-busy={acting==='create'||undefined}><Pending when={acting==='create'} label="Creating…">Create invitation link</Pending></button>
       </form>
       <p className="muted">No email is sent. Share the copied link yourself. The guest must sign in with this exact Google account.</p>
     </Panel>
@@ -104,10 +112,10 @@ export function SponsorPage({api}:{api:GuestGateway}) {
     {link?<Panel title="Copy this invitation now"><div className="guest-link-copy"><p>This link disappears when you leave the page.</p><button className="button" onClick={()=>void navigator.clipboard.writeText(link).then(()=>setNotice('Invitation link copied.')).catch(()=>setError('Couldn\'t copy automatically. Select the link below and copy it.'))}>Copy invitation link</button><TextField id="invite-link" label="Invitation link" value={link} readOnly onFocus={event=>event.target.select()} /><button className="button button--secondary" onClick={()=>setLink('')}>Hide invitation link</button></div></Panel>:null}
     <Panel title="Your invitations">
       <p>See who has accepted and when their access ends.</p>
-      {loading?<p role="status">Loading invitations…</p>:items.length===0?<p>No invitations yet.</p>:<>{items.length>6?<ListToolbar filter={invitations} label="Search invitations" placeholder="Search by email" noun={['invitation','invitations']}/>:null}{!invitations.results.length?<EmptyResults query={invitations.query} noun="invitations" onClear={invitations.clear}/>:<ul className="guest-list">{invitations.results.map(item=><li key={item.id}>
+      {loading&&!items.length?<p role="status">Loading invitations…</p>:loadFailed?<><p role="alert">Couldn't load your invitations.</p><PendingButton className="button button--secondary" pending={loading} pendingLabel="Trying again…" onClick={()=>{setLoading(true);setAttempt(n=>n+1)}}>Try again</PendingButton></>:items.length===0?<p>No invitations yet. Create one above, then share the link yourself.</p>:<>{items.length>6?<ListToolbar filter={invitations} label="Search invitations" placeholder="Search by email" noun={['invitation','invitations']}/>:null}{!invitations.results.length?<EmptyResults query={invitations.query} noun="invitations" onClear={invitations.clear}/>:<ul className="guest-list">{invitations.results.map(item=><li key={item.id}>
         <h3>{item.email}</h3><p>{invitationState(item)} · Ends {formatDateTime(item.expiresAt)}</p>
         <p className="muted">{item.scopeMode === 'explicit_records' ? (item.sharedRecordCount === undefined ? 'Some work shared' : `${item.sharedRecordCount} ${item.sharedRecordCount === 1 ? 'item' : 'items'} shared`) : 'Nothing shared yet'}</p>
-        {!item.revokedAt?<div className="auth-actions"><button className="button button--secondary" disabled={busy} onClick={()=>void create(undefined,item)}>Renew invitation for {item.email}</button><button className="button button--secondary" disabled={busy} onClick={()=>{if(window.confirm('Revoke this guest\'s access? They are signed out of this invitation right away.'))void mutate(async()=>{await api.revoke(item,crypto.randomUUID());setNotice('Access revoked. The guest is signed out of this invitation.')} )}}>Revoke access for {item.email}</button></div>:null}
+        {!item.revokedAt?<div className="auth-actions"><button className="button button--secondary" disabled={busy} aria-busy={acting==='renew:'+item.id||undefined} onClick={()=>void create(undefined,item)}><Pending when={acting==='renew:'+item.id} label="Renewing…">Renew invitation for {item.email}</Pending></button><button className="button button--secondary" disabled={busy} onClick={()=>{if(window.confirm('Revoke this guest\'s access? They are signed out of this invitation right away.'))void mutate(async()=>{await api.revoke(item,crypto.randomUUID());setNotice('Access revoked. The guest is signed out of this invitation.')},'revoke:'+item.id)}} aria-busy={acting==='revoke:'+item.id||undefined}><Pending when={acting==='revoke:'+item.id} label="Revoking…">Revoke access for {item.email}</Pending></button></div>:null}
       </li>)}</ul>}</>}
     </Panel>
   </>
@@ -117,26 +125,26 @@ export function RedeemPage({gateway}:{gateway:AuthGateway}) {
   const auth=useLoaderData() as AuthResult
   // Lazy state survives StrictMode replay; never persist the bearer through an OAuth redirect.
   const [token]=useState(()=>readInvitationFragment(window.location.hash))
-  const [busy,setBusy]=useState(false)
+  const [busy,setBusy]=useState<''|'redeem'|'signin'>('')
   const [error,setError]=useState('')
   const [otherShared,setOtherShared]=useState(()=>auth.state==='authorized'&&isGuest(auth))
   const navigate=useNavigate()
   useEffect(()=>{window.history.replaceState(window.history.state,'',appPath('/guest/redeem'))},[])
   async function redeem() {
     if(!token||!gateway.guests)return
-    setBusy(true);setError('')
+    setBusy('redeem');setError('')
     try {await gateway.guests.redeem(token);await navigate('/my-part',{replace:true})}
     catch {
       setError('Couldn\'t accept this invitation. Make sure you\'re signed in with the Google account it was sent to. If the link expired or was already used, ask the organizer who invited you for a new one.')
       const current=await gateway.readContext().catch(()=>null)
       setOtherShared(current?.state==='authorized'&&isGuest(current))
-      setBusy(false)
+      setBusy('')
     }
   }
   async function signIn() {
-    setBusy(true);setError('')
+    setBusy('signin');setError('')
     try {await gateway.signOut();await gateway.beginGoogle('/guest/redeem')}
-    catch {setError('Couldn\'t start Google sign-in. Try again, or ask the organizer who invited you.');setBusy(false)}
+    catch {setError('Couldn\'t start Google sign-in. Try again, or ask the organizer who invited you.');setBusy('')}
   }
   return <main className="standalone-page auth-page">
     <h1>Accept your guest invitation</h1>
@@ -146,9 +154,9 @@ export function RedeemPage({gateway}:{gateway:AuthGateway}) {
     {auth.state==='unavailable'?<p role="status">Google sign-in isn't working right now. Ask the organizer who invited you.</p>:null}
     {error?<p role="alert">{error}</p>:null}
     <div className="auth-actions">
-      {token?<button className="button" disabled={busy||!gateway.guests||['unavailable','signed_out','error'].includes(auth.state)}
-        onClick={()=>void redeem()}>Accept invitation</button>:null}
-      <button className="button button--secondary" disabled={busy||auth.state==='unavailable'} onClick={()=>void signIn()}>Sign in or switch Google account</button>
+      {token?<button className="button" disabled={!!busy||!gateway.guests||['unavailable','signed_out','error'].includes(auth.state)} aria-busy={busy==='redeem'||undefined}
+        onClick={()=>void redeem()}><Pending when={busy==='redeem'} label="Accepting…">Accept invitation</Pending></button>:null}
+      <button className="button button--secondary" disabled={!!busy||auth.state==='unavailable'} aria-busy={busy==='signin'||undefined} onClick={()=>void signIn()}><Pending when={busy==='signin'} label="Opening Google…">Sign in or switch Google account</Pending></button>
       {otherShared?<Link className="button button--secondary" to="/shared">Open work already shared with you</Link>:null}
     </div>
     <p>Can't use that Google account? Ask the organizer who invited you.</p>

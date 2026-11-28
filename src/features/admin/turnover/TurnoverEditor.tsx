@@ -1,5 +1,6 @@
 import {useId,useRef,type FormEvent} from 'react'
-import {SearchSelect} from '../../../components/list'
+import {PersonPicker,SearchSelect,personOptions} from '../../../components/list'
+import {labelPeople,usePeopleOptions} from '../../people/peopleOptions'
 import {Panel} from '../../../components/Page'
 import {useFinDecision} from '../../finance/DecisionMemory'
 import {formatDay} from '../../shared/dates'
@@ -10,6 +11,7 @@ export type TurnoverEdit={kind:'unit'|'obligation';id:string}|{kind:'transfer'|'
 export const categoryName=(v:string)=>({operational:'Regular work',restricted:'Restricted records',finance:'Budget',prism:'Check-ins (confidential)',security:'Security records',privacy:'Privacy records',profile:'Private profiles',guest:'Guest records',learning:'Learning records',backup:'Recovery records'}[v]??'Private records')
 const labels:Record<TurnoverEdit['kind'],string>={unit:'Check committee',obligation:'Record item outcome',transfer:'Plan a handover',nominate:'Name a custodian for private records',prepare:'Start term handover',freeze:'Freeze the term',archive:'Export the archive',verify:'Check the archive',complete:'Complete handover',acceptRecords:'Accept records',acceptCustody:'Accept private records',custodyAction:'Save archive change'}
 export function TurnoverEditor({api,term,workspace:w,setup,custody,edit,checking,refresh,saved,close}:{api:TurnoverApi;term:string;workspace:TurnoverWorkspace;setup:TurnoverSetup|null;custody:ArchivedCustody|null;edit:TurnoverEdit;checking:boolean;refresh:()=>void;saved:(message:string)=>void;close:()=>void}){
+  const people=usePeopleOptions(term).people
   const input=useId(),running=useRef(false),target='id'in edit?edit.id:w.case?.id??term
   const unit=w.units.find(u=>'id'in edit&&u.id===edit.id),work=w.work.find(x=>'id'in edit&&x.id===edit.id)
   const base=edit.kind==='custodyAction'?custody?.version??0:w.case?.version??0
@@ -54,7 +56,7 @@ export function TurnoverEditor({api,term,workspace:w,setup,custody,edit,checking
     {stale&&!m.pending?<div role="alert"><p>Someone changed the handover. Your entries are kept. Check the latest checklist before sending.</p><button className="button button--secondary" onClick={()=>m.change({...f,__base:String(base)})}>Keep my entries</button></div>:null}
     <form onSubmit={submit} data-unsaved-changes={f.__dirty==='1'} data-pending-command={m.locked}><fieldset disabled={checking||m.locked||stale}>
       {edit.kind==='prepare'?choice('approval','Approval',w.approvals.map(a=>({id:a.id,name:a.reference+' · '+(a.scope==='synthetic'?'Practice run':'Real handover')}))):null}
-      {edit.kind==='unit'||edit.kind==='obligation'?<><p>{unit?.name??work?.reference??work?.title}</p>{choice('owner','Responsible person',w.people)}</>:null}
+      {edit.kind==='unit'||edit.kind==='obligation'?<><p>{unit?.name??work?.reference??work?.title}</p><div className="form-field"><label htmlFor={input+'owner'}>Responsible person</label><PersonPicker id={input+'owner'} required value={f.owner} onChange={value=>change('owner',value)} options={personOptions(labelPeople(w.people,people,'membershipId'))}/></div></>:null}
       {edit.kind==='obligation'?<>
         {choice('outcome','Outcome',work?.state==='completed'?[{id:'resolved',name:'Done'}]:work?.state==='cancelled'?[{id:'cancelled',name:'Cancelled'}]:[{id:'carry',name:'Carry over to next term (successor must accept)'}])}
         {f.outcome==='carry'?choice('successor','Successor',w.successors.map(p=>({id:p.id,name:p.name+' · '+p.term}))):null}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAutoRefresh } from '../../shared/useAutoRefresh'
 import { Link, useRouteLoaderData } from 'react-router'
 import { PageHeading, Panel } from '../../../components/Page'
 import { isGuest, type WorkspaceContext } from '../../auth/gateway'
@@ -51,11 +52,7 @@ function Health({ term, read }: { term: string; read: ReadBackupHealth }) {
     return () => { current = false }
   }, [read, term, request])
 
-  useEffect(() => {
-    const refresh = () => setRequest(n => n + 1)
-    window.addEventListener('focus', refresh)
-    return () => window.removeEventListener('focus', refresh)
-  }, [])
+  useAutoRefresh(() => setRequest(n => n + 1))
 
   useEffect(() => {
     if (!loaded?.data.backupFreshUntil) return

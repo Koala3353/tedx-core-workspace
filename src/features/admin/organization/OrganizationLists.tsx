@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Panel } from '../../../components/Page'
 import { EmptyResults, GroupedList, ListToolbar, useListFilter, type ListGroup, type SearchOption } from '../../../components/list'
 import { formatDateTime, formatRange } from '../../shared/dates'
 import type { Action, Deployment, OrganizationData, RosterMember, WorkOption } from './api'
+import { BulkBar, BulkEditor, type BulkChange, type BulkContext } from './BulkPlacements'
 
 type Open = (action: Action, id: string | null) => ReactNode
 type Editing = (action: Action[], id: string) => string
@@ -58,7 +59,7 @@ const memberStatus = (m: RosterMember) => m.state !== 'active' ? m.state : m.acc
 const statusOrder = [{ value: 'active', label: 'Active' }, { value: 'account invited', label: 'Invited' }, { value: 'suspended', label: 'Suspended' }, { value: 'outside term dates', label: 'Outside dates' }]
 
 export function RosterView({ v, open, editing, select }: ViewProps) {
-  const facts = directory(v)
+  const facts = useMemo(() => directory(v), [v])
   const [grouped, setGrouped] = useState(true)
   const list = useListFilter(v.members, {
     storageKey: 'admin-roster',
@@ -95,7 +96,17 @@ export function RosterView({ v, open, editing, select }: ViewProps) {
 const typeLabel = (t: string) => t.replaceAll('_', ' ')
 const typeOrder = ['head', 'member', 'associate', 'primary_contact', 'backup_contact'].map(t => ({ value: t, label: typeLabel(t)[0].toUpperCase() + typeLabel(t).slice(1) }))
 
-export function PlacementsView({ v, open, editing, select }: ViewProps) {
+/** A placement can be changed in bulk while it is active and not over yet, and isn't run by a role seat. */
+const bulkable = (v: OrganizationData, d: Deployment) => d.state === 'active' && Date.parse(d.to) > Date.now() && !v.positionRoster?.seats.some(seat => seat.deploymentId === d.id)
+
+export function PlacementsView({ v, open, editing, select, bulk }: ViewProps & { bulk?: BulkContext }) {
+  const [picked, setPicked] = useState<Set<string>>(() => new Set())
+  const [change, setChange] = useState<BulkChange | null>(null)
+  const selecting = !!bulk && v.canPublish
+  // Drop selections that disappeared or stopped qualifying after a refresh.
+  const chosen = useMemo(() => v.deployments.filter(d => picked.has(d.id) && bulkable(v, d)), [v, picked])
+  const toggle = (id: string, on: boolean) => { setPicked(p => { const n = new Set(p); if (on) n.add(id); else n.delete(id); return n }) }
+  const clear = () => { setPicked(new Set()); setChange(null) }
   const member = (d: Deployment) => v.members.find(m => m.id === d.memberId)
   const unit = (d: Deployment) => v.units.find(u => u.id === d.unitId)
   const list = useListFilter(v.deployments, {
@@ -111,7 +122,9 @@ export function PlacementsView({ v, open, editing, select }: ViewProps) {
   const row = (d: Deployment) => {
     const name = member(d)?.name ?? 'Member unavailable'
     const managed = v.positionRoster?.seats.some(seat => seat.deploymentId === d.id)
-    return <li key={d.id} className={'organization-row' + editing(['deployment_save'], d.id)}>
+    const canPick = selecting && bulkable(v, d)
+    return <li key={d.id} className={'organization-row' + (selecting ? ' organization-row--select' : '') + editing(['deployment_save'], d.id)}>
+      {selecting ? <label className="organization-select">{canPick ? <input type="checkbox" checked={picked.has(d.id)} onChange={e => toggle(d.id, e.target.checked)} aria-label={'Select ' + name + ', ' + typeLabel(d.type) + ' in ' + (unit(d)?.code ?? 'committee')} /> : null}</label> : null}
       <div className="organization-row__main">
         <h3 className="organization-row__title">{name}</h3>
         <p className="organization-row__meta">{typeLabel(d.type)}{d.state !== 'active' ? <span className="organization-tag">{d.state}</span> : null}</p>
@@ -126,9 +139,15 @@ export function PlacementsView({ v, open, editing, select }: ViewProps) {
     <button className="button button--secondary" disabled={!v.canPublish} onClick={() => select({ action: 'deployment_save', id: null })}>Add placement</button>
     {open('deployment_save', null)}
     <ListToolbar filter={list} label="Search placements" placeholder="Search name, email or committee" noun={['placement', 'placements']} />
+    {selecting && change && chosen.length ? <BulkEditor key={JSON.stringify(change)} v={v} ctx={bulk!} selected={chosen} change={change} close={() => setChange(null)} done={clear} leaveOut={id => toggle(id, false)} /> : null}
+    {selecting && !chosen.length ? <p className="muted">Tick placements to move people, change their level or end placements together.</p> : null}
     {!list.results.length ? <EmptyResults query={list.query} noun="placements" onClear={list.clear} />
       : <GroupedList items={[...list.results].sort((a, b) => Number(b.type === 'head') - Number(a.type === 'head') || (member(a)?.name ?? '').localeCompare(member(b)?.name ?? ''))}
         groupOf={d => { const u = unit(d); return u ? { key: u.id, label: u.name } : NO_COMMITTEE }} renderItem={row} forceOpen={list.active} storageKey="admin-placements" />}
+    {/* After the list so it can stick to the bottom of the screen while rows are being ticked. */}
+    {selecting && chosen.length && !change ? <BulkBar v={v} count={chosen.length} people={new Set(chosen.map(d => d.memberId)).size} onApply={setChange} onClear={clear}
+      allSelected={list.results.filter(d => bulkable(v, d)).every(d => picked.has(d.id))}
+      onSelectAll={() => { setPicked(p => new Set([...p, ...list.results.filter(d => bulkable(v, d)).map(d => d.id)])) }} /> : null}
   </Panel>
 }
 

@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
+import {useAutoRefresh} from '../../shared/useAutoRefresh'
 import {Link,useParams,useRouteLoaderData,useSearchParams} from 'react-router'
 import {PageHeading,Panel} from '../../../components/Page'
 import {EmptyState,ErrorState,LoadingState} from '../../../components/FeedbackState'
@@ -26,21 +27,20 @@ function ArchiveBody({api,term,id}:{api:TurnoverApi;term:string;id?:string}){
     catch{if(current===sequence.current)setFailed(true)}finally{if(current===sequence.current)setChecking(false)}
   },[api,term,id,page])
   useEffect(()=>{
-    const check=()=>{if(document.visibilityState!=='hidden')void load()};check()
-    window.addEventListener('focus',check);document.addEventListener('visibilitychange',check)
-    const timer=setInterval(check,30000)
-    return()=>{sequence.current++;clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}
+    void load()
+    return()=>{sequence.current++}
   },[load])
+  useAutoRefresh(()=>void load(),{intervalMs:30_000})
   return <div className="turnover">
     <PageHeading title={id?'Archived work':'Work archive'} description="Work handed over to you from a past term."/>
     <div className="auth-actions"><Link className="button button--secondary" to={'/?term='+term}>Overview</Link>
       {id?<Link className="button button--secondary" to={archivePath(term)}>Work archive</Link>:null}</div>
     {checking?<LoadingState title="Loading archive"/>:null}
-    {failed?<ErrorState title="Couldn't load the archive" description="Check your connection and try again."/>:null}
+    {failed?<ErrorState title="Couldn't load the archive" description="Check your connection and try again." action={<button className="button button--secondary" type="button" onClick={()=>void load()}>Try again</button>}/>:null}
     {!checking&&!failed&&id?(record?<Panel title={record.title}>
       <ArchiveFacts record={record}/><p className="record-text">{record.body}</p>
       <p>Saved from {record.sourceTerm}. To correct it, contact the handover custodian.</p>
-    </Panel>:<EmptyState title="Can't open this record" description="It may not have been handed over to you. Ask the handover custodian."/>):null}
+    </Panel>:<EmptyState title="Can't open this record" description="It may not have been handed over to you. Ask the handover custodian." action={<Link className="button button--secondary" to={archivePath(term)}>Work archive</Link>}/>):null}
     {!checking&&!failed&&!id&&result?<>
       {!result.items.length?<EmptyState title="No archived work" description="Work handed over to you from past terms appears here. Missing something? Ask the handover custodian."/>:
         <ul className="turnover-list">{result.items.map(w=><li key={w.id}><h2><Link to={archivePath(term,w.id)}>{w.title}</Link></h2><ArchiveFacts record={w}/><p>{w.summary}</p></li>)}</ul>}

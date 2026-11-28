@@ -2,6 +2,8 @@ import {useId,useRef,type FormEvent} from 'react'
 import {Panel} from '../../components/Page'
 import {useFinDecision} from '../finance/DecisionMemory'
 import {forgetRecordDrafts} from '../auth/draftScope'
+import {PersonPicker,personOptions} from '../../components/list'
+import {labelPeople,usePeopleOptions} from '../people/peopleOptions'
 import type {EvaluationCommand,EvaluationRecord,EvaluationsApi,EvaluationSetup} from './api'
 
 export type EvaluationEdit={kind:'submit'|'note'|'prepareRelease';record:EvaluationRecord}|
@@ -13,6 +15,7 @@ const title={submit:'Your feedback',note:'Add a reviewer note',prepareRelease:'W
 export function EvaluationEditor({api,term,edit,checking,refresh,saved,close}:{api:EvaluationsApi;term:string;edit:EvaluationEdit;
   checking:boolean;refresh:()=>void;saved:(notice:string)=>void;close:()=>void}){
   const r='record'in edit?edit.record:null,own=r?.submissions.find(s=>s.own)
+  const people=usePeopleOptions(term).people
   const id=useId(),running=useRef(false),caseId=r?.caseId??('caseRecord'in edit?edit.caseRecord.id:'')
   const version=edit.kind==='submit'?own?.revision??0:edit.kind==='publishRelease'?edit.draft.version:r?.version??('caseRecord'in edit?edit.caseRecord.version:0)
   const initial={...Object.fromEntries(r?.template.map(p=>['answer_'+p.key,own?.answers?.[p.key]??''])??[]),
@@ -65,9 +68,9 @@ export function EvaluationEditor({api,term,edit,checking,refresh,saved,close}:{a
           <p className="record-text">{edit.draft.summary}</p><p>Check it's the right person and that it doesn't reveal anything about anyone else.</p></>:null}
         {edit.kind==='grantExport'?<>
           <p>The person you choose can download their own view of this record. They're responsible for keeping the copy private.</p>
-          <div className="form-field"><label htmlFor={id+'member'}>Who can download</label><select id={id+'member'} value={fields.member} required onChange={e=>changed('member',e.target.value)}>
-            <option value="">Choose a person</option>{edit.people.filter(p=>edit.caseRecord.assignments.some(a=>a.memberId===p.id&&a.active))
-              .map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+          <div className="form-field"><label htmlFor={id+'member'}>Who can download</label><PersonPicker id={id+'member'} value={fields.member} required onChange={value=>changed('member',value)}
+            emptyText="No one matches. Only people assigned to this record are listed."
+            options={personOptions(labelPeople(edit.people.filter(p=>edit.caseRecord.assignments.some(a=>a.memberId===p.id&&a.active)),people,'membershipId'))}/></div>
           <div className="form-field"><label htmlFor={id+'purpose'}>Reason for the download</label><input id={id+'purpose'} required minLength={3} maxLength={500} value={fields.purpose} onChange={e=>changed('purpose',e.target.value)}/></div>
           <div className="form-field"><label htmlFor={id+'expires'}>Available until (Manila time)</label><input id={id+'expires'} type="datetime-local" required value={fields.expires} onChange={e=>changed('expires',e.target.value)}/></div>
         </>:null}

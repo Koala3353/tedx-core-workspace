@@ -22,11 +22,11 @@ export type GrantWorkInput = { workItemId: string; principal: RecordPrincipal; g
 const messages: Record<CommandErrorKind, string> = {
   permission_denied: 'Your current access does not allow this action.',
   validation_failed: 'Check the supplied fields and try again.',
-  stale_version: 'This record changed. Reload it before applying your edit.',
+  stale_version: 'Someone else changed this while you were working on it. Reload to see their change. What you typed is kept here.',
   dependency_blocked: 'This action needs a prerequisite or a later workflow step.',
   missing_approver: 'An eligible approver must be assigned before this action.',
   quota_limit: 'You\'ve reached the limit for this. Check the limit, then try again.',
-  conflict: 'The action conflicts with an existing record or another change. Reload and review it.',
+  conflict: 'Someone else made a change at the same time. Reload to see it, then try again. What you typed is kept here.',
   idempotency_conflict: 'This request key was already used with different details. Review the earlier request before starting a new one.',
   unavailable: 'The result could not be confirmed. Check access or connection, then retry the same request key and details.',
   unexpected: 'The service returned an unexpected result. Reload and review before retrying.',
@@ -45,7 +45,8 @@ export function mapCommandError(error: unknown): CommandError {
   else if (['22023','22007','22008','22P02','23503','23514','23502'].includes(code)) kind = 'validation_failed'
   else if (code === '55000') kind = 'dependency_blocked'
   else if (['23505','40P01','55P03'].includes(code)) kind = 'conflict'
-  else if (!code || ['COMMAND_UNAVAILABLE','ECONNRESET','ETIMEDOUT'].includes(code)) kind = 'unavailable'
+  // Timeouts and a full connection pool (many people saving at once) are temporary: retry.
+  else if (!code || ['COMMAND_UNAVAILABLE','ECONNRESET','ETIMEDOUT','57014','53300','53400','PGRST000','PGRST001','PGRST002','PGRST003'].includes(code)) kind = 'unavailable'
   return { kind, message: messages[kind], retryable: kind === 'unavailable' }
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

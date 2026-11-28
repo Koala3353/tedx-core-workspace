@@ -8786,6 +8786,7 @@ export type Database = {
           p_review_pending?: boolean | null
           p_page?: number | null
           p_page_size?: number | null
+          p_filters?: Json | null
         }
         Returns: Json | null
       }
@@ -8793,6 +8794,7 @@ export type Database = {
         Args: {
           p_term_id: string
           p_page?: number | null
+          p_filters?: Json | null
         }
         Returns: Json | null
       }
@@ -8829,6 +8831,7 @@ export type Database = {
           p_term_id: string
           p_view?: string | null
           p_page?: number | null
+          p_filters?: Json | null
         }
         Returns: Json | null
       }
@@ -8944,6 +8947,7 @@ export type Database = {
           p_draft_id: string
           p_expected_version: number
           p_after?: string | null
+          p_filters?: Json | null
         }
         Returns: Json | null
       }
@@ -9729,6 +9733,7 @@ export type Database = {
           p_term_id: string
           p_view?: string | null
           p_page?: number | null
+          p_filters?: Json | null
         }
         Returns: Json | null
       }

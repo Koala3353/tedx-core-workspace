@@ -1,0 +1,51 @@
+/* Committee quick links. Tokens only. Rows, not cards inside cards: one hairline per link. */
+.quick-links { margin: 0 0 var(--space-6); min-width: 0; overflow-wrap: anywhere; }
+.quick-links__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+.quick-links__title { margin: 0; font-size: var(--text-h2); }
+.quick-links__empty { margin: 0; padding: var(--space-4); border: 1px dashed var(--color-line-strong); border-radius: var(--radius-panel); color: var(--color-ink-secondary); max-width: 62ch; }
+.quick-links__skeleton { height: 120px; border-radius: var(--radius-panel); background: var(--color-surface-subtle); }
+.quick-links__inline-button { min-height: var(--control-min-size); padding: 0 var(--space-1); border: 0; background: none; color: var(--color-ink); text-decoration: underline; cursor: pointer; }
+
+.quick-links__list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: var(--space-2); }
+.quick-links__item { display: flex; flex-direction: column; align-items: stretch; min-width: 0; border: 1px solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); transition: border-color 150ms var(--ease-standard), background-color 150ms var(--ease-standard); }
+.quick-links__item:hover { border-color: var(--color-line-strong); }
+.quick-links__item--form { grid-column: 1 / -1; padding: var(--space-4); }
+.quick-links__link { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: var(--space-3) var(--space-4); color: var(--color-ink); text-decoration: none; border-radius: var(--radius-panel); }
+.quick-links__link:hover .quick-links__name > span:first-of-type, .quick-links__link:focus-visible .quick-links__name > span:first-of-type { text-decoration: underline; text-underline-offset: 3px; }
+.quick-links__link:hover { background: var(--color-surface-subtle); }
+.quick-links__name { display: flex; align-items: baseline; gap: var(--space-2); font-weight: 700; line-height: 1.3; }
+.quick-links__name > span:first-of-type { min-width: 0; }
+.quick-links__pin { flex: none; color: var(--color-accent-ink); transform: translateY(2px); }
+.quick-links__out { flex: none; margin-left: auto; color: var(--color-muted); transform: translateY(2px); }
+.quick-links__domain { color: var(--color-muted); font-size: .875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-links__note { color: var(--color-ink-secondary); font-size: .9375rem; }
+.quick-links__tools { flex: none; display: flex; justify-content: flex-end; border-top: 1px solid var(--color-line); }
+.quick-links__tools .icon-button:disabled { opacity: .35; cursor: default; }
+
+.quick-links__form { display: grid; gap: var(--space-3); max-width: 40rem; margin-bottom: var(--space-4); }
+.quick-links__item--form .quick-links__form { margin-bottom: 0; }
+.quick-links__check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-min-size); font-weight: 600; }
+.quick-links__check input { inline-size: 20px; block-size: 20px; accent-color: var(--color-accent); }
+.quick-links__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.quick-links__remove { margin-left: auto; }
+.quick-links__confirm { padding: var(--space-3) var(--space-4); border: 1px solid var(--color-danger); border-radius: var(--radius-panel); background: var(--color-danger-soft); }
+.quick-links__confirm p { margin: 0 0 var(--space-3); font-weight: 600; }
+
+/* Hub card: "Your committee's links". */
+.my-links { margin: 0 0 var(--space-6); }
+.my-links .quick-links__title { margin-bottom: var(--space-3); }
+.my-links__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: var(--space-4); }
+.my-links__unit { border: 1px solid var(--color-line); border-radius: var(--radius-panel); padding: var(--space-4); background: var(--color-surface); min-width: 0; overflow-wrap: anywhere; }
+.my-links__unit h3 { margin: 0 0 var(--space-2); font-size: 1rem; }
+.my-links__list { list-style: none; padding: 0; margin: 0 0 var(--space-2); }
+.my-links__list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); border-top: 1px solid var(--color-line); }
+.my-links__list a { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-min-size); font-weight: 600; }
+.my-links__all { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-min-size); }
+
+@media (max-width: 47.99rem) {
+  .quick-links__remove { margin-left: 0; }
+  .quick-links__actions .button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quick-links__item { transition: none; }
+}

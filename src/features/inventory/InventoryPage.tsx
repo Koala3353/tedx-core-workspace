@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react'
 import {Link,useParams,useRouteLoaderData,useSearchParams} from 'react-router'
 import {PageHeading,Panel} from '../../components/Page'
 import {TextField} from '../../components/TextField'
+import {Pending,PendingButton} from '../../components/PendingButton'
 import {EmptyState,ErrorState,LoadingState} from '../../components/FeedbackState'
 import type {WorkspaceContext} from '../auth/gateway'
 import {forgetRecordDrafts} from '../auth/draftScope'
@@ -74,7 +75,9 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
   const [itemPage,changeItemPage]=useState(1),[loanPage,changeLoanPage]=useState(1)
   const [filter,setFilter]=useState(''),[query,setQuery]=useState('')
   const [workspace,setWorkspace]=useState<InventoryWorkspace|null>(null)
-  const [checking,setChecking]=useState(true),[failed,setFailed]=useState(false)
+  // `loud`: a load the person is waiting on (first open, search, paging, retry, after saving).
+  // Background checks (focus, every 30s) stay quiet: no status line, no inert list, no locked editor.
+  const [checking,setChecking]=useState(true),[loud,setLoud]=useState(true),[pressed,setPressed]=useState(''),[failed,setFailed]=useState(false)
   const [choice,setChoice]=useState<InventoryAction|null>(null)
   const [receipt,setReceipt]=useState<InventoryReceipt|null>(null)
   const generation=useRef(0),initialized=useRef(false),activeChoice=useRef<InventoryAction|null>(null)
@@ -82,9 +85,9 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
   const editor=useRef<HTMLDivElement>(null),focusEditor=useRef(false)
   const focusedItem=useRef<string|null>(null)
 
-  const load=useCallback(async()=>{
+  const load=useCallback(async(quiet=false)=>{
     const current=++generation.current
-    setChecking(true);setFailed(false)
+    setChecking(true);setFailed(false);if(!quiet)setLoud(true)
     try{
       const next=await api.read(term,loanId,itemPage,loanPage,query)
       if(generation.current!==current)return
@@ -112,12 +115,12 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
         }
       }
     }catch{if(generation.current===current)setFailed(true)}
-    finally{if(generation.current===current)setChecking(false)}
+    finally{if(generation.current===current){setChecking(false);setLoud(false);setPressed('')}}
   },[api,term,loanId,itemPage,loanPage,query])
 
   useEffect(()=>{
-    const check=()=>{if(document.visibilityState!=='hidden')void load()}
-    check();window.addEventListener('focus',check);document.addEventListener('visibilitychange',check)
+    const check=()=>{if(document.visibilityState!=='hidden')void load(true)}
+    void load();window.addEventListener('focus',check);document.addEventListener('visibilitychange',check)
     const timer=setInterval(check,30000)
     return()=>{generation.current++;clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}
   },[load])
@@ -147,7 +150,7 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
     <PageHeading title={loanId?'Inventory booking':'Borrow inventory'} description={workspace?.termLabel}/>
     {loanId?<Link className="button button--secondary" to={loansHref}>Back to inventory</Link>:null}
     {failed?<ErrorState title="Couldn't load inventory" description="Check your connection and try again. What you typed is kept."
-      action={<button className="button button--secondary" onClick={()=>void load()}>Try again</button>}/>:null}
+      action={<PendingButton className="button button--secondary" pending={loud} pendingLabel="Trying again…" onClick={()=>load()}>Try again</PendingButton>}/>:null}
     {!workspace&&checking?<LoadingState title="Loading inventory"/>:null}
     {!workspace&&!checking&&!failed?<EmptyState title="Inventory isn't switched on yet" description="Borrowing isn't open for this term yet. Ask Logistics if you need equipment."
       action={<Link className="button button--secondary" to="/people">Find a contact</Link>}/>:null}
@@ -158,27 +161,28 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
           'financeRequestId'in receipt?<>FIN draft created. <Link className="button button--secondary" to={'/finance/'+term+'/'+receipt.financeRequestId+termQuery}>Open FIN request</Link></>:
           'Inventory item saved.'}
       </p>:null}
-      {checking&&workspace?<p role="status">Updating stock and bookings…</p>:null}
-      <div inert={checking}>
+      {loud&&workspace&&!pressed?<p role="status" className="refreshing-hint"><span className="pending-spinner" aria-hidden="true"/>Updating stock and bookings…</p>:null}
+      <div>
         {loanId&&workspace.loans[0]?<LoanSummary loan={workspace.loans[0]} item={itemForLoan} term={term}
           termQuery={termQuery} choose={choose} editing={!!choice} editable={workspace.editable}/>:null}
         {choice&&retained?<div ref={editor} tabIndex={-1}>
           <InventoryEditor key={JSON.stringify(choice)} choice={choice} api={api} term={term} workspace={workspace}
-            item={retained.item} loan={retained.loan} checking={checking}
+            item={retained.item} loan={retained.loan} checking={loud}
             allowed={canUse(workspace,choice,retained.loan,retained.item)} refresh={()=>void load()} saved={saved} close={close}/>
         </div>:null}
-        {!loanId?<div className="inventory-sections">
+        {!loanId?<div className="inventory-sections" aria-busy={loud||undefined}>
           <Panel title="Item availability">
             <form className="inventory-search" onSubmit={event=>{
               event.preventDefault()
               changeItemPage(1)
+              if(filter.trim()!==query)setPressed('find')
               setQuery(filter.trim())
             }}>
               <TextField id="inventory-item-search" label="Search by item or pickup location" type="search"
                 maxLength={160} value={filter} disabled={!!choice} onChange={event=>setFilter(event.target.value)}/>
-              <button className="button button--secondary" disabled={!!choice}>Find items</button>
+              <button className="button button--secondary" disabled={!!choice}><Pending when={loud&&pressed==='find'}>Find items</Pending></button>
             </form>
-            {focusItem&&!itemListed&&!checking&&!query&&itemPage===1?<p className="muted">The scanned item isn't on this page. Search for it by name.</p>:null}
+            {focusItem&&!itemListed&&!loud&&!query&&itemPage===1?<p className="muted">The scanned item isn't on this page. Search for it by name.</p>:null}
             {workspace.steward&&!choice?<button className="button button--secondary" onClick={()=>choose({kind:'register'})}>Register an item</button>:null}
             {workspace.items.length?<ul className="inventory-list">{workspace.items.map(i=><li key={i.id} id={'inventory-item-'+i.id} tabIndex={i.id===focusItem?-1:undefined} className={i.id===focusItem?'inventory-item--focused':undefined} aria-current={i.id===focusItem?'true':undefined}>
               <h3>{i.name}</h3><p><strong>{i.available} available</strong> · {i.kind==='returnable'?'Returnable equipment':'Consumable supplies'}</p>
@@ -192,8 +196,8 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
               </div>:null}
             </li>)}</ul>:<p>{query?'No items match this search.':'No items listed yet. Ask Logistics about available stock.'}</p>}
             {itemPage>1||workspace.moreItems?<div className="auth-actions">
-              <button className="button button--secondary" disabled={!!choice||itemPage===1} onClick={()=>changeItemPage(v=>v-1)}>Previous</button>
-              <button className="button button--secondary" disabled={!!choice||!workspace.moreItems} onClick={()=>changeItemPage(v=>v+1)}>Next</button>
+              <button className="button button--secondary" disabled={!!choice||itemPage===1} onClick={()=>{setPressed('items-prev');changeItemPage(v=>v-1)}}><Pending when={loud&&pressed==='items-prev'}>Previous</Pending></button>
+              <button className="button button--secondary" disabled={!!choice||!workspace.moreItems} onClick={()=>{setPressed('items-next');changeItemPage(v=>v+1)}}><Pending when={loud&&pressed==='items-next'}>Next</Pending></button>
             </div>:null}
           </Panel>
           <Panel title={workspace.steward?'Bookings you look after':'My bookings'}>
@@ -203,8 +207,8 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
               <p>{l.kind==='returnable'?'Return by '+formatDay(l.dueOn):'Pickup '+formatDay(l.startsOn)}</p>
             </li>)}</ul>:<p>No bookings yet. Reserve an item above to start one.</p>}
             {loanPage>1||workspace.moreLoans?<div className="auth-actions">
-              <button className="button button--secondary" disabled={!!choice||loanPage===1} onClick={()=>changeLoanPage(v=>v-1)}>Previous</button>
-              <button className="button button--secondary" disabled={!!choice||!workspace.moreLoans} onClick={()=>changeLoanPage(v=>v+1)}>Next</button>
+              <button className="button button--secondary" disabled={!!choice||loanPage===1} onClick={()=>{setPressed('loans-prev');changeLoanPage(v=>v-1)}}><Pending when={loud&&pressed==='loans-prev'}>Previous</Pending></button>
+              <button className="button button--secondary" disabled={!!choice||!workspace.moreLoans} onClick={()=>{setPressed('loans-next');changeLoanPage(v=>v+1)}}><Pending when={loud&&pressed==='loans-next'}>Next</Pending></button>
             </div>:null}
           </Panel>
         </div>:null}

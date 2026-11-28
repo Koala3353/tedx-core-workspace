@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useId,useRef,useState,type FormEvent} from 'react'
 import {Link,useSearchParams} from 'react-router'
 import {Panel} from '../../components/Page'
+import {PendingButton,usePending} from '../../components/PendingButton'
 import {TextField} from '../../components/TextField'
 import {calendarDay,manilaDay} from '../timeline/dates'
 import {Files} from '../files/Files'
@@ -56,6 +57,7 @@ export function RoomBookingPanel({api,term,request,files,refreshToken}:{
   const receipt=useRef<HTMLParagraphElement>(null)
   const evidenceDisclosure=useRef<HTMLDetailsElement>(null)
   const prefix=useId()+'-room-'
+  const availability=usePending()
 
   const load=useCallback(async(window?:Pick<Slot,'startsAt'|'endsAt'>)=>{
     const generation=++currentRead.current
@@ -159,7 +161,8 @@ export function RoomBookingPanel({api,term,request,files,refreshToken}:{
   const holdMinutes=Math.min(15,w.maxHoldMinutes??15)
   function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault()
-    if(!edit||!w||checking||readFailed||pending||stale||!allowed(w,edit.mode))return
+    if(checking&&!busy){setProblem('Checking the latest booking details. Send again in a moment.');return}
+    if(!edit||!w||readFailed||pending||stale||!allowed(w,edit.mode))return
     const f=edit.fields,base={term,request,version:edit.version,reason:f.reason.trim()}
     const slot=roomEditor&&selectedWindow?{room:f.room,...selectedWindow}:b?{room:b.room.id,startsAt:b.startsAt,endsAt:b.endsAt}:null
     if(roomEditor&&(!selectedWindow||!editingRooms.some(r=>r.id===f.room))){
@@ -188,17 +191,17 @@ export function RoomBookingPanel({api,term,request,files,refreshToken}:{
   }
   return <Panel title="Room booking" className="room-booking" id="room-booking">
     <p><strong>{w.requestTitle}</strong> · {w.reference.value} · {w.reference.termLabel}</p>
-    {checking?<p role="status">Updating booking…</p>:null}
+    {availability.pending?<p role="status" className="refreshing-hint"><span className="pending-spinner" aria-hidden="true"/>Checking rooms at this time…</p>:null}
     {readFailed?<p role="alert">Couldn't load the room booking. Your entries are kept. Refresh the page to try again.</p>:null}
     {notice?<p ref={receipt} tabIndex={-1} role="status">{notice}</p>:null}
     {problem?<p role="alert">{problem}</p>:null}
-    {!readFailed&&!checking?<BookingDetails workspace={w}/>:null}
-    {!readFailed&&!checking&&w.alternative&&w.canRequest&&w.alternative.available&&!pending&&!edit?.usingOffer?
+    {!readFailed?<BookingDetails workspace={w}/>:null}
+    {!readFailed&&w.alternative&&w.canRequest&&w.alternative.available&&!pending&&!edit?.usingOffer?
       <button className="button" onClick={useAlternative}>Use the alternative from Logistics</button>:null}
     {pending?<div data-pending-command="true"><p>We couldn't confirm this was saved. Retry to finish it.</p>
-      <button className="button" disabled={busy||checking||readFailed} onClick={()=>void send()}>Retry</button></div>:null}
+      <PendingButton className="button" disabled={checking||readFailed} pending={busy} pendingLabel="Retrying…" onClick={()=>send()}>Retry</PendingButton></div>:null}
     <div className="auth-actions">
-      {!edit&&!pending&&!readFailed&&!checking?<>
+      {!edit&&!pending&&!readFailed?<>
         {w.canRequest?<button className={b?'button button--secondary':'button'} onClick={()=>open('request')}>{b?'Change room or time':'Request a room'}</button>:null}
         {w.canDecide&&b?.state!=='confirmed'?<>
           <button className="button" onClick={()=>open('confirm')}>Confirm reservation</button>
@@ -220,7 +223,7 @@ export function RoomBookingPanel({api,term,request,files,refreshToken}:{
           shouldFocus.current=true
           setEdit({...edit,mode:'offer',offerVersion:w.offerVersion,review:false});setProblem('');setSlotConflict(false)
         }}>Choose an alternative to offer</button>:null}
-      <fieldset disabled={busy||checking||!!pending||stale}>
+      <fieldset disabled={busy||!!pending||stale}>
         {roomEditor&&!edit.review?<div className="room-fields">
           {requestEditor?<>
             <TextField id={prefix+'purpose'} label="Meeting purpose" value={edit.fields.purpose} required maxLength={1000} onChange={e=>update({purpose:e.target.value})}/>
@@ -238,7 +241,7 @@ export function RoomBookingPanel({api,term,request,files,refreshToken}:{
             <select id={prefix+'room'} required value={edit.fields.room} onChange={e=>update({room:e.target.value})}>
               <option value="">Choose a room</option>{editingRooms.map(r=><option value={r.id} key={r.id}>{r.name} · up to {r.capacity}{sameWindow&&r.available===false?' · taken at this time':''}</option>)}
             </select></div>
-          <button type="button" className="button button--secondary" disabled={!selectedWindow} onClick={()=>void load(selectedWindow)}>Check room availability</button>
+          <PendingButton className="button button--secondary" disabled={!selectedWindow} pending={availability.pending} pendingLabel="Checking…" onClick={()=>availability.run(()=>load(selectedWindow))}>Check room availability</PendingButton>
           {sameWindow?<div role="status"><p>Logistics checks again before confirming.</p>
             {editingRooms.some(r=>r.available&&r.id!==edit.fields.room)?<ul>{editingRooms.filter(r=>r.available&&r.id!==edit.fields.room).map(r=>
               <li key={r.id}><button type="button" className="button button--secondary" onClick={()=>update({room:r.id})}>Choose {r.name} at this time</button></li>)}</ul>:null}
@@ -265,7 +268,7 @@ export function RoomBookingPanel({api,term,request,files,refreshToken}:{
         {(edit.mode==='confirm'||edit.mode==='move')&&w.evidenceMode==='official_not_required'?<p>This room doesn't need a school reservation record. You can confirm it directly.</p>:null}
         {!requestEditor?<TextField id={prefix+'reason'} label={edit.mode==='cancel'?'Reason for cancelling':'Reason'} required maxLength={2000} value={edit.fields.reason} onChange={e=>update({reason:e.target.value})}/>:null}
         <div className="auth-actions">
-          <button className="button" type="submit">{edit.review?(edit.usingOffer?'Request this alternative':'Send to Logistics'):edit.mode==='cancel'?'Confirm cancellation':controls[edit.mode]}</button>
+          <PendingButton className="button" type="submit" pending={busy} pendingLabel="Sending…">{edit.review?(edit.usingOffer?'Request this alternative':'Send to Logistics'):edit.mode==='cancel'?'Confirm cancellation':controls[edit.mode]}</PendingButton>
           <button className="button button--secondary" type="button" onClick={discard}>Close</button>
         </div>
       </fieldset>

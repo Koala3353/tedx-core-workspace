@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useRouteLoaderData } from 'react-router'
 import { RefreshCw, SlidersHorizontal, SquarePen } from 'lucide-react'
 import { useShellServices } from '../../app/shellServices'
@@ -67,7 +67,8 @@ function TodayBody({ context }: { context: Extract<WorkspaceContext, { memberId:
     return result.error.kind === 'stale_version' ? 'This announcement changed. Open it to read the latest version.' : result.error.message
   }, [announcements, termId])
 
-  const sections = data?.overview ? buildSections(data.overview.items, data.announcements, data.events) : null
+  // Derived once per load, not on every render (typing in the add-task form re-renders the page).
+  const sections = useMemo(() => data?.overview ? buildSections(data.overview.items, data.announcements, data.events) : null, [data])
   const manager = context.capabilities.some(capability => ['admin.configure', 'committee.manage'].includes(capability))
   const customize: MenuEntry[] = [
     ...(gateway?.tasks?.execute ? [{ kind: 'action' as const, label: 'Add a personal task', icon: <SquarePen size={16} strokeWidth={1.75} />, onSelect: () => setAdding(true) }] : []),

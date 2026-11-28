@@ -50,9 +50,9 @@ function OverviewBody({api,announcements,context,subject,canSearch,tasks,invento
   setView({layout,personal:true,repaired:false,message})
  }
  useEffect(()=>{let live=true;void api.read(termId).then(r=>{if(live){setResult(r);setError(false)}}).catch(()=>{if(live){setResult(null);setError(true)}});return()=>{live=false}},[api,termId,reload])
- useEffect(()=>{const refresh=()=>{setResult(null);setReload(n=>n+1)},visible=()=>{if(document.visibilityState==='visible')refresh()};window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',visible);return()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible)}},[])
+ useEffect(()=>{const refresh=()=>setReload(n=>n+1),visible=()=>{if(document.visibilityState==='visible')refresh()};window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',visible);return()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible)}},[])
  return <><PageHeading title="Overview" description="Your next actions and work waiting on someone else."/><Countdown variant="overview"/>
- {error?<ErrorState title="Couldn't load your overview" description="Check your connection, then come back to this tab to try again."/>:!result?<LoadingState title="Loading your work"/>:<>
+ {error?<ErrorState title="Couldn't load your overview" description="Check your connection and try again." action={<button className="button button--secondary" type="button" onClick={()=>setReload(n=>n+1)}>Try again</button>}/>:!result?<LoadingState title="Loading your work"/>:<>
  <p className="muted">Updated {formatTime(result.refreshedAt)} (Manila time){result.hasMore?'. Showing the first 50 items; open Inbox, My tasks or Deliverables for more.':''}</p>
  <OverviewLane items={result.items} lane="actionable"/>
  </>}

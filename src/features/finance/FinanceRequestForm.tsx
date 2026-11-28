@@ -1,6 +1,8 @@
 import {useState} from 'react'
-import {PersonPicker,SearchSelect} from '../../components/list'
-import {Link} from 'react-router'
+import {PersonPicker,SearchSelect,personOptions} from '../../components/list'
+import {Link,useRouteLoaderData} from 'react-router'
+import type {WorkspaceContext} from '../auth/gateway'
+import {labelPeople,usePeopleOptions} from '../people/peopleOptions'
 import {Panel} from '../../components/Page'
 import {TextField} from '../../components/TextField'
 import {FormRenderer} from '../forms/FormRenderer'
@@ -12,6 +14,7 @@ import type {useFinanceMemory} from './Memory'
 import {HowThisWorks} from '../shared/HowThisWorks'
 
 export function FinanceRequestForm({data,m,refresh}:{data:FinanceIntake;m:ReturnType<typeof useFinanceMemory>;refresh:()=>void}){
+ const people=usePeopleOptions((useRouteLoaderData('workspace') as WorkspaceContext|undefined)?.termId).people
  const r=data.request,d=m.fields.plan,c=calculatePlan(d),[attempted,setAttempted]=useState(false),drafts=useFormDrafts(),draftKey='finance-envelope:'+r.id+':'+r.formVersionId;
  const set=(plan:PlanDraft)=>m.change({...m.fields,plan});const error=(key:string)=>attempted||key.startsWith('lines.')?c.errors[key]:undefined;
  const input=(key:'purpose'|'fundSource'|'termsRisks'|'price'|'forecastQuantity'|'plannedOn',label:string,maxLength:number,required=true)=><TextField id={'finance-'+key} label={label} required={required} maxLength={maxLength} disabled={m.locked} value={d[key]} error={error(key)} onChange={e=>set({...d,[key]:e.target.value})}/>;
@@ -22,7 +25,7 @@ export function FinanceRequestForm({data,m,refresh}:{data:FinanceIntake;m:Return
  <TextField id="finance-title" label="Plan title" required maxLength={240} value={m.fields.title} onChange={e=>m.change({...m.fields,title:e.target.value})}/>
  <div className="form-field"><label htmlFor="finance-kind">Plan type</label><select id="finance-kind" value={d.kind} onChange={e=>set({...d,kind:e.target.value as PlanKind})}>{(['cost','budget','expense','reimbursement','fundraising','sales']as const).map(k=><option key={k} value={k}>{k[0].toUpperCase()+k.slice(1)}</option>)}</select></div>
  {input('purpose','Plan purpose',2000)}{input('fundSource','Fund source',500)}
- <div className="form-field"><label htmlFor="finance-beneficiary">Beneficiary (required)</label><PersonPicker id="finance-beneficiary" value={d.beneficiaryMemberId} onChange={value=>set({...d,beneficiaryMemberId:value})} options={(data.options?.members??[]).map(v=>({value:v.id,label:v.label}))}/>{error('beneficiaryMemberId')?<p role="alert">{error('beneficiaryMemberId')}</p>:null}</div>
+ <div className="form-field"><label htmlFor="finance-beneficiary">Beneficiary (required)</label><PersonPicker id="finance-beneficiary" value={d.beneficiaryMemberId} onChange={value=>set({...d,beneficiaryMemberId:value})} options={personOptions(labelPeople((data.options?.members??[]).map(v=>({id:v.id,name:v.label})),people,'memberId'))}/>{error('beneficiaryMemberId')?<p role="alert">{error('beneficiaryMemberId')}</p>:null}</div>
  <div className="form-field"><label htmlFor="finance-deliverable">Related deliverable (optional)</label><SearchSelect id="finance-deliverable" value={d.relatedDeliverableId} onChange={value=>set({...d,relatedDeliverableId:value})} placeholder="Type a deliverable" options={[{value:'',label:'No linked deliverable'},...data.deliverables.map(v=>({value:v.id,label:v.label}))]}/><p>Shows up to 100 deliverables you can see.</p></div>
  {input('plannedOn','Planned date (YYYY-MM-DD)',10,false)}
  <TextField id="finance-requested-on" label="Requested service date" type="date" value={m.fields.requestedOn} min="0001-01-01" max="9999-12-31" hint="The date you'd like. The committee confirms the final date." onChange={e=>m.change({...m.fields,requestedOn:e.target.value})}/>

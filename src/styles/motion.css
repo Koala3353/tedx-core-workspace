@@ -110,3 +110,11 @@ summary { transition: color var(--motion-hover) ease; }
   .pending-spinner { animation: pending-spin 1.2s linear infinite !important; }
   .skeleton-bar { animation: none !important; }
 }
+
+/* ── Phones: long unbroken words (emails, references, URLs) wrap instead of widening the page ── */
+.workspace-main { overflow-wrap: break-word; }
+.button { max-width: 100%; overflow-wrap: anywhere; }
+
+/* A background refresh failed: the last good copy stays, with a quiet line and a retry. */
+.refresh-failed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 var(--space-4); color: var(--color-muted); font-size: .9375rem; }
+.refresh-failed .button { min-height: 36px; padding-block: 4px; }

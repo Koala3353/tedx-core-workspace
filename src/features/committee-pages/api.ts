@@ -3,8 +3,10 @@ import { createCalendarApi, type CalendarEvent } from '../calendar/api'
 import { createResourcesApi, type Resource } from '../resources/api'
 import { addDays } from '../war-room/model'
 import { createBoardReader, type Board } from './board'
+import { createCommitteeLinksApi, type CommitteeLinksApi } from '../committee-links/api'
 
-export interface CommitteePagesApi {
+/** Includes the committee quick-links methods (flat, so the lazy gateway proxy can forward them). */
+export interface CommitteePagesApi extends CommitteeLinksApi {
   /** Committees, people, deliverables and open asks. Throws BoardUnavailable until deployed. */
   board(termId: string): Promise<Board>
   /** The next few calendar items for one committee (its own and workspace-wide), from today. */
@@ -19,6 +21,7 @@ export function createCommitteePagesApi(ready: ReturnType<typeof createSupabaseC
   const calendar = createCalendarApi(ready)
   const resources = createResourcesApi(ready)
   return {
+    ...createCommitteeLinksApi(ready),
     board: createBoardReader(ready),
     async upcoming(termId, unitId, today) {
       const result = await calendar.read(termId, today, addDays(today, 60), unitId, 1)

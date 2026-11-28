@@ -61,3 +61,10 @@
   .theme-choice:has(input:checked) .theme-choice__tick { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) { .theme-choice__tick, .settings-link, .settings-link .icon { transition: none; } }
+
+/* "Sign out of all devices": the confirm step opens under the buttons, quiet but clearly a step. */
+.settings-confirm > div { display: grid; gap: var(--space-3); }
+.settings-confirm { padding: 14px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); }
+.settings-confirm p { margin: 0; max-width: 60ch; }
+.settings-confirm .auth-actions { margin: 0; }
+.display-name-form { padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-line); }

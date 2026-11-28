@@ -60,6 +60,7 @@ import { createSupabaseClient } from '../../lib/supabase'
 import { callbackUrl, forgetSession, safeReturnPath } from './redirects'
 import { createGuestGateway, type GuestGateway } from '../guests/gateway'
 import type { PeopleGateway } from '../people/gateway'
+import { createPeopleOptionsApi, type PeopleOptionsApi } from '../people/peopleOptions'
 import type { ProfileGateway } from '../account/gateway'
 import type { GuestContactGateway } from '../account/guestContacts'
 import type { DeliverablesApi } from '../deliverables/api'
@@ -135,13 +136,16 @@ export interface AuthGateway {
   guestContacts?: GuestContactGateway
   profile?: ProfileGateway
   people?: PeopleGateway
+  /** Committee and position labels for person pickers (read_people_options). */
+  peopleOptions?: PeopleOptionsApi
   guests?: GuestGateway
   readContext: (signal?: AbortSignal,termId?:string) => Promise<AuthResult>
   beginGoogle: (returnTo: string) => Promise<void>
   requestEmailCode: (email: string) => Promise<void>
   verifyEmailCode: (email: string, code: string) => Promise<void>
   exchange: (code: string) => Promise<void>
-  signOut: () => Promise<void>
+  /** `everywhere` ends every session for this account (all devices), not just this browser's. */
+  signOut: (options?: { everywhere?: boolean }) => Promise<void>
   onChange: (listener: () => void) => () => void
 }
 
@@ -241,14 +245,21 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       let { data: session, error: sessionError } = await client.auth.getSession()
       if (sessionError && await refreshOnce()) ({ data: session, error: sessionError } = await client.auth.getSession())
       if (sessionError || !session.session) return { state: 'signed_out' }
+      const resolve = () => { const bootstrap = client.rpc('resolve_auth_context'); return signal ? bootstrap.abortSignal(signal) : bootstrap }
+      // The user check (auth server) and the workspace context (database) are independent round
+      // trips, so they run together; the context is only used once the user check has passed.
+      const start = () => { const call = Promise.resolve(resolve()); call.catch(() => undefined); return call }
+      let pending = start()
       let { data: identity, error: identityError } = await client.auth.getUser()
-      if ((identityError || !identity.user) && await refreshOnce()) ({ data: identity, error: identityError } = await client.auth.getUser())
+      if ((identityError || !identity.user) && await refreshOnce()) {
+        ({ data: identity, error: identityError } = await client.auth.getUser())
+        pending = start()
+      }
       // A network failure is not a sign-out: keep the person signed in and report the check failed.
       if (identityError && transientAuthError(identityError)) return { state: 'error' }
       if (identityError || !identity.user) return { state: 'signed_out' }
       signal?.throwIfAborted()
-      const resolve = () => { const bootstrap = client.rpc('resolve_auth_context'); return signal ? bootstrap.abortSignal(signal) : bootstrap }
-      const first = await resolve()
+      const first = await pending
       let { data, error } = first
       // An access token that expired between the checks above and this call: refresh and retry once.
       if (error && (first.status === 401 || error.code === 'PGRST301' || error.code === 'PGRST303') && await refreshOnce()) ({ data, error } = await resolve())
@@ -326,6 +337,7 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
     deliverableCommands: lazyApi(() => import('../deliverables/commands').then(m => m.createDeliverableCommands(clientReady))),
     guestContacts: lazyApi(() => import('../account/guestContacts').then(m => m.createGuestContactGateway(clientReady))),
     profile: lazyApi(() => import('../account/gateway').then(m => m.createProfileGateway(clientReady))),
+    peopleOptions: createPeopleOptionsApi(clientReady),
     people: lazyApi(() => import('../people/gateway').then(m => m.createPeopleGateway(clientReady))),
     guests: createGuestGateway(clientReady),
     readContext(signal,termId) {
@@ -369,17 +381,20 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       }
       return exchangePromise!
     },
-    async signOut() {
+    async signOut(options) {
       const client = await clientReady
       if (!client) return
+      const everywhere = options?.everywhere === true
       try {
-        const { error } = await client.auth.signOut({ scope: 'local' })
+        const { error } = await client.auth.signOut({ scope: everywhere ? 'global' : 'local' })
         if (error) {
+          // Signing out everywhere must reach the server; a local-only clear isn't enough.
+          if (everywhere) throw error
           const remaining = await client.auth.getSession()
           if (remaining.error || remaining.data.session) throw error
         }
       }
-      catch { throw new Error('Couldn\'t confirm you\'re signed out. Try again.') }
+      catch { throw new Error(everywhere ? 'Couldn\'t sign out your other devices. Check your connection and try again.' : 'Couldn\'t confirm you\'re signed out. Try again.') }
       exchangeCode = undefined
       exchangePromise = undefined
       try { sessionStorage.removeItem(returnStorageKey) } catch { /* No application data is cached. */ }

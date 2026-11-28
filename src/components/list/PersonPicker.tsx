@@ -8,6 +8,10 @@ export type PickerPerson = {
   position?: string | null
   email?: string | null
   extra?: string | null
+  /** Has a leadership position. Without a committee they group under Leadership. */
+  leadership?: boolean
+  /** Extra words to match (committee codes). */
+  keywords?: string | null
 }
 
 /**
@@ -16,7 +20,7 @@ export type PickerPerson = {
  */
 export function personOptions(people: PickerPerson[], { selfId, leadingOptions = [] }: { selfId?: string; leadingOptions?: SearchOption[] } = {}): SearchOption[] {
   const grouped = people.some(p => p.committee)
-  const groupOf = (p: PickerPerson) => !grouped ? undefined : p.committee ?? (p.position ? 'Leadership' : 'No committee')
+  const groupOf = (p: PickerPerson) => !grouped ? undefined : p.committee ?? ((p.leadership ?? !!p.position) ? 'Leadership' : 'No committee')
   const rank = (g: string | undefined) => g === 'Leadership' ? 0 : g === 'No committee' ? 2 : 1
   const sorted = [...people].sort((a, b) => {
     const ga = groupOf(a), gb = groupOf(b)
@@ -27,7 +31,7 @@ export function personOptions(people: PickerPerson[], { selfId, leadingOptions =
     label: p.name + (p.id === selfId ? ' (you)' : ''),
     meta: [p.committee, p.position, p.extra].filter(Boolean).join(' · ') || undefined,
     group: groupOf(p),
-    keywords: p.email ?? undefined,
+    keywords: [p.email, p.keywords].filter(Boolean).join(' ') || undefined,
   }))]
 }
 

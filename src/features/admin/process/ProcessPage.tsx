@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react'
+import{useAutoRefresh}from'../../shared/useAutoRefresh'
 import {toast} from '../../../components/Toast'
 import {PendingButton} from '../../../components/PendingButton'
 import {Link,useRouteLoaderData} from 'react-router'
@@ -18,7 +19,7 @@ function values(data:ProcessData,kind:ProcessKind,id?:string):Values{
 }
 export function ProcessPage({api}:{api:ProcessApi}){const c=useRouteLoaderData('workspace')as WorkspaceContext,identity='memberId'in c?c.memberId:c.guestAccessId;return <ProcessHub key={c.termId+identity} api={api} term={c.termId} identity={identity}/>}
 function ProcessHub({api,term,identity}:{api:ProcessApi;term:string;identity:string}){const[epoch,setEpoch]=useState(0),[state,setState]=useState<{epoch:number;data:ProcessData|null;error:boolean}|null>(null)
- useEffect(()=>{let live=true;void api.read(term).then(data=>{if(live)setState({epoch,data,error:false})}).catch(e=>{if(live){if(e?.denied)forgetRecordDrafts('process-'+term);setState({epoch,data:null,error:true})}});return()=>{live=false}},[api,term,epoch]);useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')setEpoch(n=>n+1)};window.addEventListener('focus',check);const timer=setInterval(check,30000);return()=>{window.removeEventListener('focus',check);clearInterval(timer)}},[])
+ useEffect(()=>{let live=true;void api.read(term).then(data=>{if(live)setState({epoch,data,error:false})}).catch(e=>{if(live){if(e?.denied)forgetRecordDrafts('process-'+term);setState({epoch,data:null,error:true})}});return()=>{live=false}},[api,term,epoch]);useAutoRefresh(()=>setEpoch(n=>n+1),{intervalMs:30_000})
  const current=state?.epoch===epoch?state:null;return <><PageHeading title="Phases, statuses and services" description="Set the current event phase, status labels and request services."/><p><Link to="/admin">Administration</Link> · <Link to="/requests">Requests (member view)</Link></p>{!current?<p>Loading…</p>:current.error?<p role="alert">Couldn't load these settings. Check your connection and try again. Your inputs are kept.</p>:current.data?<ProcessEditor key={epoch} api={api} data={current.data} term={term} identity={identity} refreshed={()=>setEpoch(n=>n+1)}/>:null}</>
 }
 export function ProcessEditor({api,data,term,identity,refreshed}:{api:ProcessApi;data:ProcessData;term:string;identity:string;refreshed:()=>void}){

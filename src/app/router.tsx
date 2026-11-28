@@ -94,7 +94,7 @@ const FinanceReviewPage = lazyPage(() => import('../features/finance/FinanceRevi
 const FinanceReviewQueue = lazyPage(() => import('../features/finance/FinanceReview').then(m => m.FinanceReviewQueue))
 const FinanceCasePage = lazyPage(() => import('../features/finance/FinanceCasePage').then(m => m.FinanceCasePage))
 const FinanceDesk = lazyPage(() => import('../features/finance/FinanceDesk').then(m => m.FinanceDesk))
-const ReviewInbox = lazyPage(() => import('../features/approvals/ReviewScreens').then(m => m.ReviewInbox))
+const ReviewInbox = lazyPage(() => import('../features/approvals/ReviewInbox').then(m => m.ReviewInbox))
 const ReviewPage = lazyPage(() => import('../features/approvals/ReviewScreens').then(m => m.ReviewPage))
 const NewRequestPage = lazyPage(() => import('../features/requests/RequestPages').then(m => m.NewRequestPage))
 const MyRequestsPage = lazyPage(() => import('../features/requests/RequestPages').then(m => m.MyRequestsPage))
@@ -340,7 +340,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       {path:'prism/:evaluationId?/:view?',element:gateway.evaluations?<EvaluationsPage api={gateway.evaluations}/>:<Unavailable title="Check-ins" description="Check-ins (PRISM) aren't turned on yet."/>},
       {path:'feedback',element:<MovedPage to="/prism"/>},
       {path:'department',element:<MovedPage to="/reviews"/>},
-      {path:'committee',element:<CommitteePage tasks={gateway.tasks} deliverables={gateway.deliverables} handoffs={gateway.handoffs}/>},
+      {path:'committee',element:<CommitteePage tasks={gateway.tasks} deliverables={gateway.deliverables} handoffs={gateway.handoffs} links={gateway.committeePages}/>},
       {path:'mentoring',element:gateway.growth?<GrowthPage api={gateway.growth}/>:<Unavailable title="Mentoring" description="Mentoring isn't turned on yet."/>},
       ...(gateway.inventory?[{path:'inventory/:inventoryLoanId?',element:<InventoryPage api={gateway.inventory}/>}]:[]),
       {path:'announcements',element:gateway.announcements?<Announcements api={gateway.announcements}/>:<Unavailable title="Announcements"/>},

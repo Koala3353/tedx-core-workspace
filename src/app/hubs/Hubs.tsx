@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useRouteLoaderData, useSearchParams } from 'react-router'
 import { ChevronRight, SquarePlus } from 'lucide-react'
 import { Countdown } from '../../components/Countdown'
+import { useListEnter } from '../../components/useListEnter'
 import { SkeletonRows } from '../../components/BrandLoader'
 import { isGuest, type WorkspaceContext } from '../../features/auth/gateway'
 import type { OverviewRow } from '../../features/overview/api'
@@ -11,6 +12,7 @@ import { TodaySection } from '../../features/today/TodayList'
 import { openPalette } from '../../features/palette/Palette'
 import { navIcon } from '../navIcons'
 import { useShellServices } from '../shellServices'
+import { MyCommitteeLinks } from '../../features/committee-links'
 import { filledSlots, type HubSlotName } from './slots'
 import '../../features/today/today.css'
 import './hubs.css'
@@ -32,10 +34,12 @@ function HubHeading({ title, description, actions }: { title: string; descriptio
 /** A list of destinations: icon, name, one line on what it is for. Rows, not cards. */
 function HubLinks({ title, links, capabilities }: { title?: string; links: HubLink[]; capabilities: readonly string[] }) {
   const shown = links.filter(link => !link.capability || capabilities.includes(link.capability))
+  // Hubs are visited many times a day: stagger only on the first visit this session.
+  const enter = useListEnter(shown.length > 0, 'hub:' + (title ?? '') + shown.map(link => link.id).join(','))
   if (!shown.length) return null
   return <section className="hub-group" aria-label={title}>
     {title ? <h2 className="hub-group__title">{title}</h2> : null}
-    <ul className="hub-links">{shown.map(link => {
+    <ul className={`hub-links ${enter}`.trim()}>{shown.map(link => {
       const Icon = navIcon(link.icon ?? link.id)
       return <li key={link.id + link.to}><Link className="hub-link" to={link.to} data-tour={link.tour}>
         <Icon className="icon hub-link__icon" size={18} strokeWidth={1.5} aria-hidden="true" />
@@ -180,11 +184,18 @@ function ComingUp({ termId }: { termId: string }) {
 }
 
 /** Team: people, committees and where to start. Route "/team". */
+/** The member's committee quick links, at the top of Team. Renders nothing outside a committee. */
+function TeamLinks({ termId }: { termId: string }) {
+  const { gateway } = useShellServices()
+  return <MyCommitteeLinks api={gateway?.committeePages} termId={termId} />
+}
+
 export function TeamHub() {
   const member = useMember()
   const caps = member?.capabilities ?? []
   return <div className="hub">
     <HubHeading title="Team" description="People, committees and where to start." />
+    {member ? <TeamLinks termId={member.termId} /> : null}
     <Slots names={['team.whoToAsk', 'team.setup', 'team.committeePages']} capabilities={caps} />
     <HubLinks capabilities={caps} links={[
       { id: 'people', to: '/people', label: 'People', description: 'Find anyone on the core team and who is on point for what', tour: 'team-people' },

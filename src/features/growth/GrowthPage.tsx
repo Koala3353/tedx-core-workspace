@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
+import {useAutoRefresh} from '../shared/useAutoRefresh'
 import {Link,useRouteLoaderData,useSearchParams} from 'react-router'
 import {EmptyState,ErrorState,LoadingState} from '../../components/FeedbackState'
 import {PageHeading,Panel} from '../../components/Page'
@@ -82,11 +83,10 @@ function GrowthBody({term,api}:{term:string;api:GrowthApi}){
     finally{if(generation.current===current)setChecking(false)}
   },[api,term])
   useEffect(()=>{
-    const check=()=>{if(document.visibilityState!=='hidden')void load()}
-    check();window.addEventListener('focus',check);document.addEventListener('visibilitychange',check)
-    const timer=setInterval(check,30000)
-    return()=>{generation.current++;clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}
+    void load()
+    return()=>{generation.current++}
   },[load])
+  useAutoRefresh(()=>void load(),{intervalMs:30_000})
   useEffect(()=>{
     const expires=workspace?.relationships.filter(r=>r.state==='active').map(r=>Date.parse(r.endsAt)).sort((a,b)=>a-b)[0]
     if(!expires)return

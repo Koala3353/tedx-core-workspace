@@ -20,6 +20,7 @@ import {HandoffDrafts} from '../handoffs/Drafts'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLoaderData, useLocation, useNavigate, useNavigation, useRevalidator, useRouteLoaderData } from 'react-router'
 import { onPageReturn } from '../../lib/pageReturn'
+import { pollDelay } from '../shared/useAutoRefresh'
 import { useDelayedFlag } from '../../lib/useDelayedFlag'
 import { ProfileEditor } from '../account/ProfileEditor'
 import { SettingsSection, ThemeSettings } from '../account/Settings'
@@ -27,6 +28,8 @@ import { PageHeading } from '../../components/Page'
 import { DeveloperMessageDialog } from '../developer-message/DeveloperMessageDialog'
 import { GuestContactEditor } from '../account/GuestContactEditor'
 import { LoadingState } from '../../components/FeedbackState'
+import { Pending } from '../../components/PendingButton'
+import { Reveal } from '../../components/Reveal'
 import { AppShell } from '../../app/AppShell'
 import { canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from '../../app/MemberPreview'
 import { InstallWorkspace } from '../../app/InstallWorkspace'
@@ -68,8 +71,12 @@ export function AuthRevalidator({ gateway }: { gateway: AuthGateway }) {
     }
     const stop = gateway.onChange(refresh)
     const stopReturn = onPageReturn(refresh, { minGapMs: 10_000 })
-    const timer = window.setInterval(refresh, 60_000)
-    return () => { stop(); stopReturn(); clearInterval(timer) }
+    // About once a minute while in use; jittered so 60+ open tabs don't check in lockstep, and
+    // slower while the person is idle (see pollDelay).
+    let timer = 0
+    const tick = () => { refresh(); timer = window.setTimeout(tick, pollDelay(60_000)) }
+    timer = window.setTimeout(tick, pollDelay(60_000))
+    return () => { stop(); stopReturn(); clearTimeout(timer) }
   }, [gateway, revalidate])
   // Only a check that takes a noticeable time pauses the page; quick ones stay invisible, so
   // typing is never interrupted (inert would also drop focus and close the phone keyboard).
@@ -199,13 +206,14 @@ export function CallbackPage({ gateway }: { gateway: AuthGateway }) {
 export function AccountPage({ gateway }: { gateway: AuthGateway }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'' | 'switch' | 'out' | 'everywhere'>('')
+  const [confirmEverywhere, setConfirmEverywhere] = useState(false)
   const [messaging, setMessaging] = useState(false)
   const guest = !!context && isGuest(context)
-  async function leave(switchAccount: boolean) {
-    setBusy(true); setError('')
-    try { await gateway.signOut(); if (switchAccount) await gateway.beginGoogle('/'); else window.location.replace(appPath('/login')) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t sign you out. Try again.'); setBusy(false) }
+  async function leave(how: 'switch' | 'out' | 'everywhere') {
+    setBusy(how); setError('')
+    try { await gateway.signOut({ everywhere: how === 'everywhere' }); if (how === 'switch') await gateway.beginGoogle('/'); else window.location.replace(appPath('/login')) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t sign you out. Try again.'); setBusy('') }
   }
   return <div className="settings">
     <PageHeading title="Settings" description={guest ? 'Your access comes from your invitation and ends when it expires.' : 'Your access comes from your committee role. Everything here only changes things for you.'} />
@@ -244,9 +252,18 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
     </SettingsSection> : null}
     <SettingsSection id="session" title="Signed in" lead={context?.displayName ? <>As <strong>{context.displayName}</strong>.</> : undefined}>
       <div className="auth-actions">
-        <button className="button button--secondary" disabled={busy} onClick={() => void leave(true)}>Switch Google account</button>
-        <button className="button button--quiet" disabled={busy} onClick={() => void leave(false)}><LogOut className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />Sign out</button>
-      </div>{error ? <p role="alert">{error}</p> : null}
+        <button className="button button--secondary" disabled={!!busy} aria-busy={busy === 'switch' || undefined} onClick={() => void leave('switch')}><Pending when={busy === 'switch'} label="Opening Google…">Switch Google account</Pending></button>
+        <button className="button button--quiet" disabled={!!busy} aria-busy={busy === 'out' || undefined} onClick={() => void leave('out')}><Pending when={busy === 'out'} label="Signing out…"><LogOut className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />Sign out</Pending></button>
+        <button className="button button--quiet" disabled={!!busy} aria-expanded={confirmEverywhere} aria-controls="sign-out-everywhere" onClick={() => setConfirmEverywhere(open => !open)}>Sign out of all devices</button>
+      </div>
+      {confirmEverywhere ? <Reveal className="settings-confirm"><div id="sign-out-everywhere">
+        <p data-reveal-focus>This signs you out on every phone, tablet and computer, including this one. Use it if you lost a device or signed in somewhere shared.</p>
+        <div className="auth-actions">
+          <button className="button" disabled={!!busy} aria-busy={busy === 'everywhere' || undefined} onClick={() => void leave('everywhere')}><Pending when={busy === 'everywhere'} label="Signing out everywhere…">Sign out everywhere</Pending></button>
+          <button className="button button--secondary" disabled={busy === 'everywhere'} onClick={() => setConfirmEverywhere(false)}>Cancel</button>
+        </div>
+      </div></Reveal> : null}
+      {error ? <p role="alert">{error}</p> : null}
     </SettingsSection>
     {messaging && gateway.developerMessage ? <DeveloperMessageDialog api={gateway.developerMessage} onClose={() => setMessaging(false)} /> : null}
   </div>

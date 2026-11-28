@@ -1,6 +1,8 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { TodayItem } from './model'
+import { useListEnter } from '../../components/useListEnter'
+import { Pending } from '../../components/PendingButton'
 
 export type AcknowledgeHandler = (item: TodayItem) => Promise<string | null>
 
@@ -44,8 +46,8 @@ export function TodayRow({ item, onAcknowledge, illustrative = false, tour }: { 
       {error ? <span className="today-row__error" id={errorId} role="alert">{error}</span> : null}
     </span>
     {inPlace
-      ? <button className={`button today-verb${done ? ' today-verb--done' : ''}`} type="button" disabled={busy || done} data-tour={tour} onClick={() => void acknowledge()}>
-        {done ? 'Got it' : busy ? 'Saving…' : 'Acknowledge'}
+      ? <button className={`button today-verb${done ? ' today-verb--done' : ''}`} type="button" disabled={busy || done} aria-busy={busy || undefined} data-tour={tour} onClick={() => void acknowledge()}>
+        {done ? 'Got it' : <Pending when={busy} label="Saving…">Acknowledge</Pending>}
       </button>
       : <span className={`today-verb today-verb--link${item.late ? ' today-verb--primary' : ''}`} aria-hidden="true" data-tour={tour}>{item.verb}</span>}
   </li>
@@ -56,8 +58,10 @@ export function TodaySection({ title, items, onAcknowledge, illustrative, tourFi
   title: string; items: TodayItem[]; onAcknowledge?: AcknowledgeHandler; illustrative?: boolean; tourFirstVerb?: boolean; children?: ReactNode; collapsible?: boolean
 }) {
   const headingId = useId()
+  // Today is opened many times a day: each section staggers in once per session, never on refresh.
+  const enter = useListEnter(items.length > 0 && !collapsible && !illustrative, 'today:' + title)
   if (!items.length && !children) return null
-  const list = <ul className="today-list">{items.map((item, index) => <TodayRow key={item.key} item={item} onAcknowledge={onAcknowledge} illustrative={illustrative} tour={tourFirstVerb && index === 0 ? 'today-verb' : undefined} />)}</ul>
+  const list = <ul className={`today-list ${enter}`.trim()}>{items.map((item, index) => <TodayRow key={item.key} item={item} onAcknowledge={onAcknowledge} illustrative={illustrative} tour={tourFirstVerb && index === 0 ? 'today-verb' : undefined} />)}</ul>
   if (collapsible) return <details className="today-section today-section--folded">
     <summary><h2 className="today-section__title">{title}</h2><span className="today-count">{items.length}</span></summary>
     {list}{children}

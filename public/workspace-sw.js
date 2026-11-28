@@ -1,6 +1,6 @@
 /* global self, caches, fetch, Request, Response, URL */
 const prefix = 'tedx-public-shell-'
-const cacheName = prefix + '4'
+const cacheName = prefix + '5'
 // Build output under <base>/assets/ has content hashes in its names, so a cached copy never goes
 // stale. GitHub Pages only sends max-age=600; this cache makes repeat visits load from disk.
 const assetPrefix = 'tedx-assets-'

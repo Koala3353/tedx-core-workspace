@@ -1,3 +1,4 @@
+import {useAutoRefresh} from '../../shared/useAutoRefresh'
 import {useCallback,useEffect,useRef,useState} from 'react'
 import {EmptyResults,ListToolbar,useListFilter} from '../../../components/list'
 import {Link,useParams,useRouteLoaderData} from 'react-router'
@@ -9,6 +10,7 @@ import type {ArchivedCustody,TurnoverApi,TurnoverSetup,TurnoverState,TurnoverWor
 import {TurnoverEditor,categoryName,type TurnoverEdit} from './TurnoverEditor'
 import {archivePath,ArchiveFacts} from './ArchivePage'
 import {HowThisWorks} from '../../shared/HowThisWorks'
+import {PendingButton} from '../../../components/PendingButton'
 import {formatDateTime,formatDay} from '../../shared/dates'
 import './turnover.css'
 const stateName:Record<TurnoverState,string>={preparing:'Review unit and item outcomes',frozen:'Frozen. Name who keeps the archive, then export it',exporting:'Archive export needs attention',verified:'Archive checked. Waiting for successors to accept',rehearsal_verified:'Practice run checked. Waiting for successors to accept',complete:'Handover complete',rehearsal_complete:'Practice run complete'}
@@ -25,7 +27,7 @@ export function TurnoverPage({api}:{api:TurnoverApi}){
 }
 function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;membership:string;caseId?:string}){
   const [w,setW]=useState<TurnoverWorkspace|null>(null),[setup,setSetup]=useState<TurnoverSetup|null>(null),[custody,setCustody]=useState<ArchivedCustody|null>(null)
-  const [checking,setChecking]=useState(true),[failed,setFailed]=useState(false),[edit,setEdit]=useState<TurnoverEdit|null>(null),[notice,setNotice]=useState('')
+  const [checking,setChecking]=useState(true),[failed,setFailed]=useState(false),[edit,setEdit]=useState<TurnoverEdit|null>(null),[notice,setNotice]=useState(''),[opening,setOpening]=useState('')
   const outcome=(x:TurnoverWorkspace['work'][number])=>x.resolution==='carry'?'Carry forward':x.resolution==='resolved'?'Resolved':x.resolution==='cancelled'?'Cancelled':'Outcome needed'
   const items=useListFilter(w?.work??[],{storageKey:'turnover-work',text:x=>[x.title,x.reference,w?.people.find(p=>p.id===x.owner)?.name,categoryName(x.classification)],filters:[{key:'outcome',label:'Outcome',get:x=>x.recordedVersion!==x.version&&x.resolution?'Check again':outcome(x),options:['Outcome needed','Check again','Carry forward','Resolved','Cancelled'].map(value=>({value,label:value}))},{key:'kind',label:'Kind',get:x=>categoryName(x.classification)}]})
   const sequence=useRef(0),previous=useRef<{caseId:string|null;canManage:boolean;records:string[];managerRecords:string[]}|null>(null),choice=useRef<TurnoverEdit|null>(null),focus=useRef<HTMLDivElement>(null),completed=useRef(false)
@@ -44,10 +46,11 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
       previous.current={caseId:next.case?.id??null,canManage:next.canManage,records:[...visible],managerRecords:[...next.units,...next.work].map(r=>r.id)};setW(next);setSetup(settings);setCustody(details)
     }catch{if(sequence.current===n){setFailed(true);setW(null);setSetup(null);setCustody(null)}}finally{if(sequence.current===n)setChecking(false)}
   },[api,term,caseId,membership])
-  useEffect(()=>{const check=()=>{if(document.visibilityState!=='hidden')void load()};check();window.addEventListener('focus',check);document.addEventListener('visibilitychange',check);const timer=setInterval(check,30000);return()=>{sequence.current++;clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}},[load])
+  useEffect(()=>{void load();return()=>{sequence.current++}},[load])
+  useAutoRefresh(()=>{void load()},{intervalMs:30000})
   useEffect(()=>{if(edit||notice)focus.current?.focus()},[edit,notice])
   async function open(q:TurnoverEdit){setNotice('');choice.current=q;if(q.kind==='custodyAction'){
-    setChecking(true);setCustody(null);try{const d=await api.custody(term,q.id);if(choice.current===q){setCustody(d);setEdit(q)}}catch{setFailed(true);setW(null)}finally{setChecking(false)}
+    setChecking(true);setOpening(q.id+q.action);setCustody(null);try{const d=await api.custody(term,q.id);if(choice.current===q){setCustody(d);setEdit(q)}}catch{setFailed(true);setW(null)}finally{setChecking(false);setOpening('')}
   }else setEdit(q)}
   function close(){choice.current=null;setEdit(null);setCustody(null)}
   function saved(message:string){
@@ -63,10 +66,10 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
     <PageHeading title="Term handover" description="Pass each committee's work to next term's team, archive the rest, and have successors accept it."/>
     <div className="auth-actions"><Link className="button button--secondary" to={completed.current?'/':'/?term='+term}>Overview</Link>{w?.hasArchive?<Link className="button button--secondary" to={archivePath(term)}>Archived work</Link>:null}</div>
     {completed.current?<Panel title="Handover recorded"><p role="status">{notice}</p></Panel>:null}
-    {checking?<LoadingState title="Loading handover"/>:null}
-    {failed?<ErrorState title="Couldn't load the handover" description="Check your connection and try again. Your entries are kept."/>:null}
+    {checking&&!w&&!failed?<LoadingState title="Loading handover"/>:null}
+    {failed?<ErrorState title="Couldn't load the handover" description="Check your connection and try again. Your entries are kept." action={<PendingButton className="button button--secondary" pending={checking} pendingLabel="Trying again…" onClick={()=>load()}>Try again</PendingButton>}/>:null}
     {!checking&&!failed&&w&&!c&&!w.approvals.length?<EmptyState title="No handover for you yet" description="You'll see the handover here once you're named as its custodian or a successor. Ask an admin if you expected one."/>:null}
-    {w?<div hidden={failed||checking}>
+    {w?<div hidden={failed}>
       {c?<Panel title={c.term}><p><strong>{stateName[c.state]}</strong></p><p>Handover custodian: {c.custodian}</p>{c.scope==='synthetic'?<p role="note">Practice run with sample data. Nothing real is handed over.</p>:null}
         {w.runs[0]?.failure&&!w.runs[0].restored?<p role="alert">Archive operator: the {w.runs[0].failure.phase==='files'?'file checks':w.runs[0].failure.phase==='restore'?'restore rehearsal':'record checks'} need attention. Check the source, then resume the archive export. The archive can't be checked until this is fixed.</p>:null}
       </Panel>:null}
@@ -90,7 +93,7 @@ function TurnoverBody({api,term,membership,caseId}:{api:TurnoverApi;term:string;
         {!w.transfers.length&&!w.custody.length?<p>No successors or custodians named yet.</p>:null}
         {w.transfers.map(t=><section key={t.id}><h3>{t.name} · {t.term}</h3><p>{t.reference}</p><p>{acceptedCurrent(t)?'Accepted':'Waiting for acceptance'}</p><ul className="turnover-list">{t.work.map(x=><li key={x.id}><h3>{x.title}</h3><ArchiveFacts record={x}/><details><summary>View record</summary><p className="record-text">{x.body}</p></details></li>)}</ul>{!edit&&verified&&!acceptedCurrent(t)&&t.successor===membership?<button className="button" onClick={()=>void open({kind:'acceptRecords',id:t.id})}>Accept these records</button>:null}</section>)}
         {w.custody.map(n=><section key={n.id}><h3>{n.name} · {categoryName(n.category)}</h3><p>{n.reference}</p><p>{acceptedCurrent(n)?'Accepted':'Waiting for acceptance'} · {n.qualified?'Eligible':'Eligibility needs checking'} · Until {formatDay(n.expiresAt)}</p><ul>{n.records.map((r,i)=><li key={r.id}>{r.reference??'Record '+(i+1)}</li>)}</ul>{!edit&&verified&&!acceptedCurrent(n)&&n.qualified&&n.recipient===membership?<button className="button" onClick={()=>void open({kind:'acceptCustody',id:n.id})}>Accept {categoryName(n.category)} records</button>:null}
-          {!edit&&done&&n.recipient===membership&&n.qualified?<div className="auth-actions">{(['hold','correction','release_hold']as const).map(action=><button key={action} className="button button--secondary" onClick={()=>void open({kind:'custodyAction',id:n.id,action})}>{action==='hold'?'Place a hold':action==='correction'?'Add a correction':'Release a hold'}</button>)}</div>:null}
+          {!edit&&done&&n.recipient===membership&&n.qualified?<div className="auth-actions">{(['hold','correction','release_hold']as const).map(action=><PendingButton key={action} className="button button--secondary" disabled={!!opening} pending={opening===n.id+action} pendingLabel="Opening…" onClick={()=>open({kind:'custodyAction',id:n.id,action})}>{action==='hold'?'Place a hold':action==='correction'?'Add a correction':'Release a hold'}</PendingButton>)}</div>:null}
         </section>)}
       </Panel>:null}
     </div>:null}

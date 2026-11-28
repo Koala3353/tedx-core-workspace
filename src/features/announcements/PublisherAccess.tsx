@@ -1,12 +1,14 @@
 import {useEffect,useRef,useState} from 'react'
 import {PersonPicker,personOptions} from '../../components/list'
 import {formatDateTime} from '../shared/dates'
+import {labelPeople,usePeopleOptions} from '../people/peopleOptions'
 import type {AnnouncementsApi,PublisherAccess as Access,PublisherCommand} from './api'
 
 /** Full admins only: allow someone to post announcements to an audience, or stop it. Hidden for everyone else. */
 export function PublisherAccess({api,term,self,changed}:{api:AnnouncementsApi;term:string;self:string;changed:()=>void}){
  const[access,setAccess]=useState<Access|null>(null),[person,setPerson]=useState(''),[audience,setAudience]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('')
  const pending=useRef<{signature:string;key:string}|null>(null)
+ const labels=usePeopleOptions(term).people
  useEffect(()=>{let live=true;void api.publishers?.(term).then(v=>{if(live)setAccess(v??null)});return()=>{live=false}},[api,term])
  if(!access||!api.setPublisher)return null
  const people=access.people.filter(p=>p.membershipId!==self),chosenPerson=people.find(p=>p.membershipId===person),chosenAudience=access.audiences.find(a=>a.kind+':'+a.id===audience)
@@ -29,7 +31,7 @@ export function PublisherAccess({api,term,self,changed}:{api:AnnouncementsApi;te
   </li>)}</ul>:<p>Only PMs can post right now.</p>}
   <div className="publisher-access__form">
    <label htmlFor="publisher-person">Person</label>
-   <PersonPicker id="publisher-person" value={person} disabled={busy} onChange={value=>{setPerson(value);setNotice('')}} options={personOptions(people.map(p=>({id:p.membershipId,name:p.name})))}/>
+   <PersonPicker id="publisher-person" value={person} disabled={busy} onChange={value=>{setPerson(value);setNotice('')}} options={personOptions(labelPeople(people.map(p=>({id:p.membershipId,name:p.name})),labels,'membershipId'))}/>
    <label htmlFor="publisher-audience">Audience</label>
    <select id="publisher-audience" value={audience} disabled={busy} onChange={e=>{setAudience(e.target.value);setNotice('')}}><option value="">Choose an audience</option>{access.audiences.map(a=><option key={a.kind+a.id} value={a.kind+':'+a.id}>{a.name}</option>)}</select>
    {already?<p className="muted">{chosenPerson?.name} can already post to {chosenAudience?.name}.</p>:null}

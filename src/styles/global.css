@@ -361,6 +361,9 @@ button:disabled { cursor: wait; opacity: .55; }
 .collaborator-picker legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
 .collaborator-picker__list { display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); max-height: 16rem; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px; border: 1px solid var(--color-line); border-radius: var(--radius-control); }
 .collaborator-picker .editor-check { gap: 10px; font-weight: 400; overflow-wrap: anywhere; }
+.collaborator-picker__group { grid-column: 1 / -1; display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); }
+.collaborator-picker__heading { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 0.8125rem; font-weight: 600; color: var(--color-ink-secondary); }
+.collaborator-picker__meta { color: var(--color-muted); }
 .core-team-confirm { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--color-line-strong); border-left: 3px solid var(--color-accent); border-radius: var(--radius-panel); background: var(--color-surface-subtle); }
 .core-team-confirm p { margin: 0; font-weight: 600; }
 

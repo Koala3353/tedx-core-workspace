@@ -4,6 +4,7 @@ import {Panel} from '../../components/Page'
 import {TextField} from '../../components/TextField'
 import {forgetRecordDrafts} from '../auth/draftScope'
 import {useFinDecision} from '../finance/DecisionMemory'
+import {labelPeople,usePeopleOptions} from '../people/peopleOptions'
 import {categoryLabels,type Assignment,type Assignments,type Category,type Checkin,type Goal,type GrowthApi,type GrowthCommand,type Relationship} from './api'
 
 export const localTime=(value:string)=>new Date(Date.parse(value)+8*3600000).toISOString().slice(0,16)
@@ -27,6 +28,7 @@ const titleFor=(q:GrowthEdit)=>q.kind==='goal'?q.goal?'Edit goal':'Add a goal':
 export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
   api:GrowthApi;term:string;edit:GrowthEdit;checking:boolean;refresh:()=>void;saved:(notice:string)=>void;close:()=>void
 }){
+  const people=usePeopleOptions(term).people
   const goal='goal'in edit?edit.goal:undefined
   const checkin='checkin'in edit?edit.checkin:undefined
   const relationship=edit.kind==='schedule'?edit.relationship:undefined
@@ -122,9 +124,9 @@ export function GrowthEditor({api,term,edit,checking,refresh,saved,close}:{
         {edit.kind==='assignment'?<>
           {previous?<p>{previous.mentee} · Current mentor {previous.mentor}. The mentee has to accept the new mentor and choose what to share again.</p>:
             <div className="form-field"><label htmlFor={id+'mentee'}>Member</label>
-              <PersonPicker id={id+'mentee'} value={fields.mentee} required onChange={value=>change('mentee',value)} options={personOptions(edit.data.people)}/></div>}
+              <PersonPicker id={id+'mentee'} value={fields.mentee} required onChange={value=>change('mentee',value)} options={personOptions(labelPeople(edit.data.people,people,'membershipId'))}/></div>}
           <div className="form-field"><label htmlFor={id+'mentor'}>Mentor</label>
-            <PersonPicker id={id+'mentor'} value={fields.mentor} required onChange={value=>change('mentor',value)} emptyText="No mentor matches. Only people marked as mentors are listed." options={personOptions(edit.data.people.filter(p=>p.mentor&&p.id!==fields.mentee&&p.id!==previous?.mentorId))}/></div>
+            <PersonPicker id={id+'mentor'} value={fields.mentor} required onChange={value=>change('mentor',value)} emptyText="No mentor matches. Only people marked as mentors are listed." options={personOptions(labelPeople(edit.data.people.filter(p=>p.mentor&&p.id!==fields.mentee&&p.id!==previous?.mentorId),people,'membershipId'))}/></div>
           {input('startsAt','Starts (Manila time)',{type:'datetime-local',required:true})}
           {input('endsAt','Ends (Manila time)',{type:'datetime-local',required:true})}
           {input('approval','School approval reference',{required:true,minLength:3,maxLength:500})}

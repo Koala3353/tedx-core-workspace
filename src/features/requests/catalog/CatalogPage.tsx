@@ -4,6 +4,8 @@ import {useEffect,useState} from 'react'
 import {Link,useParams,useRouteLoaderData} from 'react-router'
 import {PageHeading} from '../../../components/Page'
 import {useAutoRefresh} from '../../shared/useAutoRefresh'
+import {refreshKey,settled} from '../../shared/settled'
+import {useListEnter} from '../../../components/useListEnter'
 import '../../shared/shared.css'
 import {EmptyState,ErrorState,LoadingState} from '../../../components/FeedbackState'
 import type {WorkspaceContext} from '../../auth/gateway'
@@ -11,17 +13,17 @@ import type {CatalogApi,CatalogEntry} from './api'
 
 export function CatalogPage({api,process}:{api:CatalogApi;process?:ProcessApi}){
  const context=useRouteLoaderData('workspace') as WorkspaceContext,{typeId}=useParams(),[retry,setRetry]=useState(0),[search,setSearch]=useState('');
- const identity=context.termId+('memberId'in context?context.memberId:context.guestAccessId),key=identity+typeId+retry;
+ const identity=context.termId+('memberId'in context?context.memberId:context.guestAccessId),key=refreshKey(identity+':'+(typeId??''),retry);
  const[state,setState]=useState<{key:string;rows:CatalogEntry[]|null;error:boolean}|null>(null);
  useAutoRefresh(()=>setRetry(n=>n+1));
  useEffect(()=>{let live=true;void api.read(context.termId,typeId).then(rows=>{if(live)setState({key,rows,error:false})}).catch(()=>{if(live)setState({key,rows:null,error:true})});return()=>{live=false}},[api,context.termId,typeId,key]);
- const current=state?.key===key?state:null,rows=current?.rows?.filter(r=>typeId||[r.label,r.need,r.receivingUnit??''].join(' ').toLowerCase().includes(search.trim().toLowerCase()));
+ const current=settled(state,key),rows=current?.rows?.filter(r=>typeId||[r.label,r.need,r.receivingUnit??''].join(' ').toLowerCase().includes(search.trim().toLowerCase()));
  const admin=context.capabilities.some(c=>c==='admin.configure');
- const entry=typeId?rows?.[0]:undefined;
+ const entry=typeId?rows?.[0]:undefined,enter=useListEnter(!typeId&&!!rows?.length);
  return <><CurrentPhase api={process}/><PageHeading title={typeId?entry?.label??'Service':'Ask a committee'} description={typeId?entry?.need:'Pick what you need. Each service shows who handles it and how long it usually takes.'}/>
  <nav className="page-actions" aria-label="Requests">{typeId?<Link className="button button--quiet" to="/requests">All services</Link>:null}<Link className="button button--secondary" to="/requests/mine">My requests</Link></nav>
  {!typeId?<div className="form-field"><label htmlFor="service-search">What do you need help with?</label><input id="service-search" type="search" maxLength={100} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Try: sponsors, budget, posters"/></div>:null}
- {!current?<LoadingState title="Loading services"/>:current.error?<ErrorState title="Couldn't load services" description="Check your connection and try again." action={<button className="button button--secondary" onClick={()=>setRetry(n=>n+1)}>Try again</button>}/>:current.rows===null?<EmptyState title="Services aren't available to you" description="Only organizers on this term's roster can make requests. Ask your committee head."/>:!rows?.length?<EmptyState title={search?'No services match':'No services yet'} description={search?'Try another word, or ask your committee head who handles it.':'Committees haven\'t opened any request services yet.'}/>:typeId&&entry?<ServiceDetail r={entry} admin={admin}/>:<ul className="service-cards">{rows.map(r=><li key={r.id}><ServiceCard r={r}/></li>)}</ul>}
+ {!current?<LoadingState title="Loading services"/>:current.error?<ErrorState title="Couldn't load services" description="Check your connection and try again." action={<button className="button button--secondary" onClick={()=>setRetry(n=>n+1)}>Try again</button>}/>:current.rows===null?<EmptyState title="Services aren't available to you" description="Only organizers on this term's roster can make requests. Ask your committee head."/>:!rows?.length?<EmptyState title={search?'No services match':'No services yet'} description={search?'Try another word, or ask your committee head who handles it.':'Committees haven\'t opened any request services yet.'} action={search?<button className="button button--secondary" type="button" onClick={()=>{setSearch('');document.getElementById('service-search')?.focus()}}>Clear search</button>:undefined}/>:typeId&&entry?<ServiceDetail r={entry} admin={admin}/>:<ul className={('service-cards '+enter).trim()}>{rows.map(r=><li key={r.id}><ServiceCard r={r}/></li>)}</ul>}
  </>
 }
 const ready=(r:CatalogEntry)=>r.liveEnabled&&r.serviceReady

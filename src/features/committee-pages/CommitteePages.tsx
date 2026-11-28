@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, CalendarDays, Mail, Send } from 'lucide-react'
 import { PageHeading, Panel } from '../../components/Page'
 import { EmptyState, ErrorState, LoadingState } from '../../components/FeedbackState'
 import { Status } from '../../components/Status'
+import { PendingButton } from '../../components/PendingButton'
+import { useListEnter } from '../../components/useListEnter'
 import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import type { Resource } from '../resources/api'
 import { formatDay, formatDue, formatTime } from '../shared/dates'
@@ -12,6 +14,7 @@ import { findUnit, leadContacts, roleLabel, type Board, type BoardAsk, type Boar
 import { committeeContent, contentForCode, type CommitteeContent } from './content'
 import { useBoard } from './useBoard'
 import type { CommitteePagesApi } from './api'
+import { MyCommitteeLinks, QuickLinks } from '../committee-links'
 import './committee-pages.css'
 
 function useMember(): WorkspaceContext | null {
@@ -24,7 +27,7 @@ const guestState = (title: string) => <><PageHeading title={title} /><EmptyState
 function BoardGate({ state, title, children }: { state: ReturnType<typeof useBoard>; title: ReactNode; children: (board: Board) => ReactNode }) {
   if (state.board) return <>{children(state.board)}</>
   if (state.unavailable) return <>{title}<EmptyState title="Committee pages aren't switched on yet" description="They appear once the latest workspace update is installed. Meanwhile, check People." action={<Link className="button button--secondary" to="/people">People</Link>} /></>
-  if (state.error) return <>{title}<ErrorState title="This page didn't load" description={state.error} action={<button className="button button--secondary" type="button" onClick={state.reload}>Try again</button>} /></>
+  if (state.error) return <>{title}<ErrorState title="This page didn't load" description={state.error} action={<PendingButton className="button button--secondary" pending={state.loading} pendingLabel="Trying again…" onClick={state.reload}>Try again</PendingButton>} /></>
   return <>{title}<LoadingState title="Loading committees" rows={4} /></>
 }
 
@@ -50,13 +53,15 @@ export function CommitteeIndexPage({ api }: { api?: CommitteePagesApi }) {
 
 function CommitteeIndexBody({ api, termId }: { api?: CommitteePagesApi; termId: string }) {
   const state = useBoard(api?.board, termId)
+  const enter = useListEnter(!!state.board?.units.length)
   const heading = <PageHeading title="Committees" description="What each committee does, who leads it and what it's working on now." />
   return <BoardGate state={state} title={heading}>{board => {
     const units = [...board.units].sort((a, b) => Number(b.delivery) - Number(a.delivery) || a.name.localeCompare(b.name))
     if (!units.length) return <>{heading}<EmptyState title="No committees yet" description="Committees appear here once the roster is set up." /></>
     return <>
       {heading}
-      <ul className="committee-index">{units.map(unit => {
+      <MyCommitteeLinks api={api} termId={termId} />
+      <ul className={'committee-index ' + enter}>{units.map(unit => {
         const content = contentForCode(unit.code)
         const mine = board.deliverables.filter(d => d.unitId === unit.id && d.state !== 'cancelled')
         const risky = mine.filter(d => ['at_risk', 'behind'].includes(health(d, board.today))).length
@@ -118,6 +123,8 @@ function CommitteeOnePager({ api, termId, board, unit }: { api?: CommitteePagesA
       {parentUnit && parentUnit.id !== unit.id ? <p className="muted">Part of <Link to={pagePath(parentUnit)}>{parentUnit.name}</Link>.</p> : null}
       {ask ? <div className="committee-page__ask">{ask}<span className="muted">{service ? service.label : 'Opens an email to the head'}</span></div> : null}
     </header>
+
+    <QuickLinks key={unit.id} api={api} termId={termId} unitId={unit.id} unitName={unit.name} />
 
     {content ? <div className="committee-page__primer">
       <section aria-labelledby="committee-delivers">

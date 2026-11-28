@@ -23,7 +23,7 @@ function Thread({api,workId,quickUpdate}:{api:CommentsApi;workId:string;quickUpd
  useAutoRefresh(()=>setReload(n=>n+1))
  const discussion=<>
  {current&&current.key!==key?<p role="status">Updating…</p>:null}
- {!current?<LoadingState title="Loading comments"/>:current.error?<ErrorState title="Couldn't load comments" description="Check your connection and try again."/>:!current.data?<EmptyState title="You can't see comments here" description="You need access to this work to see its comments."/>:<>
+ {!current?<LoadingState title="Loading comments"/>:current.error?<ErrorState title="Couldn't load comments" description="Check your connection and try again." action={<button className="button button--secondary" type="button" onClick={()=>setReload(n=>n+1)}>Try again</button>}/>:!current.data?<EmptyState title="You can't see comments here" description="You need access to this work to see its comments."/>:<>
  {current.data.canComment?null:<p>You can read these comments but not add any.</p>}
  {current.data.items.length===0?<p>No comments yet.</p>:current.data.items.map(item=><CommentRow key={item.id} api={api} workId={workId} item={item} onSaved={()=>setReload(reload+1)}/>)}
  <Pager label="Comment pages" page={page} total={current.data.total} onMove={setPage}/>

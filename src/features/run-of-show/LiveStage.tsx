@@ -26,7 +26,15 @@ export function LiveStage({ show, skew, offlineSince, pending, error, onControl,
   const late = state.delayS >= 60
   const over = view.remaining !== null && view.remaining < 0
 
-  useEffect(() => { exit.current?.focus() }, [])
+  useEffect(() => {
+    // Leaving the live view hands focus back to whatever opened it.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    exit.current?.focus()
+    return () => {
+      const lost = !document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected
+      if (lost && opener?.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [])
   useEffect(() => {
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') onExit() }
     window.addEventListener('keydown', key)

@@ -1,4 +1,5 @@
-import {useEffect,useId,useState,type ComponentProps,type FormEvent} from 'react'
+import {useEffect,useId,useRef,useState,type ComponentProps,type FormEvent} from 'react'
+import {Pending} from '../../components/PendingButton'
 import {PersonPicker,SearchSelect,personOptions} from '../../components/list'
 import {Link} from 'react-router'
 import {Panel} from '../../components/Page'
@@ -6,6 +7,7 @@ import {TextField} from '../../components/TextField'
 import {forgetRecordDrafts} from '../auth/draftScope'
 import {useFinDecision} from '../finance/DecisionMemory'
 import {RefreshButton} from '../shared/RefreshButton'
+import {labelPeople,usePeopleOptions} from '../people/peopleOptions'
 import {formatDay,formatDateTime} from '../shared/dates'
 import type {InventoryApi,InventoryCommand,InventoryEvidence,InventoryReceipt,InventoryWorkspace,Loan,Movement,StockItem} from './api'
 
@@ -30,13 +32,14 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
   choice:InventoryAction;api:InventoryApi;term:string;workspace:InventoryWorkspace;item?:StockItem;loan?:Loan;
   checking:boolean;allowed:boolean;close:()=>void;refresh:()=>void;saved:(receipt:InventoryReceipt)=>void
 }){
-  const id=useId()
+  const id=useId(),people=usePeopleOptions(term).people
   const key='inventory:'+term+':'+('loan'in choice?choice.loan:'item'in choice?choice.item:'register')
   const recordVersion=(choice.kind==='movement'?loan?.version:item?.version)??0
   const [base,setBase]=useState(recordVersion),[localError,setLocalError]=useState('')
   const [review,setReview]=useState(false),[dirty,setDirty]=useState(false)
   const [evidence,setEvidence]=useState<{rows:InventoryEvidence[]|null;failed:boolean}>()
   const [evidenceRefresh,setEvidenceRefresh]=useState(0)
+  const problem=useRef<HTMLDivElement>(null),submitButton=useRef<HTMLButtonElement>(null)
   const action=choice.kind==='movement'?choice.action:null
   const recordEvidence=incident(choice)
   const m=useFinDecision(api,key+':'+(action??choice.kind),{
@@ -55,6 +58,14 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
     return()=>{live=false}
   },[api,loan?.id,term,recordEvidence,evidenceRefresh])
 
+  // A failed save disables the form for a moment, which drops focus: put it on the problem
+  // (or back on the submit button) so keyboard and screen-reader users stay in place.
+  const failure=localError||m.error||(m.pending?'pending':'')
+  useEffect(()=>{
+    if(!failure)return
+    const lost=!document.activeElement||document.activeElement===document.body||!document.activeElement.isConnected
+    if(lost)(problem.current??submitButton.current)?.focus({preventScroll:false})
+  },[failure,m.busy])
   function field(name:string,value:string){
     m.change({...fields,[name]:value});setDirty(true);setLocalError('')
   }
@@ -69,7 +80,8 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
   }
   function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault()
-    if(!allowed||checking||stale||m.locked)return
+    if(checking&&!m.locked){setLocalError('Checking the latest stock. Send again in a moment.');return}
+    if(!allowed||stale||m.locked)return
     const quantity=Number(fields.quantity),condition=conditionValue(fields.condition),note=fields.note.trim()||null
     if(choice.kind==='register'&&condition&&(fields.kind==='returnable'||fields.kind==='consumable')){
       void send({kind:'register',term,name:fields.name,location:fields.location,itemKind:fields.kind,quantity,condition,custodian:fields.custodian})
@@ -108,17 +120,19 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
   const itemName=item?.name??loan?.item
   return <Panel title={title} className="inventory-editor">
     {itemName?<p><strong>{itemName}</strong>{loan?' · '+loan.reference:''}{item?' · '+item.location:''}</p>:null}
+    <div ref={problem} tabIndex={-1} hidden={!localError&&!m.error&&!m.pending}>
     {localError||m.error?<p role="alert">{localError||m.error}</p>:null}
     {m.pending?<div data-pending-command="true">
       <p>We couldn't confirm this was saved. Retry to finish it.</p>
-      <button className="button" disabled={m.busy} onClick={()=>void send()}>Retry</button>
+      <button className="button" disabled={m.busy} aria-busy={m.busy||undefined} onClick={()=>void send()}><Pending when={m.busy} label="Retrying…">Retry</Pending></button>
     </div>:null}
+    </div>
     {!allowed&&!m.pending?<p role="status">The stock or booking changed, or you can no longer do this. Check the latest details.</p>:null}
     {allowed&&stale&&!m.pending?<div role="alert"><p>This record changed. Review the latest quantities before sending.</p>
       <button className="button button--secondary" disabled={checking} onClick={()=>{setBase(recordVersion);setReview(false);setLocalError('');m.change(fields)}}>Keep my entries and continue</button>
     </div>:null}
     <form onSubmit={submit} data-unsaved-changes={dirty} data-pending-command={m.locked}>
-      <fieldset disabled={checking||m.locked||stale||!allowed}>
+      <fieldset disabled={m.locked||stale||!allowed}>
         {choice.kind==='register'?<>
           {input('name','Item name',{required:true,maxLength:160})}{input('location','Pickup location',{required:true,maxLength:160})}
           <div className="form-field"><label htmlFor={id+'kind'}>Item type</label><select id={id+'kind'} value={fields.kind} onChange={e=>field('kind',e.target.value)}>
@@ -127,7 +141,7 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
           {input('quantity','How many you have now',{type:'number',required:true,min:0,max:100000})}{conditionFields}
         </>:null}
         {choice.kind==='register'||choice.kind==='reassign'?<div className="form-field"><label htmlFor={id+'custodian'}>Person in charge</label>
-          <PersonPicker id={id+'custodian'} required value={fields.custodian} onChange={value=>field('custodian',value)} options={personOptions(workspace.custodians.filter(person=>choice.kind==='register'||person.id!==item?.custodianId))}/>
+          <PersonPicker id={id+'custodian'} required value={fields.custodian} onChange={value=>field('custodian',value)} options={personOptions(labelPeople(workspace.custodians.filter(person=>choice.kind==='register'||person.id!==item?.custodianId),people,'membershipId'))}/>
         </div>:null}
         {choice.kind==='reserve'&&item?<><p role="status">{item.available} available · {item.custodian?'In charge: '+item.custodian:'Needs someone in charge'}</p>
           {review?<div>
@@ -171,8 +185,8 @@ export function InventoryEditor({choice,api,term,workspace,item,loan,checking,al
           recordEvidence?'Incident details':action==='cancel'?'Why are you cancelling?':'Reason for the change',
           {required:true,maxLength:2000}):null}
         {isFinance?<p>This opens a FIN draft. Enter the costs there. FIN has to approve them before anyone spends money.</p>:null}
-        <button className="button" type="submit">{choice.kind==='reserve'?(review?'Send reservation':'Review reservation'):
-          action==='cancel'?'Confirm cancellation':title}</button>
+        <button ref={submitButton} className="button" type="submit" aria-busy={m.busy||undefined}><Pending when={m.busy} label="Sending…">{choice.kind==='reserve'?(review?'Send reservation':'Review reservation'):
+          action==='cancel'?'Confirm cancellation':title}</Pending></button>
       </fieldset>
       <button className="button button--secondary" type="button" disabled={m.locked} onClick={discard}>Close</button>
     </form>

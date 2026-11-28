@@ -8,6 +8,8 @@ export type ProfileValues = { course: string | null; yearLevel: string | null; m
 export type ProfileVisibility = { shareCourse: boolean; shareYearLevel: boolean; shareMessenger?: boolean; shareTelegram?: boolean }
 export type OwnProfile = ProfileValues & ProfileVisibility & {
   memberId: string; displayName: string; version: number
+  /** members.version, the expected version for a name change. Null until the display name update is applied. */
+  nameVersion: number | null
   /** False until the Messenger and Telegram database update is applied. */
   contactsAvailable: boolean
 }
@@ -15,6 +17,8 @@ export interface ProfileGateway {
   read(termId: string): Promise<OwnProfile>
   save(termId: string, values: ProfileValues, version: number, requestId: string): Promise<OwnProfile>
   share(termId: string, visibility: ProfileVisibility, version: number, requestId: string): Promise<OwnProfile>
+  /** Change your own display name (set_own_display_name). */
+  rename?(termId: string, name: string, nameVersion: number, requestId: string): Promise<{ displayName: string; nameVersion: number }>
 }
 const text = (v: unknown) => v === null || v === undefined || typeof v === 'string'
 function profile(data: unknown): OwnProfile {
@@ -26,6 +30,7 @@ function profile(data: unknown): OwnProfile {
   const contactsAvailable = typeof value.shareMessenger === 'boolean' && typeof value.shareTelegram === 'boolean'
   return {
     memberId: value.memberId, displayName: value.displayName, version: value.version as number,
+    nameVersion: Number.isInteger(value.nameVersion) && (value.nameVersion as number) > 0 ? value.nameVersion as number : null,
     course: (value.course as string | null) ?? null, yearLevel: (value.yearLevel as string | null) ?? null,
     messenger: (value.messenger as string | null) ?? null, telegram: (value.telegram as string | null) ?? null,
     shareCourse: value.shareCourse as boolean, shareYearLevel: value.shareYearLevel as boolean,
@@ -37,9 +42,10 @@ export function createProfileGateway(ready: ReturnType<typeof createSupabaseClie
   const failure = (code?: string, message?: string) => new Error(code === '40001' ? 'Your profile changed elsewhere. Reload the profile before saving again.'
     : code === '42501' ? 'Profile access is unavailable or the term is frozen. Check with your workspace maintainer.'
       : message === 'profile_invalid_contact' ? 'Check your Messenger or Telegram username and try again.'
+        : message === 'profile_invalid_name' ? 'Use 1 to 120 characters, with no line breaks.'
         : message === 'profile_invalid_field' ? "Messenger and Telegram aren't switched on yet. Try again after the next update."
           : 'The profile request could not be confirmed. Retry with the same details, or reload the profile.')
-  const known = (error: unknown) => error instanceof Error && /^(Your profile changed|Profile access|Check your Messenger|Messenger and Telegram)/.test(error.message)
+  const known = (error: unknown) => error instanceof Error && /^(Your profile changed|Profile access|Check your Messenger|Messenger and Telegram|Use 1 to 120)/.test(error.message)
   return {
     async read(termId) {
       const client = await ready
@@ -57,6 +63,18 @@ export function createProfileGateway(ready: ReturnType<typeof createSupabaseClie
         return profile(data)
       } catch (error) { if (known(error)) throw error; throw failure() }
     },
+    async rename(termId, name, nameVersion, requestId) {
+      const client = await ready
+      if (!client) throw failure()
+      try {
+        const rpc = client.rpc.bind(client) as unknown as (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>
+        const { data, error } = await rpc('set_own_display_name', { p_term_id: termId, p_display_name: name, p_expected_version: nameVersion, p_request_id: requestId })
+        if (error) throw failure(error.code, error.message)
+        const value = data as { displayName?: unknown; nameVersion?: unknown } | null
+        if (!value || typeof value.displayName !== 'string' || !Number.isInteger(value.nameVersion)) throw failure()
+        return { displayName: value.displayName, nameVersion: value.nameVersion as number }
+      } catch (error) { if (known(error)) throw error; throw failure() }
+    },
     async share(termId, visibility, version, requestId) {
       const client = await ready
       if (!client) throw failure()
@@ -67,6 +85,17 @@ export function createProfileGateway(ready: ReturnType<typeof createSupabaseClie
       } catch (error) { if (known(error)) throw error; throw failure() }
     },
   }
+}
+
+/** Display names: trimmed, inner runs of spaces collapsed, 1 to 120 characters, no control characters. */
+export function cleanDisplayName(value: string): string { return value.replace(/\s+/g, ' ').trim() }
+export function displayNameError(value: string): string {
+  const name = cleanDisplayName(value)
+  if (!name) return 'Enter the name people know you by.'
+  if ([...name].length > 120) return 'Keep it to 120 characters or fewer.'
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(name)) return 'Remove line breaks or hidden characters.'
+  return ''
 }
 
 /** Fields shown in the profile forms (Account and the setup wizard). */
