@@ -1,0 +1,71 @@
+/* Admin Data: a spreadsheet look. Neutral greys; the accent marks only the selected cell and active sheet. */
+.data-page { display: grid; gap: var(--space-3); min-width: 0; }
+
+.data-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.data-toolbar__spacer { flex: 1; }
+.data-search { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; max-width: 360px; min-height: var(--control-min-size); padding: 0 12px;
+  border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-muted); }
+.data-search:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.data-search input { flex: 1; min-width: 0; height: 40px; border: 0; background: none; color: var(--color-ink); font: inherit; outline: none; }
+.data-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--color-line-strong); border-radius: 999px;
+  color: var(--color-ink-secondary); font-size: .8125rem; font-weight: 600; }
+.data-tool { display: inline-flex; align-items: center; gap: 8px; }
+.data-spin { animation: dataSpin 900ms linear infinite; }
+@keyframes dataSpin { to { transform: rotate(360deg); } }
+
+.data-formula { display: grid; grid-template-columns: 64px 32px minmax(0, 1fr); align-items: center; min-height: 36px;
+  border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface); font-size: .875rem; }
+.data-formula > span { padding: 6px 10px; }
+.data-formula__ref { border-right: 1px solid var(--color-line); color: var(--color-ink-secondary); font-variant-numeric: tabular-nums; text-align: center; font-weight: 600; }
+.data-formula__fx { border-right: 1px solid var(--color-line); color: var(--color-muted); font-style: italic; text-align: center; }
+.data-formula__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-ink); }
+
+.data-grid { position: relative; overflow: auto; max-height: min(64vh, 720px); border: 1px solid var(--color-line-strong); border-radius: var(--radius-control);
+  background: var(--color-surface); overscroll-behavior: contain; }
+.data-grid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.data-grid table { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: .875rem; font-variant-numeric: tabular-nums; }
+.data-grid th, .data-grid td { border-right: 1px solid var(--color-line); border-bottom: 1px solid var(--color-line); padding: 0 10px; height: 32px;
+  white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.data-grid td { color: var(--color-ink); cursor: cell; }
+.data-grid tbody tr:hover td { background: var(--color-surface-subtle); }
+.data-grid td.is-selected { box-shadow: inset 0 0 0 2px var(--color-accent); background: var(--color-accent-soft); }
+
+/* Frozen letters, labels and row numbers. */
+.data-grid thead th { position: sticky; z-index: 2; background: var(--color-surface-subtle); color: var(--color-ink-secondary); font-weight: 600; }
+.data-grid__letters th { top: 0; height: 24px; text-align: center; font-size: .75rem; color: var(--color-muted); font-weight: 500; }
+.data-grid__labels th { top: 24px; }
+.data-grid__labels button { display: inline-flex; align-items: center; gap: 4px; width: 100%; min-height: 32px; padding: 0; border: 0; background: none;
+  color: var(--color-ink); font: inherit; font-weight: 700; cursor: pointer; }
+.data-grid__labels button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.data-grid__corner, .data-grid__rownum { position: sticky; left: 0; z-index: 1; width: 48px; min-width: 48px; text-align: center !important;
+  background: var(--color-surface-subtle); color: var(--color-muted); font-weight: 500; font-size: .75rem; }
+.data-grid thead .data-grid__corner { z-index: 3; }
+.data-grid .is-active { background: var(--color-line) !important; color: var(--color-ink) !important; }
+
+.data-col--number, .data-grid th.data-col--number button { text-align: right; justify-content: flex-end; }
+.data-col--bool { text-align: center !important; }
+.data-grid th.data-col--bool button { justify-content: center; }
+.data-check { display: inline-grid; place-items: center; width: 16px; height: 16px; vertical-align: middle; border: 1.5px solid var(--color-line-strong); border-radius: 3px; }
+.data-check.is-on { border-color: var(--color-ink-secondary); background: var(--color-ink-secondary); color: var(--color-surface); }
+
+.data-grid__loading, .data-grid__empty { margin: 0; padding: var(--space-5); color: var(--color-muted); }
+
+/* Sheet tabs along the bottom, like a spreadsheet. */
+.data-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.data-tabs { display: flex; gap: 2px; overflow-x: auto; max-width: 100%; scrollbar-width: thin; }
+.data-tab { flex: none; min-height: 40px; padding: 0 16px; border: 1px solid var(--color-line); border-top-width: 0; border-radius: 0 0 var(--radius-control) var(--radius-control);
+  background: var(--color-surface-subtle); color: var(--color-ink-secondary); font: inherit; font-weight: 600; cursor: pointer; }
+.data-tab:hover { color: var(--color-ink); }
+.data-tab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.data-tab.is-active { background: var(--color-surface); color: var(--color-ink); box-shadow: inset 0 -3px 0 var(--color-accent); }
+.data-foot__count { margin: 0; color: var(--color-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.data-note { margin: 0; color: var(--color-muted); font-size: .8125rem; }
+
+@media (max-width: 640px) {
+  .data-search { max-width: none; flex-basis: 100%; }
+  .data-toolbar__spacer { display: none; }
+  .data-tool { flex: 1 1 auto; justify-content: center; }
+  .data-grid { max-height: 60vh; }
+  .data-tab { min-height: var(--control-min-size); }
+}
+@media (prefers-reduced-motion: reduce) { .data-spin { animation: none; } }

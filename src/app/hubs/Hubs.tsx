@@ -212,6 +212,7 @@ export function DeskHub() {
       { id: 'reports', to: '/reports', label: 'Reports', description: 'Progress and exports for your area', capability: 'reports.view' },
       { id: 'admin', to: '/admin', label: 'Admin', description: 'Roster, roles, services and site setup', capability: 'admin.configure', tour: 'desk-admin' },
       { id: 'guests', to: '/admin/access', label: 'Roles & access', description: 'Give someone a role or change what a role can do', capability: 'roles.manage', icon: 'admin' },
+      { id: 'guests', to: '/admin/data', label: 'Data', description: 'Read-only spreadsheet view of people, positions and work', capability: 'roles.manage', icon: 'resources' },
       { id: 'guests', to: '/admin/imports', label: 'Imports', description: 'Bring in tasks or people from a spreadsheet', capability: 'roles.manage', icon: 'resources' },
       { id: 'announcements', to: '/admin/announcements', label: 'Publish announcements', description: 'Write and send an announcement', capability: 'admin.configure' },
       { id: 'guests', to: '/guests', label: 'Guests & speakers', description: 'Invitations you sponsor', capability: 'roles.manage' },

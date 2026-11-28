@@ -68,6 +68,7 @@ const Reports = lazyPage(() => import('../features/reports/Reports').then(m => m
 const CsvPreparation = lazyPage(() => import('../features/imports/CsvPreparation').then(m => m.CsvPreparation))
 const LayoutsPage = lazyPage(() => import('../features/admin/layouts/LayoutsPage').then(m => m.LayoutsPage))
 const ConfigurationPage = lazyPage(() => import('../features/admin/config/ConfigurationPage').then(m => m.ConfigurationPage))
+const DataPage = lazyPage(() => import('../features/admin/data/DataPage').then(m => m.DataPage))
 const AccessPage = lazyPage(() => import('../features/admin/access/Access').then(m => m.AccessPage))
 const OrganizationPage = lazyPage(() => import('../features/admin/organization/Organization').then(m => m.OrganizationPage))
 const ResourcesPage = lazyPage(() => import('../features/resources/Resources').then(m => m.ResourcesPage))
@@ -172,6 +173,7 @@ function Unavailable({ title, description = 'Check your connection and try again
 function adminCapabilities(path: string): string[] | null {
   if (path === '/admin') return ['admin.configure']
   if (path === '/admin/access' || path === '/admin/imports') return ['admin.configure', 'roles.manage']
+  if (path === '/admin/data') return ['roles.manage']
   if (/^\/admin\/(?:config|process|layouts)(?:\/|$)/.test(path)) return ['admin.configure', 'committee.manage']
   if (path === '/team/setup') return [...teamSetupCapabilities]
   return null
@@ -296,6 +298,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       {path:'reports',element:gateway.reports?<Reports api={gateway.reports}/>:<Unavailable title="Reports"/>},
       {path:'admin/imports',element:<CsvPreparation api={gateway.taskImports} rosterApi={gateway.rosterImports}/>},
       {path:'admin/layouts',element:gateway.layouts?<LayoutsPage api={gateway.layouts}/>:<Unavailable title="Layout settings"/>},
+      {path:'admin/data',element:gateway.adminData?<DataPage api={gateway.adminData}/>:<Unavailable title="Data"/>},
       {path:'admin/access',element:gateway.access?<AccessPage api={gateway.access}/>:<Unavailable title="Access check"/>},
       {path:'admin/config/:configurationType?',element:gateway.configuration?<ConfigurationPage api={gateway.configuration} catalog={gateway.catalog}/>:<Unavailable title="Service setup"/>},
       {path:'reviews',element:gateway.inbox?<ReviewInbox api={gateway.inbox}/>:<Unavailable title="Reviews"/>},
