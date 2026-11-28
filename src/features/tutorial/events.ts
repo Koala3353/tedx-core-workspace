@@ -19,3 +19,20 @@ export function onTourActive(listener: () => void): () => void {
   window.addEventListener(activeEvent, listener)
   return () => window.removeEventListener(activeEvent, listener)
 }
+
+/**
+ * Whether the first-run tour is out of the way for now: already done, just finished or skipped,
+ * or it couldn't run. A member's first-run setup wizard opens once this is true.
+ */
+const settledEvent = 'workspace-tour-settled'
+let settled = false
+export function tourSettled(): boolean { return settled }
+export function setTourSettled(value: boolean): void {
+  if (settled === value) return
+  settled = value
+  window.dispatchEvent(new Event(settledEvent))
+}
+export function onTourSettled(listener: () => void): () => void {
+  window.addEventListener(settledEvent, listener)
+  return () => window.removeEventListener(settledEvent, listener)
+}

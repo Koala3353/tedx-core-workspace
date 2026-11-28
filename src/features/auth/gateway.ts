@@ -58,6 +58,7 @@ import type { EventQrApi } from '../event-qr/api'
 import type { ClientEnvironment } from '../../lib/env'
 import { announceUpdate } from '../../lib/appUpdate'
 import { createSupabaseClient } from '../../lib/supabase'
+import { attachErrorReporter } from '../../lib/errorReport'
 import { callbackUrl, forgetSession, safeReturnPath } from './redirects'
 import { createGuestGateway, type GuestGateway } from '../guests/gateway'
 import type { PeopleGateway } from '../people/gateway'
@@ -225,6 +226,7 @@ export function consumeReturnPath(): string {
 export function createAuthGateway(environment: ClientEnvironment, origin: string): AuthGateway {
   const redirectTo = callbackUrl(origin, environment.state === 'configured' ? environment.appOrigin : undefined)
   const clientReady = redirectTo ? createSupabaseClient(environment).catch(() => null) : Promise.resolve(null)
+  attachErrorReporter(clientReady)
   const privacy = createPrivacyApi(clientReady)
   let exchangeCode: string | undefined
   let exchangePromise: Promise<void> | undefined

@@ -466,3 +466,8 @@ verify_jwt = false
 # Supabase Auth calls this as its Send Email Hook; it verifies the Standard Webhooks signature itself.
 [functions.send-auth-email]
 verify_jwt = false
+
+# Called by the Apps Script report triggers (sendDailyReport, checkUrgent); it verifies the HMAC
+# signature (APPS_SCRIPT_HMAC_SECRET), the 5-minute clock window and a one-time nonce itself.
+[functions.ops-report]
+verify_jwt = false

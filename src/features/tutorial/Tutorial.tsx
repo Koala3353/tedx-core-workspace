@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate, useNavigation, useRevalidator, useRouteLoaderData } from 'react-router'
 import { RotateCcw } from 'lucide-react'
 import { useShellServices } from '../../app/shellServices'
@@ -7,8 +7,7 @@ import { safeStorage } from '../../lib/clientState'
 import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import { InstallSheet } from '../install/InstallBanner'
 import { onSetupGate, readSetupGate } from '../setup-wizard/gate'
-import type { ClientStateApi } from '../../lib/clientState'
-import { replayEvent, replayTour, setTourActive, tutorialVersion } from './events'
+import { replayEvent, replayTour, setTourActive, setTourSettled, tutorialVersion } from './events'
 import './tutorial.css'
 
 type Stop = { id: string; anchor: string; path?: string; title: string; body: string; capability?: string; optional?: boolean }
@@ -30,12 +29,6 @@ function readLocal(): LocalProgress | null {
   try { const value = JSON.parse(safeStorage.get(localKey) ?? 'null'); return value && typeof value.step === 'number' ? value : null } catch { return null }
 }
 function writeLocal(value: LocalProgress) { safeStorage.set(localKey, JSON.stringify(value)) }
-
-/** "Skip tour" on the setup wizard's last step: the tour will not start on its own. */
-export function markTourDone(clientState?: ClientStateApi): void {
-  writeLocal({ step: 0, done: true, version: tutorialVersion })
-  void clientState?.record({ tutorialDone: true, tutorialVersion })
-}
 
 /** First visible element carrying the anchor (the sidebar and the phone bar both exist in the DOM). */
 function findAnchor(anchor: string): HTMLElement | null {
@@ -70,7 +63,9 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
   const settled = navigation.state === 'idle' && revalidation === 'idle'
   const [index, setIndex] = useState<number | null>(null)
   const [pending, setPending] = useState<number | null>(null)
-  const checked = useRef(false)
+  // The stop the tour still has to start from, once known; null while checking or when done.
+  const [needed, setNeeded] = useState<number | null>(null)
+  const started = useRef(false)
   const direction = useRef<1 | -1>(1)
 
   const save = useCallback((step: number, done: boolean) => {
@@ -78,34 +73,39 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
     void clientState?.record(done ? { tutorialStep: step, tutorialDone: true, tutorialVersion } : { tutorialStep: step, tutorialVersion })
   }, [clientState])
 
-  // The setup wizard comes first. Its last step either starts the tour (through replayTour)
-  // or skips it; when setup was done earlier, the tour follows its own saved progress.
-  const [gate, setGate] = useState(readSetupGate)
-  useEffect(() => onSetupGate(() => setGate(readSetupGate())), [])
+  // The tour comes first; the setup wizard opens once it settles (see tourSettled). While setup is
+  // still to come, the last stop hands over to it.
+  const gate = useSyncExternalStore(onSetupGate, readSetupGate)
   useEffect(() => { setTourActive(index !== null || pending !== null) }, [index, pending])
-  useEffect(() => () => setTourActive(false), [])
+  useEffect(() => () => { setTourActive(false); setTourSettled(false) }, [])
+  // Finished, skipped, or gave up on a stop that never appeared: setup can open.
+  useEffect(() => { if (started.current && index === null && pending === null) setTourSettled(true) }, [index, pending])
 
-  // First signed-in visit: start on Today. Progress comes from the server, else this browser.
+  // Progress comes from the server, else this browser. Checked on any page, so a member who
+  // finished the tour gets their setup wherever they land.
   useEffect(() => {
-    if (checked.current || gate.status !== 'closed') return
-    if (gate.tour !== 'auto') { checked.current = true; return }
-    if (pathname !== '/') return
-    checked.current = true
     let live = true
-    setTourActive(true)
     void (async () => {
-      const server = clientState ? await clientState.read() : null
+      const server = clientState ? await clientState.read().catch(() => null) : null
       const local = readLocal()
       const done = server ? server.tutorialDone && server.tutorialVersion >= tutorialVersion : !!local?.done && local.version >= tutorialVersion
-      if (!live || done) { setTourActive(false); return }
-      const step = Math.min(Math.max(server?.tutorialStep ?? local?.step ?? 0, 0), stops.length - 1)
-      window.setTimeout(() => { if (live) setPending(step); else setTourActive(false) }, 700)
+      if (!live) return
+      if (done) { setTourSettled(true); return }
+      setNeeded(Math.min(Math.max(server?.tutorialStep ?? local?.step ?? 0, 0), stops.length - 1))
     })()
     return () => { live = false }
-  }, [gate, pathname, clientState, stops.length])
+  }, [clientState, stops.length])
+
+  // First signed-in visit: the tour starts on Today, after a short beat.
+  useEffect(() => {
+    if (needed === null || started.current || pathname !== '/') return
+    setTourActive(true)
+    const timer = window.setTimeout(() => { started.current = true; setPending(needed) }, 700)
+    return () => { clearTimeout(timer); if (!started.current) setTourActive(false) }
+  }, [needed, pathname])
 
   useEffect(() => {
-    const replay = () => { setIndex(null); setPending(0) }
+    const replay = () => { started.current = true; setIndex(null); setPending(0) }
     window.addEventListener(replayEvent, replay)
     return () => window.removeEventListener(replayEvent, replay)
   }, [])
@@ -155,13 +155,20 @@ function TutorialBody({ capabilities }: { capabilities: string[] }) {
   }
 
   if (index === null || !stops[index]) return null
-  return <CoachMark key={stops[index].id} stop={stops[index]} position={index} total={stops.length}
+  return <CoachMark key={stops[index].id} stop={stops[index]} position={index} total={stops.length} setupNext={gate.status === 'open'}
     onBack={() => go(index - 1)} onNext={() => go(index + 1)} onClose={() => finish(index)} />
 }
 
+const setupBody = 'The bell shows new assignments, approvals and mentions. Next, a one-minute setup so reminders reach your email and this device.'
+
 type Box = { top: number; left: number; width: number; height: number }
 
-function CoachMark({ stop, position, total, onBack, onNext, onClose }: { stop: Stop; position: number; total: number; onBack: () => void; onNext: () => void; onClose: () => void }) {
+function CoachMark({ stop, position, total, setupNext, onBack, onNext, onClose }: {
+  stop: Stop; position: number; total: number
+  /** First run: setup (with the notification settings) opens right after this tour. */
+  setupNext: boolean
+  onBack: () => void; onNext: () => void; onClose: () => void
+}) {
   const titleId = useId(), bodyId = useId()
   const bubble = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState<Box | null>(null)
@@ -240,16 +247,16 @@ function CoachMark({ stop, position, total, onBack, onNext, onClose }: { stop: S
       role="dialog" aria-modal="false" aria-labelledby={titleId} aria-describedby={bodyId} onKeyDown={keys}>
       <p className="tour-bubble__step">{position + 1} of {total}</p>
       <h2 className="tour-bubble__title" id={titleId}>{stop.title}</h2>
-      <p className="tour-bubble__body" id={bodyId}>{stop.body}</p>
-      {last ? <div className="tour-bubble__extras">
+      <p className="tour-bubble__body" id={bodyId}>{last && setupNext ? setupBody : stop.body}</p>
+      {last && !setupNext ? <div className="tour-bubble__extras">
         <Link className="button button--secondary" to="/notifications" onClick={onClose}>Turn on reminders</Link>
         {!isStandalone() ? <button className="button button--secondary" type="button" onClick={() => void startInstall()}>Install the app</button> : null}
       </div> : null}
       <div className="tour-bubble__controls">
-        <button className="tour-bubble__skip" type="button" onClick={onClose}>{last ? 'Close' : 'Skip tour'}</button>
+        {last && setupNext ? <span /> : <button className="tour-bubble__skip" type="button" onClick={onClose}>{last ? 'Close' : 'Skip tour'}</button>}
         <span className="tour-bubble__nav">
           {position > 0 ? <button className="button button--secondary" type="button" onClick={onBack}>Back</button> : null}
-          <button className="button" type="button" data-tour-primary onClick={last ? onClose : onNext}>{last ? 'Finish' : 'Next'}</button>
+          <button className="button" type="button" data-tour-primary onClick={last ? onClose : onNext}>{last ? setupNext ? 'Set up notifications' : 'Finish' : 'Next'}</button>
         </span>
       </div>
     </div>

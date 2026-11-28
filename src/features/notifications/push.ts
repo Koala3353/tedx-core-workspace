@@ -125,6 +125,29 @@ const savedKey = (term: string) => 'tedx-push-saved:' + term
 const sameKey = (subscription: PushSubscription, key: string) =>
   encodeKey(subscription.options?.applicationServerKey ?? null) === key
 
+export type DeviceState = 'loading' | 'on' | 'off' | 'blocked' | 'unsupported' | 'ios-install' | 'dev' | 'unconfigured'
+
+/** Works out this device's state from the browser and the saved device list (null when the list didn't load). */
+export async function readDeviceState(api: PushApi, devices: PushDevice[] | null): Promise<DeviceState> {
+  if (!api.vapidKey) return 'unconfigured'
+  const support = deviceSupport()
+  if (support !== 'supported') return support
+  if (!(await workspaceRegistration())) return 'dev'
+  if (permission() === 'denied') return 'blocked'
+  if (permission() !== 'granted') return 'off'
+  const subscription = await currentSubscription()
+  if (!subscription) return 'off'
+  // Subscribed here but not saved to the workspace (or removed from another device): show off, so
+  // turning it on saves it again.
+  if (!devices) return 'on'
+  const hash = await endpointHash(subscription.endpoint)
+  return devices.some(d => d.endpointHash === hash) ? 'on' : 'off'
+}
+
+/** Fired after this window changes email, device or alert timing settings, so every control re-reads. */
+export const alertsChangedEvent = 'workspace-alerts-changed'
+export function announceAlertsChanged(): void { window.dispatchEvent(new Event(alertsChangedEvent)) }
+
 /** Turn on: ask permission (must run from a click), subscribe with the workspace key, save it. */
 export async function enableDevice(api: PushApi, term: string): Promise<'on' | 'blocked' | 'dismissed' | 'unavailable'> {
   if (!api.vapidKey) return 'unavailable'

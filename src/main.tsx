@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router'
 import { createAppRouter } from './app/router'
 import { UpdateToast } from './components/UpdateToast'
 import { watchForStaleBuild } from './lib/appUpdate'
+import { installErrorReporting } from './lib/errorReport'
 import { stripBase } from './lib/basePath'
 import './lib/fonts.css'
 import './styles/tokens.css'
@@ -16,6 +17,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 watchForStaleBuild()
+installErrorReporting()
 
 // Static hosts such as GitHub Pages cannot send frame-ancestors or X-Frame-Options.
 // Refuse to render inside another site's frame to prevent clickjacking.

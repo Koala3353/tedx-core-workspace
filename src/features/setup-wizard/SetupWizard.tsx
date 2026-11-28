@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { useLocation, useRouteLoaderData } from 'react-router'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useShellServices } from '../../app/shellServices'
@@ -7,20 +7,20 @@ import { safeStorage, type ClientStateApi } from '../../lib/clientState'
 import { isGuest, type WorkspaceContext } from '../auth/gateway'
 import type { ProfileGateway } from '../account/gateway'
 import type { NotificationsApi } from '../notifications/api'
-import { markTourDone } from '../tutorial/Tutorial'
-import { replayTour } from '../tutorial/events'
+import { onTourSettled, tourSettled } from '../tutorial/events'
 import { openSetup, readSetupGate, setSetupGate, setupOpenEvent, type SetupGate } from './gate'
-import { DeviceStep, DoneStep, InstallStep, LookStep, ProfileStep, RemindersStep, WelcomeStep, type Commit } from './steps'
-import { deviceSupport } from '../notifications/push'
+import { DoneStep, InstallStep, LookStep, NotificationsStep, ProfileStep, WelcomeStep, type Commit } from './steps'
 import './setup-wizard.css'
 
 /**
- * Saved step numbers. The saved step is an index into this list, so hidden steps keep their number
- * and new steps are only ever appended. `sequence` is the order people see them in.
+ * Saved step numbers. The saved step is an index into this list, so a number never changes meaning
+ * and new steps are only ever appended. Slot 2 used to be "reminders" and slot 6 "device"; both are
+ * now the one Notifications step, so anyone who stopped at either resumes there (and saves slot 2).
+ * `sequence` is the order people see them in.
  */
-const order = ['welcome', 'profile', 'reminders', 'look', 'install', 'done', 'device'] as const
-type StepId = typeof order[number]
-const sequence: readonly StepId[] = ['welcome', 'profile', 'reminders', 'device', 'look', 'install', 'done']
+const slots = ['welcome', 'profile', 'notifications', 'look', 'install', 'done', 'notifications'] as const
+type StepId = typeof slots[number]
+const sequence: readonly StepId[] = ['welcome', 'profile', 'notifications', 'look', 'install', 'done']
 
 type Local = { step: number; done: boolean }
 const localKey = (who: string) => 'tedx-setup:' + who
@@ -35,7 +35,7 @@ function readLocal(who: string): Local | null {
 type Identity = { who: string; name: string; guest: boolean; termId?: string; committee?: string | null; position?: string | null }
 
 /**
- * First-run setup, shown once per member before the tour. Mounted in the signed-in shell for
+ * First-run setup, shown once per member right after the tour finishes or is skipped. Mounted in the signed-in shell for
  * core members and guests. On the development /preview shell it opens with ?setup=1 and saves
  * nothing.
  */
@@ -59,7 +59,10 @@ function PreviewWizard() {
 function SetupGateKeeper({ identity }: { identity: Identity }) {
   const { clientState } = useShellServices()
   const [open, setOpen] = useState<{ startAt: number; reopened: SetupGate | null } | null>(null)
+  const [waiting, setWaiting] = useState<number | null>(null)
   const [info, setInfo] = useState<{ committee?: string | null; position?: string | null }>({})
+  // Members see the tour first. Guests have no tour, so their setup opens straight away.
+  const tourDone = useSyncExternalStore(onTourSettled, tourSettled) || identity.guest
 
   // Done on the server or in this browser closes the gate; otherwise open where they left off,
   // unless they chose "Finish later" earlier in this browser session.
@@ -71,10 +74,10 @@ function SetupGateKeeper({ identity }: { identity: Identity }) {
       if (server) setInfo({ committee: server.committee, position: server.position })
       const local = readLocal(identity.who)
       const done = server?.setupDone === true || !!local?.done
-      if (done) { setSetupGate({ status: 'closed', tour: 'auto' }); return }
-      setSetupGate({ status: 'open', tour: 'auto' })
+      if (done) { setSetupGate({ status: 'closed' }); return }
+      setSetupGate({ status: 'open' })
       if (safeStorage.session.get(laterKey(identity.who))) return
-      setOpen({ startAt: Math.max(server?.setupStep ?? 0, local?.step ?? 0), reopened: null })
+      setWaiting(Math.max(server?.setupStep ?? 0, local?.step ?? 0))
     })()
     return () => { live = false }
   }, [clientState, identity.guest, identity.who])
@@ -85,12 +88,15 @@ function SetupGateKeeper({ identity }: { identity: Identity }) {
     return () => window.removeEventListener(setupOpenEvent, reopen)
   }, [])
 
-  if (!open) return null
-  return <Wizard identity={{ ...identity, ...info }} startAt={open.startAt} clientState={identity.guest ? undefined : clientState}
+  // First run opens once the tour is finished, skipped or not needed.
+  const shown = open ?? (waiting !== null && tourDone ? { startAt: waiting, reopened: null } : null)
+  if (!shown) return null
+  return <Wizard identity={{ ...identity, ...info }} startAt={shown.startAt} clientState={identity.guest ? undefined : clientState}
     onClose={reason => {
       // "Finish later" after "Set up again" puts things back as they were.
-      if (reason === 'later' && open.reopened?.status === 'closed') setSetupGate(open.reopened)
+      if (reason === 'later' && shown.reopened?.status === 'closed') setSetupGate(shown.reopened)
       setOpen(null)
+      setWaiting(null)
     }} />
 }
 
@@ -101,10 +107,8 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
   const live = !preview
   const profile: ProfileGateway | undefined = live && !identity.guest ? gateway?.profile : undefined
   const notifications: NotificationsApi | undefined = live && !identity.guest ? gateway?.notifications : undefined
-  const push = notifications?.push
-  const steps = sequence.filter(id => !(identity.guest && (id === 'profile' || id === 'reminders')) && !(id === 'install' && isStandalone())
-    && !(id === 'device' && (!push?.vapidKey || deviceSupport() === 'unsupported')))
-  const resume = sequence.indexOf(order[Math.min(Math.max(startAt, 0), order.length - 1)])
+  const steps = sequence.filter(id => !(identity.guest && (id === 'profile' || id === 'notifications')) && !(id === 'install' && isStandalone()))
+  const resume = sequence.indexOf(slots[Math.min(Math.max(startAt, 0), slots.length - 1)])
   const first = Math.max(0, steps.findIndex(id => sequence.indexOf(id) >= resume))
   const [index, setIndex] = useState(first)
   const [direction, setDirection] = useState<'forward' | 'back'>('forward')
@@ -118,7 +122,7 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
 
   const save = useCallback((stepId: StepId, done = false) => {
     if (preview) return
-    const position = order.indexOf(stepId)
+    const position = slots.indexOf(stepId)
     safeStorage.set(localKey(identity.who), JSON.stringify({ step: position, done } satisfies Local))
     void clientState?.recordSetup(done ? { step: position, done: true } : { step: position })
   }, [clientState, identity.who, preview])
@@ -156,13 +160,9 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
     onClose('later')
   }
 
-  function finish(tour: boolean) {
+  function finish() {
     save('done', true)
-    if (!preview) {
-      if (!tour && !identity.guest) markTourDone(clientState)
-      setSetupGate({ status: 'closed', tour: tour ? 'start' : 'skip' })
-      if (tour) replayTour()
-    }
+    if (!preview) setSetupGate({ status: 'closed' })
     onClose('done')
   }
 
@@ -194,8 +194,7 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
         <section key={step} className="setup-step" data-direction={direction} aria-labelledby={headingId}>
           {step === 'welcome' ? <WelcomeStep {...props} name={identity.name} committee={identity.committee} position={identity.position} guest={identity.guest} />
             : step === 'profile' ? <ProfileStep {...props} api={profile} termId={identity.termId} />
-              : step === 'reminders' ? <RemindersStep {...props} api={notifications} termId={identity.termId} />
-                : step === 'device' && push && identity.termId ? <DeviceStep {...props} api={push} termId={identity.termId} />
+              : step === 'notifications' ? <NotificationsStep {...props} api={notifications} termId={identity.termId} />
                 : step === 'look' ? <LookStep {...props} />
                   : step === 'install' ? <InstallStep {...props} />
                     : <DoneStep {...props} guest={identity.guest} />}
@@ -206,14 +205,9 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
           <ArrowLeft className="icon" size={18} strokeWidth={1.75} aria-hidden="true" /><span>Back</span>
         </button> : <span />}
         <span className="setup-foot__end">
-          {last ? identity.guest
-            ? <button type="button" className="button" onClick={() => finish(false)}>Open the workspace</button>
+          {last ? <button type="button" className="button" onClick={finish}>Open the workspace</button>
             : <>
-              <button type="button" className="setup-skip" onClick={() => finish(false)}>Skip tour</button>
-              <button type="button" className="button" onClick={() => finish(true)}>Take the 2-minute tour</button>
-            </>
-            : <>
-              {index > 0 ? <button type="button" className="setup-skip" disabled={busy} onClick={() => { commit.current = null; void go(index + 1) }}>Skip</button> : null}
+              {index > 0 ? <button type="button" className="setup-skip" disabled={busy} onClick={() => { commit.current = null; void go(index + 1) }}>{step === 'notifications' ? 'Skip for now' : 'Skip'}</button> : null}
               <button type="button" className="button setup-next" disabled={busy} onClick={() => void go(index + 1)}>
                 <span>{busy ? 'Saving…' : index === 0 ? 'Get started' : 'Next'}</span>
                 {!busy ? <ArrowRight className="icon" size={18} strokeWidth={1.75} aria-hidden="true" /> : null}

@@ -192,3 +192,127 @@ function installReminderTrigger() {
   ScriptApp.newTrigger('runReminders').timeBased().everyMinutes(15).create();
   console.log('Reminder trigger installed: runReminders every 15 minutes.');
 }
+
+/**
+ * Owner reports. sendDailyReport() emails a daily summary (usage, work, bugs, system health) and
+ * checkUrgent() emails only when something needs attention. Both ask the Supabase ops-report function
+ * for the content, signed the same way the relay checks its callers: POST ?ts=&sig=hex(HMAC_SHA256(
+ * HMAC_SECRET, ts + '.' + body)) with a one-time nonce. The recipient is fixed here and is not the
+ * student-only ALLOWED_RECIPIENT used for relay sends.
+ * Run installReportTriggers() once from the editor (daily at 7-8 AM Manila, urgent check every 15 minutes).
+ */
+var REPORT_TO = 'brigadokeene@gmail.com';
+var REPORT_URL = FUNCTIONS_URL + '/ops-report';
+var URGENT_REPEAT_MS = 6 * 3600 * 1000; // an alert that stays open is emailed again after 6 hours
+var URGENT_STATE_PROPERTY = 'REPORT_URGENT_STATE';
+var REPORT_FAILURES_PROPERTY = 'REPORT_FAILURES';
+var REPORT_HANDLERS = ['sendDailyReport', 'checkUrgent'];
+
+/** Daily summary email. Called by the daily time trigger; safe to run by hand. */
+function sendDailyReport() {
+  var result = requestReport_('daily');
+  if (!result.ok) {
+    sendReportMail_('TEDx Core daily report: could not be generated',
+      'The ops-report function did not answer (' + result.error + ').\n\nCheck the function logs: ' +
+      'https://supabase.com/dashboard/project/wyurosneoxfqqrrvstke/functions\n', null);
+    return;
+  }
+  var email = result.reply.email;
+  sendReportMail_(email.subject, email.text, email.html);
+}
+
+/** Urgent check. Called every 15 minutes; emails only for new alerts or ones still open after 6 hours. */
+function checkUrgent() {
+  var props = PropertiesService.getScriptProperties();
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;
+  try {
+    var state = JSON.parse(props.getProperty(URGENT_STATE_PROPERTY) || '{}') || {};
+    var now = Date.now();
+    var result = requestReport_('urgent');
+    var alerts, email;
+    if (result.ok) {
+      props.setProperty(REPORT_FAILURES_PROPERTY, '0');
+      alerts = result.reply.alerts;
+      email = result.reply.email;
+    } else {
+      // One failed call can be a cold start or a blip; two in a row (30 minutes) is worth an email.
+      var failures = Number(props.getProperty(REPORT_FAILURES_PROPERTY) || '0') + 1;
+      props.setProperty(REPORT_FAILURES_PROPERTY, String(failures));
+      if (failures < 2) return;
+      alerts = [{ key: 'report_unreachable', severity: 'critical', title: 'The ops-report function is not answering' }];
+      email = {
+        subject: 'URGENT: TEDx Core: the ops-report function is not answering',
+        text: 'checkUrgent could not get a report ' + failures + ' times in a row (' + result.error + ').\n' +
+          'Urgent checks are blind until this is fixed. Check the function logs and that ops-report is deployed:\n' +
+          'https://supabase.com/dashboard/project/wyurosneoxfqqrrvstke/functions\n\n' +
+          'MailApp quota left today: ' + MailApp.getRemainingDailyQuota() + '\n',
+        html: null
+      };
+    }
+
+    var next = {};
+    var due = false;
+    alerts.forEach(function (alert) {
+      var id = alert.key + ':' + alert.severity;
+      var last = typeof state[id] === 'number' ? state[id] : 0;
+      if (!last || now - last >= URGENT_REPEAT_MS) due = true;
+      next[id] = last;
+    });
+    if (due && email) {
+      sendReportMail_(email.subject, email.text, email.html);
+      Object.keys(next).forEach(function (id) { next[id] = now; });
+    } else if (!alerts.length && Object.keys(state).length) {
+      sendReportMail_('TEDx Core: all clear', 'The problems in the last urgent alert are resolved. Nothing needs attention now.\n' +
+        'https://koala3353.github.io/tedx-core-workspace/\n', null);
+    }
+    props.setProperty(URGENT_STATE_PROPERTY, JSON.stringify(next));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Run once from the editor. Replaces earlier report triggers; leaves the runReminders trigger alone. */
+function installReportTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (REPORT_HANDLERS.indexOf(trigger.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(trigger);
+  });
+  ScriptApp.newTrigger('sendDailyReport').timeBased().everyDays(1).atHour(7).nearMinute(0).inTimezone('Asia/Manila').create();
+  ScriptApp.newTrigger('checkUrgent').timeBased().everyMinutes(15).create();
+  console.log('Report triggers installed: sendDailyReport daily at 7-8 AM Manila, checkUrgent every 15 minutes, to ' + REPORT_TO + '.');
+}
+
+function requestReport_(kind) {
+  var secret = PropertiesService.getScriptProperties().getProperty('HMAC_SECRET');
+  if (!secret || secret.length < 32) return { ok: false, error: 'HMAC_SECRET not set' };
+  var ts = String(Math.floor(Date.now() / 1000));
+  var body = JSON.stringify({ v: 1, kind: kind, ts: ts, nonce: Utilities.getUuid(), mailQuota: MailApp.getRemainingDailyQuota() });
+  var sig = hex_(Utilities.computeHmacSha256Signature(ts + '.' + body, secret, Utilities.Charset.UTF_8));
+  var response;
+  try {
+    response = UrlFetchApp.fetch(REPORT_URL + '?ts=' + ts + '&sig=' + sig,
+      { method: 'post', contentType: 'application/json', payload: body, muteHttpExceptions: true });
+  } catch (err) {
+    return { ok: false, error: 'network: ' + String((err && err.message) || err).slice(0, 120) };
+  }
+  var code = response.getResponseCode();
+  if (code !== 200) return { ok: false, error: 'HTTP ' + code + ' ' + response.getContentText().slice(0, 120) };
+  var reply;
+  try { reply = JSON.parse(response.getContentText()); } catch (err) { return { ok: false, error: 'invalid JSON' }; }
+  if (!reply || reply.ok !== true || reply.kind !== kind || !Array.isArray(reply.alerts)) return { ok: false, error: 'invalid reply' };
+  var email = reply.email;
+  if (email !== null && (!email || typeof email.subject !== 'string' || !email.subject || email.subject.length > 200 ||
+      /[\r\n]/.test(email.subject) || typeof email.text !== 'string' || email.text.length > 100000 ||
+      typeof email.html !== 'string' || email.html.length > 100000)) {
+    return { ok: false, error: 'invalid email' };
+  }
+  if (kind === 'daily' && email === null) return { ok: false, error: 'empty report' };
+  return { ok: true, reply: reply };
+}
+
+function sendReportMail_(subject, text, html) {
+  if (MailApp.getRemainingDailyQuota() < 1) { console.warn('MailApp quota exhausted; report not sent: ' + subject); return; }
+  var options = { name: SENDER_NAME };
+  if (html) options.htmlBody = html;
+  MailApp.sendEmail(REPORT_TO, subject, text, options);
+}

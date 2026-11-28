@@ -1,17 +1,17 @@
 /**
  * Shared first-run state between the setup wizard, the tour and the install banner.
+ * First run is: tour, then setup (the wizard waits for the tour, see tutorial/events).
  *
- * - 'unknown': the wizard has not checked yet. The tour waits.
- * - 'open': the wizard is showing, or was put off with "Finish later". The tour waits.
- * - 'closed': setup is done or skipped. `tour` says what the member picked on the last step:
- *   'start' (take the tour now), 'skip' (no tour) or 'auto' (setup was already done earlier,
- *   so the tour follows its own saved progress).
+ * - 'unknown': the wizard has not checked yet.
+ * - 'open': setup isn't finished: it is waiting for the tour, showing, or put off with "Finish later".
+ *   The tour's last stop then points to setup, and the install banner waits.
+ * - 'closed': setup is done.
  */
-export type SetupGate = { status: 'unknown' | 'open' | 'closed'; tour: 'start' | 'skip' | 'auto' }
+export type SetupGate = { status: 'unknown' | 'open' | 'closed' }
 
 const changeEvent = 'workspace-setup-gate'
 const openEvent = 'workspace-setup-open'
-let gate: SetupGate = { status: 'unknown', tour: 'auto' }
+let gate: SetupGate = { status: 'unknown' }
 
 export function readSetupGate(): SetupGate { return gate }
 

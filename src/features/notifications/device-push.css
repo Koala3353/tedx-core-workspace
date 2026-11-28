@@ -24,3 +24,17 @@
 .device-push__this { color: var(--color-accent); font-weight: 600; }
 .device-push__remove { min-height: 40px; min-width: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 @media (max-width: 479px) { .device-push__remove-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .device-push__devices li { gap: var(--space-2); } }
+
+/* Settings > Alerts and reminders: recommended setup summary (email + this device). */
+.recommended-alerts { display: grid; gap: var(--space-3); justify-items: start; min-width: 0; padding: 14px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); background: var(--color-surface-subtle); }
+.recommended-alerts__title { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-weight: 600; line-height: 1.4; }
+.recommended-alerts__ok { flex: none; margin-top: 1px; color: var(--color-ok); }
+.recommended-alerts__list { display: grid; gap: 0; width: 100%; margin: 0; padding: 0; list-style: none; }
+.recommended-alerts__list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-height: var(--control-min-size); }
+.recommended-alerts__list li + li { border-top: 1px solid var(--color-line); }
+.recommended-alerts__list .icon { color: var(--color-ink-secondary); }
+.recommended-alerts__list strong { font-size: .875rem; color: var(--color-muted); }
+.recommended-alerts__list strong[data-state="on"] { color: var(--color-ok); }
+.recommended-alerts__list strong[data-state="off"], .recommended-alerts__list strong[data-state="blocked"] { color: var(--color-ink); }
+.recommended-alerts__note { margin: 0; color: var(--color-ink-secondary); font-size: .875rem; line-height: 1.4; max-width: 60ch; }
+.recommended-alerts > .button { min-height: var(--control-min-size); }

@@ -6,12 +6,12 @@ import { toast } from '../../components/Toast'
 import { celebrate } from '../../components/celebrate/celebrate'
 import { formatDateTime, formatDay } from '../shared/dates'
 import {
-  currentSubscription, deviceSupport, disableDevice, enableDevice, endpointHash, permission, syncDevice, workspaceRegistration,
-  PushCommandError, type PushApi, type PushDevice,
+  alertsChangedEvent, announceAlertsChanged, currentSubscription, disableDevice, enableDevice, endpointHash, readDeviceState, syncDevice,
+  PushCommandError, type DeviceState, type PushApi, type PushDevice,
 } from './push'
 import './device-push.css'
 
-export type DeviceState = 'loading' | 'on' | 'off' | 'blocked' | 'unsupported' | 'ios-install' | 'dev' | 'unconfigured'
+export type { DeviceState } from './push'
 
 const statusText: Record<DeviceState, string> = {
   loading: 'Checking this device…',
@@ -22,26 +22,6 @@ const statusText: Record<DeviceState, string> = {
   'ios-install': 'On iPhone and iPad, add the workspace to your Home Screen first. Then open it from the Home Screen and turn this on.',
   dev: 'Device notifications work on the published workspace, not in local development.',
   unconfigured: 'Device notifications aren\'t set up yet. An admin runs scripts/setup-push.sh, then publishes the app again.',
-}
-
-/** Works out this device's state from the browser and the saved device list. */
-async function readState(api: PushApi, devices: PushDevice[] | null): Promise<DeviceState> {
-  if (!api.vapidKey) return 'unconfigured'
-  const support = deviceSupport()
-  if (support !== 'supported') return support
-  if (!(await workspaceRegistration())) return 'dev'
-  if (permission() === 'denied') return 'blocked'
-  if (permission() !== 'granted') return 'off'
-  const subscription = await currentSubscription()
-  if (!subscription) return 'off'
-  // Subscribed here but not saved to the workspace (or removed from another device): show off, so
-  // turning it on saves it again.
-  if (!devices) return 'on'
-  return await isSaved(subscription.endpoint, devices) ? 'on' : 'off'
-}
-async function isSaved(endpoint: string, devices: PushDevice[]) {
-  const hash = await endpointHash(endpoint)
-  return devices.some(d => d.endpointHash === hash)
 }
 
 /**
@@ -72,7 +52,7 @@ export function DevicePush({ api, term, canManage, mode, installHint }: {
       const list = api.vapidKey ? await api.devices(term).catch(() => null) : []
       const subscription = await currentSubscription()
       const hash = subscription ? await endpointHash(subscription.endpoint) : ''
-      const next = await readState(api, list)
+      const next = await readDeviceState(api, list)
       if (!live) return
       setDevices(list); setThisDevice(hash); setState(next)
       if (list === null) setError('Couldn\'t load your devices. Check your connection and try again.')
@@ -86,6 +66,11 @@ export function DevicePush({ api, term, canManage, mode, installHint }: {
     navigator.serviceWorker.addEventListener('message', listen)
     return () => navigator.serviceWorker.removeEventListener('message', listen)
   }, [refresh])
+  // The recommended-alerts summary above can turn this device on too.
+  useEffect(() => {
+    window.addEventListener(alertsChangedEvent, refresh)
+    return () => window.removeEventListener(alertsChangedEvent, refresh)
+  }, [refresh])
 
   if (state === 'unconfigured' && !canManage) return null
 
@@ -98,14 +83,14 @@ export function DevicePush({ api, term, canManage, mode, installHint }: {
       else if (result === 'dismissed') setError('Notifications stay off until you choose Allow when your browser asks.')
       else setError('Couldn\'t turn on notifications here. Reload the page and try again.')
     } catch { setError('Couldn\'t turn on notifications here. Check your connection and try again.') }
-    refresh()
+    announceAlertsChanged()
   }
 
   async function turnOff() {
     setError('')
     try { await disableDevice(api, term); toast('Device notifications are off on this device.', { tone: 'info' }) }
     catch { setError('Couldn\'t turn notifications off. Check your connection and try again.') }
-    refresh()
+    announceAlertsChanged()
   }
 
   async function sendTest(target: HTMLElement | null) {
@@ -131,7 +116,7 @@ export function DevicePush({ api, term, canManage, mode, installHint }: {
       toast('Device removed.', { tone: 'info' })
     } catch { setError('Couldn\'t remove that device. Try again.') }
     finally { setRemoving('') }
-    refresh()
+    announceAlertsChanged()
   }
 
   const others = devices ?? []

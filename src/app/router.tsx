@@ -1,8 +1,9 @@
-import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from 'react'
 import { appPath, basePath, stripBase } from '../lib/basePath'
 import { announceUpdate, chunkLoaded, reloadOnceForMissingChunk } from '../lib/appUpdate'
 import { Countdown } from '../components/Countdown'
-import { createBrowserRouter, Link, Navigate, redirect, useLocation, useRouteLoaderData, type RouteObject } from 'react-router'
+import { createBrowserRouter, isRouteErrorResponse, Link, Navigate, redirect, useLocation, useRouteError, useRouteLoaderData, type RouteObject } from 'react-router'
+import { reportError } from '../lib/errorReport'
 import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
 import { PageHeading, Panel } from '../components/Page'
 import { EmptyState, ErrorState, LoadingState } from '../components/FeedbackState'
@@ -211,9 +212,17 @@ function FoundationPage({ environment }: { environment: ClientEnvironment }) {
   )
 }
 
+/** Sends a page's render or loader error to the owner's bug report (not 4xx responses such as not found). */
+function ReportRouteError() {
+  const error = useRouteError()
+  useEffect(() => { if (!isRouteErrorResponse(error)) reportError('render', error) }, [error])
+  return null
+}
+
 function RouteErrorPage() {
   return (
     <main className="standalone-page">
+      <ReportRouteError />
       <h1>Something went wrong</h1>
       <ErrorState title="This page didn't load" description="Go back to the start and try again. If it keeps happening, tell the workspace maintainer." action={<a className="button" href={appPath('/')}>Back to start</a>} />
     </main>
@@ -392,7 +401,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       ...navigationItems.filter((item) => item.href !== '/' && !explicitAreas.has(item.href)).map((item) => ({
         path: item.href.slice(1),
         element: item.id === 'admin' && gateway.organization ? <OrganizationPage api={gateway.organization} process={gateway.process}/> : item.id === 'resources' && gateway.resources ? <ResourcesPage api={gateway.resources} people={gateway.people}/> : item.id === 'calendar' && gateway.calendar ? <CalendarPage api={gateway.calendar}/> : item.id === 'notifications' ? <><Notifications/><ContextAnnouncements api={gateway.announcements}/></> : item.id === 'requests' && gateway.catalog ? <CatalogPage api={gateway.catalog} process={gateway.process}/> : item.href === '/working-together' && gateway.synergies ? <WorkingTogetherPage api={gateway.synergies}/> : item.id === 'tasks' && gateway.tasks ? <TasksPage api={gateway.tasks} exportCsv={gateway.exportOperationalWork} /> : item.id === 'deliverables' && gateway.deliverables ? <DeliverablesRoute api={gateway.deliverables} commands={gateway.deliverableCommands} exportCsv={gateway.exportOperationalWork} /> : item.id === 'people' && gateway.people ? <DirectoryPage api={gateway.people} /> : item.id === 'guests' && gateway.guests ? <SponsorPage api={gateway.guests} /> : item.id === 'account' ? <AccountPage gateway={gateway} /> : <Unavailable title={item.label} />,
-        errorElement: <ErrorState title="This page didn't load" description="Go back to Today and try again. If it keeps happening, tell the workspace maintainer." action={<Link className="button" to="/">Back to Today</Link>} />,
+        errorElement: <><ReportRouteError /><ErrorState title="This page didn't load" description="Go back to Today and try again. If it keeps happening, tell the workspace maintainer." action={<Link className="button" to="/">Back to Today</Link>} /></>,
       })),
       ] },
       { path: '*', element: <main className="standalone-page"><NotFoundPage /></main> },

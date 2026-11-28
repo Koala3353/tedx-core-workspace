@@ -1,4 +1,5 @@
 import type { createSupabaseClient } from './supabase'
+import { reportCommandError } from './errorReport'
 
 export type WorkKind = 'deliverable' | 'task' | 'request' | 'announcement'
 export type CommandErrorKind = 'permission_denied' | 'validation_failed' | 'stale_version' | 'dependency_blocked' | 'missing_approver' | 'quota_limit' | 'conflict' | 'idempotency_conflict' | 'unavailable' | 'unexpected'
@@ -47,6 +48,7 @@ export function mapCommandError(error: unknown): CommandError {
   else if (['23505','40P01','55P03'].includes(code)) kind = 'conflict'
   // Timeouts and a full connection pool (many people saving at once) are temporary: retry.
   else if (!code || ['COMMAND_UNAVAILABLE','ECONNRESET','ETIMEDOUT','57014','53300','53400','PGRST000','PGRST001','PGRST002','PGRST003'].includes(code)) kind = 'unavailable'
+  if (kind === 'unexpected' || kind === 'unavailable') reportCommandError(kind, code, value.message)
   return { kind, message: messages[kind], retryable: kind === 'unavailable' }
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

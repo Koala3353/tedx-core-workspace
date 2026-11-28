@@ -1,5 +1,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { BellRing, Check, Copy, Mail, MonitorSmartphone, Moon, Send, Sun } from 'lucide-react'
+import { Bell, BellRing, Check, Copy, Mail, MonitorSmartphone, Moon, Send, Sun } from 'lucide-react'
+import { PendingButton } from '../../components/PendingButton'
+import { toast } from '../../components/Toast'
+import { celebrate } from '../../components/celebrate/celebrate'
 import { TextField } from '../../components/TextField'
 import { setThemeChoice, useTheme, type ThemeChoice } from '../../app/shellServices'
 import { installPlatform, useInstallPrompt } from '../../app/InstallWorkspace'
@@ -8,9 +11,8 @@ import { profileFields, type OwnProfile, type ProfileGateway, type ProfileValues
 import { profileDirty, saveProfile } from '../account/ProfileEditor'
 import { contactError } from '../people/contacts'
 import type { NotificationsApi } from '../notifications/api'
-import type { PushApi } from '../notifications/push'
-import { DevicePush } from '../notifications/DevicePush'
-import type { EmailDigestStatus } from '../integrations/email/api'
+import type { DeviceState } from '../notifications/push'
+import { modeOptions, recommendedPending, useAlertChannels, type AlertMode, type RecommendedResult } from '../notifications/channels'
 import { telegramConfirmCode, telegramProofHash, telegramStartCode, type TelegramStatus } from '../integrations/telegram/api'
 import { InstallSteps, isPhone, rememberInstallAccepted } from '../install/InstallBanner'
 import '../shared/shared.css'
@@ -110,71 +112,159 @@ export function ProfileStep({ headingId, registerCommit, api, termId }: StepProp
   </>
 }
 
-/* 3. Reminders: notification preference, email digest and the Telegram link, same RPCs as Notifications. */
-const modes = [
-  { value: 'immediate', label: 'Right away', hint: 'An alert as soon as something needs you' },
-  { value: 'digest', label: 'Daily digest', hint: 'One round-up each morning after 8 AM' },
-  { value: 'mute', label: 'Off', hint: 'Updates stay in the app only' },
-] as const
+/*
+ * 3. Notifications: every channel in one place. Email reminders and this device are recommended,
+ * the bell in the app is always on, Telegram is optional. Same RPCs as Settings and Notifications.
+ */
+const deviceText: Record<DeviceState, string> = {
+  loading: 'Checking this device…',
+  on: 'On. Alerts show here even when the workspace is closed.',
+  off: 'Off on this device.',
+  blocked: 'Blocked by your browser for this site.',
+  unsupported: 'This browser can\'t show notifications. Chrome, Edge, Firefox and Safari can. Email still works.',
+  'ios-install': 'On iPhone and iPad, this works only from the Home Screen app.',
+  dev: 'Works on the published workspace, not in local development.',
+  unconfigured: 'Not available yet while an admin finishes setting it up. Email still works.',
+}
 
-export function RemindersStep({ headingId, api, termId }: StepProps & { api?: NotificationsApi; termId?: string }) {
-  const [preference, setPreference] = useState<{ mode: string; version: number } | null>(null)
-  const [localMode, setLocalMode] = useState('digest')
-  const [email, setEmail] = useState<EmailDigestStatus | null>(null)
-  const [busy, setBusy] = useState('')
+function Recommended() {
+  return <span className="setup-badge">Recommended</span>
+}
+
+export function NotificationsStep({ headingId, api, termId }: StepProps & { api?: NotificationsApi; termId?: string }) {
+  const { channels: c, turnOnRecommended, toggleEmail, toggleDevice, changeMode, refresh } = useAlertChannels(api, termId)
+  const [busy, setBusy] = useState<'' | 'both' | 'email' | 'device' | 'mode'>('')
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
-  const groupId = useId()
+  const button = useRef<HTMLDivElement>(null)
+  const emailId = useId(), deviceId = useId()
+  const pending = recommendedPending(c)
+  const bothOn = c.email === 'on' && c.device === 'on'
+  const label = pending.email && pending.device ? 'Turn on both (recommended)'
+    : pending.email ? 'Turn on email reminders (recommended)' : 'Turn on device notifications (recommended)'
 
-  useEffect(() => {
-    if (!api || !termId) return
-    let live = true
-    void api.read(termId, 1).then(page => { if (live) setPreference(page.preference) }).catch(() => { if (live) setError('Couldn\'t load your alert settings. You can set them later in Notifications.') })
-    void api.email?.status(termId).then(status => { if (live) setEmail(status) }).catch(() => undefined)
-    return () => { live = false }
-  }, [api, termId])
-
-  async function chooseMode(mode: string) {
-    setNotice(''); setError('')
-    if (!api || !termId) { setLocalMode(mode); return }
-    if (!preference || preference.mode === mode || busy) return
-    setBusy('mode')
-    const result = await api.run({ kind: 'preference', term: termId, mode, version: preference.version }, crypto.randomUUID())
-    setBusy('')
-    if (result.ok) { setPreference({ mode, version: result.value.version }); setNotice('Saved.') }
-    else setError(result.error.message || 'Couldn\'t save that. Try again.')
+  function deviceProblem(result: RecommendedResult['device']): string {
+    return result === 'blocked' ? 'Your browser blocked notifications for this site. See how to allow them below.'
+      : result === 'dismissed' ? 'Device notifications stay off until you choose Allow when your browser asks. Try again any time.'
+        : result === 'unavailable' ? 'Couldn\'t turn on notifications on this device. Try again, or later from Settings.' : ''
   }
 
-  async function toggleEmail() {
-    if (!api?.email || !termId || !email || busy) return
-    setNotice(''); setError(''); setBusy('email')
-    const enable = !email.enabled
-    const result = await api.email.run({ term: termId, enable, version: email.version }, crypto.randomUUID())
+  async function both() {
+    if (busy) return
+    setBusy('both'); setNotice(''); setError('')
+    // turnOnRecommended asks for device permission first, inside this click.
+    const result = await turnOnRecommended()
     setBusy('')
-    if (result.ok) { setEmail({ ...email, enabled: result.value.enabled, version: result.value.version }); setNotice(enable ? 'Email reminders are on.' : 'Email reminders are off.') }
-    else setError(result.error.message || 'Couldn\'t change email reminders. Try again.')
+    const problems = [deviceProblem(result.device), pending.email && !result.email ? 'Couldn\'t turn on email reminders. Try again.' : ''].filter(Boolean)
+    const deviceOk = result.device === 'on' || !pending.device
+    if (!problems.length) {
+      void celebrate(button.current?.querySelector('button'), 'save')
+      toast(pending.email && pending.device ? 'Email reminders and device notifications are on.' : pending.email ? 'Email reminders are on.' : 'Device notifications are on.')
+    } else {
+      setError(problems.join(' '))
+      if (pending.email && result.email) setNotice('Email reminders are on.')
+      else if (pending.device && deviceOk) setNotice('Device notifications are on.')
+    }
   }
 
-  const mode = api ? preference?.mode : localMode
-  const emailOffered = !!email && (email.enabled || (email.activation === 'ready' && !email.bounced))
+  async function flipEmail() {
+    if (busy || (c.email !== 'on' && c.email !== 'off')) return
+    const enable = c.email === 'off'
+    setBusy('email'); setNotice(''); setError('')
+    const ok = await toggleEmail(enable)
+    setBusy('')
+    if (ok) setNotice(enable ? 'Email reminders are on.' : 'Email reminders are off.')
+    else setError('Couldn\'t change email reminders. Try again.')
+  }
+
+  async function flipDevice() {
+    if (busy || (c.device !== 'on' && c.device !== 'off')) return
+    const enable = c.device === 'off'
+    setBusy('device'); setNotice(''); setError('')
+    const result = await toggleDevice(enable)
+    setBusy('')
+    if (!enable) setNotice(result === 'unavailable' ? '' : 'Device notifications are off on this device.')
+    if (!enable && result === 'unavailable') setError('Couldn\'t turn notifications off. Try again.')
+    else if (enable && result === 'on') setNotice('Device notifications are on.')
+    else if (enable) setError(deviceProblem(result))
+  }
+
+  async function pickMode(mode: AlertMode) {
+    if (busy || c.mode === mode) return
+    setBusy('mode'); setNotice(''); setError('')
+    const ok = await changeMode(mode)
+    setBusy('')
+    if (ok) setNotice('Alert timing saved.')
+    else setError('Couldn\'t save alert timing. Try again.')
+  }
+
+  const switchable = (state: string) => state === 'on' || state === 'off'
   return <>
-    <StepHeading id={headingId} lead="Everything always shows in the app. Pick how hard we should nudge you about deadlines and requests.">Reminders</StepHeading>
-    <fieldset className="setup-choices" disabled={!!api && (!preference || busy === 'mode')}>
-      <legend id={groupId}>How fast should alerts reach you?</legend>
-      {modes.map(option => <label key={option.value} className="setup-choice">
-        <input type="radio" name="setup-mode" value={option.value} checked={mode === option.value} onChange={() => void chooseMode(option.value)} />
-        <span className="setup-choice__text"><strong>{option.label}</strong><span>{option.hint}</span></span>
-        <Check className="icon setup-choice__tick" size={18} strokeWidth={2} aria-hidden="true" />
-      </label>)}
-    </fieldset>
-    {emailOffered || !api ? <div className="setup-row">
-      <Mail className="icon setup-row__icon" size={20} strokeWidth={1.5} aria-hidden="true" />
-      <span className="setup-row__text"><strong id="setup-email-label">Email reminders</strong><span>A short email each morning with what's new and what's due.</span></span>
-      <button type="button" className="setup-toggle" role="switch" aria-checked={!!email?.enabled} aria-labelledby="setup-email-label"
-        disabled={!api || busy === 'email'} onClick={() => void toggleEmail()}><span className="setup-switch" aria-hidden="true" /></button>
-    </div> : null}
+    <StepHeading id={headingId} lead="Deadlines and requests reach you even when the workspace is closed. We recommend turning on both email and this device.">Notifications</StepHeading>
+
+    {pending.email || pending.device || busy === 'both' ? <div className="setup-recommend" ref={button}>
+      <PendingButton className="button setup-recommend__button" pending={busy === 'both'} pendingLabel="Turning on…" disabled={!!busy && busy !== 'both'} onClick={() => both()}>
+        <BellRing className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />{label}
+      </PendingButton>
+      {pending.device ? <p className="setup-recommend__hint">Your browser will ask to allow notifications. Choose Allow.</p> : null}
+    </div> : bothOn ? <p className="setup-recommend setup-recommend--done"><Check className="icon" size={18} strokeWidth={2} aria-hidden="true" />Email and this device are both on. You're set.</p> : null}
+
+    <ul className="setup-channels">
+      <li className="setup-channel">
+        <Mail className="icon setup-channel__icon" size={20} strokeWidth={1.5} aria-hidden="true" />
+        <span className="setup-channel__text">
+          <strong id={emailId}>Email reminders <Recommended /></strong>
+          <span>Work due soon or overdue, approvals waiting on you and announcements to acknowledge, sent to your sign-in email.</span>
+          <span className="setup-channel__state" data-state={c.email}>{c.email === 'loading' ? 'Checking…' : c.email === 'on' ? 'On' : c.email === 'off' ? 'Off' : 'Not available'}{c.emailNote ? '. ' + c.emailNote : ''}</span>
+        </span>
+        {switchable(c.email) ? <button type="button" className="setup-toggle" role="switch" aria-checked={c.email === 'on'} aria-labelledby={emailId}
+          disabled={!!busy} aria-busy={busy === 'email' || undefined} onClick={() => void flipEmail()}><span className="setup-switch" aria-hidden="true" /></button> : <span />}
+      </li>
+      <li className="setup-channel">
+        <MonitorSmartphone className="icon setup-channel__icon" size={20} strokeWidth={1.5} aria-hidden="true" />
+        <span className="setup-channel__text">
+          <strong id={deviceId}>This device <Recommended /></strong>
+          <span>A notification on this phone or computer when you're assigned work, something is due soon or overdue, or an approval needs you. Quiet from 10 PM to 7 AM.</span>
+          <span className="setup-channel__state" data-state={c.device}>{deviceText[c.device]}</span>
+        </span>
+        {switchable(c.device) ? <button type="button" className="setup-toggle" role="switch" aria-checked={c.device === 'on'} aria-labelledby={deviceId}
+          disabled={!!busy} aria-busy={busy === 'device' || undefined} onClick={() => void flipDevice()}><span className="setup-switch" aria-hidden="true" /></button> : <span />}
+        {c.device === 'ios-install' ? <div className="setup-channel__more">
+          <InstallSteps platform="ios" />
+          <p className="muted">You can keep going now. Once it's on your Home Screen, open the workspace from there and turn this on in Settings, under Alerts and reminders.</p>
+        </div> : c.device === 'blocked' ? <div className="setup-channel__more">
+          <ol className="setup-howto">
+            <li>Open this site's settings: tap the icon left of the web address, or find Site settings in your browser menu.</li>
+            <li>Set Notifications to Allow.</li>
+            <li>Come back here and check again.</li>
+          </ol>
+          <button type="button" className="button button--secondary" onClick={refresh}>Check again</button>
+        </div> : null}
+      </li>
+      <li className="setup-channel">
+        <Bell className="icon setup-channel__icon" size={20} strokeWidth={1.5} aria-hidden="true" />
+        <span className="setup-channel__text">
+          <strong>In the app</strong>
+          <span>Always on. Every update also shows under the bell at the top.</span>
+        </span>
+        <span className="setup-channel__always">Always on</span>
+      </li>
+    </ul>
+
+    <details className="setup-more">
+      <summary>Alert timing: {modeOptions.find(o => o.value === c.mode)?.label ?? 'Checking…'}</summary>
+      <fieldset className="setup-choices" disabled={!c.mode || !!busy}>
+        <legend className="visually-hidden">Alert timing</legend>
+        {modeOptions.map(option => <label key={option.value} className="setup-choice">
+          <input type="radio" name="setup-mode" value={option.value} checked={c.mode === option.value} onChange={() => void pickMode(option.value)} />
+          <span className="setup-choice__text"><strong>{option.label}</strong><span>{option.hint}</span></span>
+          <Check className="icon setup-choice__tick" size={18} strokeWidth={2} aria-hidden="true" />
+        </label>)}
+      </fieldset>
+    </details>
+
     {api?.telegram && termId ? <TelegramRow api={api.telegram} termId={termId} /> : null}
-    <p className="setup-status" role="status">{busy ? 'Saving…' : notice}</p>
+    <p className="setup-status" role="status">{busy && busy !== 'both' ? 'Saving…' : notice}</p>
     {error ? <p className="setup-alert" role="alert">{error}</p> : null}
     {!api ? <p className="muted">Preview only. Nothing here is saved.</p> : null}
   </>
@@ -234,15 +324,6 @@ function TelegramRow({ api, termId }: { api: NonNullable<NotificationsApi['teleg
     </div> : null}
     {error ? <p className="setup-alert setup-row__more" role="alert">{error}</p> : null}
   </div>
-}
-
-/* 3b. Device notifications: optional, the same control as Settings > Alerts and reminders. */
-export function DeviceStep({ headingId, api, termId }: StepProps & { api: PushApi; termId: string }) {
-  return <>
-    <StepHeading id={headingId} lead="Optional. Get a buzz on your phone or computer when something needs you, even with the workspace closed. You can turn it off any time in Settings.">Notifications on this device</StepHeading>
-    <DevicePush api={api} term={termId} canManage={false}
-      installHint="Add the workspace to your Home Screen in the next step, open it from there, then turn this on in Settings." />
-  </>
 }
 
 /* 4. Look */
@@ -317,6 +398,6 @@ export function DoneStep({ headingId, guest }: StepProps & { guest: boolean }) {
     <div className="setup-done-mark" aria-hidden="true"><Check size={28} strokeWidth={2.25} /></div>
     <StepHeading id={headingId}>You're all set</StepHeading>
     {guest ? <p>Your shared work is ready. Find setup again in Settings if you want to change anything.</p>
-      : <p>Want a quick look around? The tour walks you through Today, Work, Team and search in about two minutes. You can replay it any time from Settings.</p>}
+      : <p>Your workspace is ready. Change any of this, replay the tour or run setup again from Settings.</p>}
   </>
 }

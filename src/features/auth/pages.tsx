@@ -34,6 +34,7 @@ import { AppShell } from '../../app/AppShell'
 import { canPreviewAsMember, isMemberPreviewPath, memberPreviewPath } from '../../app/MemberPreview'
 import { InstallWorkspace } from '../../app/InstallWorkspace'
 import { ReplayTourButton } from '../tutorial/Tutorial'
+import { RecommendedAlerts } from '../notifications/RecommendedAlerts'
 import { SetupAgainButton } from '../setup-wizard/SetupWizard'
 import { DriveConnection } from '../integrations/drive/DriveSource'
 import { DevicePush } from '../notifications/DevicePush'
@@ -228,6 +229,7 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
       <ThemeSettings />
     </SettingsSection>
     <SettingsSection id="alerts" title="Alerts and reminders" lead="Updates always show in the app. This is about extra nudges.">
+      {context && !guest && gateway.notifications ? <RecommendedAlerts key={context.memberId + context.termId} api={gateway.notifications} term={context.termId} /> : null}
       <Link className="settings-link" to="/notifications">
         <span className="settings-link__text"><span className="settings-link__label">Alert settings</span><span className="settings-link__hint">Right away, a daily digest or off. Email and Telegram live here too.</span></span>
         <ChevronRight className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />
