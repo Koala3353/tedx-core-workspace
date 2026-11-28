@@ -51,6 +51,14 @@ time, dd, table, .numeric { font-variant-numeric: tabular-nums; }
 .tedx-lockup__x { color: var(--color-logo-red); font-weight: 800; }
 .tedx-lockup__name { font-family: Helvetica, Arial, var(--font-display); font-weight: 400; }
 .tedx-logo { display: block; width: min(100%, 560px); height: auto; }
+/* Theme-matched artwork: white name on dark (default), black name on light. The stage is always dark. */
+.tedx-logo--on-light { display: none; }
+[data-theme='light'] .tedx-logo--on-dark { display: none; }
+[data-theme='light'] .tedx-logo--on-light { display: block; }
+[data-theme='light'] .stage .tedx-logo--on-dark { display: block; }
+[data-theme='light'] .stage .tedx-logo--on-light { display: none; }
+.tedx-lockup--sm { padding: 6px 0; }
+.tedx-lockup--sm .tedx-logo { width: 212px; max-width: 100%; }
 .tedx-lockup--lg { padding: 0; font-size: clamp(1.5rem, 0.5rem + 5vw, 3.5rem); }
 a.tedx-lockup:hover { text-decoration: none; }
 .license-line { margin: 0; color: var(--color-muted); font-size: .75rem; line-height: 1.45; }
@@ -307,6 +315,7 @@ button:disabled { cursor: wait; opacity: .55; }
   .header-search { width: var(--control-min-size); min-height: var(--control-min-size); margin: 0; padding: 0; justify-content: center; border-color: transparent; background: transparent; color: var(--color-ink-secondary); }
   .access-check { font-size: 0; gap: 0; margin-right: 6px; }
   .mobile-identity .tedx-lockup { font-size: .9375rem; padding: 10px 0; }
+  .mobile-identity .tedx-logo { width: 176px; }
   .account-summary { flex-wrap: nowrap; gap: 0; }
   .account-summary > .button { min-height: 40px; padding: 6px 10px; font-size: .8125rem; margin-right: 4px; }
   .workspace-main { padding: 24px 16px calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 32px); }

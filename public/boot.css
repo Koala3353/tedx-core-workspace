@@ -7,13 +7,13 @@
  * Sequence (after the 250ms show delay, so fast loads never flash):
  *   0ms     letterbox bars part from the middle, like a shutter opening
  *   150ms   a stage light strikes from above (one soft flicker) and pools on the centre
- *   300ms   "TED" pulls into focus: blur to sharp, settling from a slight scale
- *   700ms   the red x draws in two strokes, then blooms with a soft red glow
- *   900ms   "AteneodeManilaU" tracks in from wide spacing, blur to sharp
- *   1450ms  a single light glint passes across the lockup
+ *   300ms   the official artwork pulls into focus (blur to sharp, settling from a slight scale)
+ *           while a soft edge of light sweeps it on from left to right, ending fully revealed
+ *   520ms   a red glow blooms behind the x as the sweep passes it
+ *   1450ms  a single light glint passes across the artwork
  *   1700ms  hold: the light breathes, the camera pushes in slowly, the glint returns every 4.8s
  *
- * Only transform, opacity, filter (on small text groups) and SVG stroke animate. Every delay
+ * Only transform, opacity, mask position and filter (one blur-in on the logo) animate. Every delay
  * is offset by --boot-t: 0 for the static screen; the React loader passes minus the time since
  * page start when it takes over from the static screen, so the intro continues instead of replaying.
  * The stage is always black (cinematic), in both themes.
@@ -70,52 +70,63 @@ html[data-theme='light'] { background: #ffffff; }
 .boot-stage__bar--top { top: 0; transform: translateY(-82%); }
 .boot-stage__bar--bottom { bottom: 0; transform: translateY(82%); }
 
-/* The lockup: "TED" and the x in TED red, the event name in white, Helvetica as in the official mark. */
+/*
+ * The lockup is the official TEDxAteneodeManilaU artwork (public/brand/tedx-logo-on-dark.png,
+ * 2087x322, transparent), shown whole: nothing crops, masks or overlays it at rest. The reveal
+ * effects (wipe mask, blur, scale) are only "from" states that fill backwards, so once they end
+ * the image is back to its plain, unmasked, unfiltered self.
+ */
 .boot-loader {
   display: grid;
   place-items: center;
+  width: 100%;
   max-width: 100%;
 }
 .boot-loader__mark {
   position: relative;
-  display: inline-flex;
-  align-items: baseline;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: clamp(1.5rem, 7.2vw, 3.5rem);
-  line-height: 1.15;
-  letter-spacing: 0;
-  white-space: nowrap;
+  display: block;
+  width: min(78vw, 560px);
+  max-width: 100%;
+  aspect-ratio: 2087 / 322;
 }
-.boot-loader__ted { display: inline-flex; color: var(--boot-red); font-weight: 700; letter-spacing: -0.01em; }
-.boot-loader__x { position: relative; display: inline-block; width: 0.52em; height: 0.52em; margin: 0 0.05em 0 0.03em; }
-.boot-loader__x svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.boot-loader__x path { fill: none; stroke: var(--boot-red); stroke-width: 2.5; stroke-linecap: butt; stroke-dasharray: 1; stroke-dashoffset: 0; }
-.boot-loader__glow { overflow: visible; filter: blur(5px); opacity: 0.5; }
-.boot-loader__glow path { stroke-width: 3.4; stroke-dasharray: none; }
-.boot-loader__name { display: inline-flex; font-weight: 400; color: #f4f4f2; }
-.boot-loader__name > span, .boot-loader__ted > span { display: inline-block; }
-.boot-loader__name > span:nth-child(2) { --o: 1; }
-.boot-loader__name > span:nth-child(3) { --o: 2; }
-.boot-loader__name > span:nth-child(4) { --o: 3; }
-.boot-loader__name > span:nth-child(5) { --o: 4; }
-.boot-loader__name > span:nth-child(6) { --o: 5; }
-.boot-loader__name > span:nth-child(7) { --o: 6; }
-.boot-loader__name > span:nth-child(8) { --o: 7; }
-.boot-loader__name > span:nth-child(9) { --o: 8; }
-.boot-loader__name > span:nth-child(10) { --o: 9; }
-.boot-loader__name > span:nth-child(11) { --o: 10; }
-.boot-loader__name > span:nth-child(12) { --o: 11; }
-.boot-loader__name > span:nth-child(13) { --o: 12; }
-.boot-loader__name > span:nth-child(14) { --o: 13; }
-.boot-loader__name > span:nth-child(15) { --o: 14; }
-
-/* A soft band of light that passes over the lockup; clipped to the lockup's box. */
-.boot-loader__glint { position: absolute; inset: -0.3em -0.4em; overflow: hidden; pointer-events: none; }
+.boot-loader__logo {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* A red bloom behind the superscript x of "TEDx" (about 22% across, 24% down the artwork). */
+.boot-loader__bloom {
+  position: absolute;
+  z-index: 0;
+  left: 22%;
+  top: 24%;
+  width: 26%;
+  aspect-ratio: 1;
+  margin: -13% 0 0 -13%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(235 0 40 / 0.42), rgb(235 0 40 / 0.14) 50%, transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* A band of light that passes over the artwork only: masked to the logo's own shape. */
+.boot-loader__glint {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask: url('brand/tedx-logo-on-dark.png') 0 0 / 100% 100% no-repeat;
+  mask: url('brand/tedx-logo-on-dark.png') 0 0 / 100% 100% no-repeat;
+}
 .boot-loader__glint::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 30%, rgb(var(--boot-light) / 0.11) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 32%, rgb(var(--boot-light) / 0.55) 50%, transparent 68%);
   transform: translateX(-110%);
 }
 
@@ -131,17 +142,17 @@ html[data-theme='light'] { background: #ffffff; }
       boot-breathe 5200ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1700ms) infinite;
   }
   .boot-stage__pool { animation: boot-pool 1200ms var(--boot-out) calc(var(--boot-t, 0ms) + var(--boot-base) + 300ms) both; }
-  .boot-loader__ted { animation: boot-focus 820ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 300ms) both; }
-  .boot-loader__x path { animation: boot-draw 280ms var(--boot-draw) calc(var(--boot-t, 0ms) + var(--boot-base) + 700ms) both; }
-  .boot-loader__x path + path { animation-delay: calc(var(--boot-t, 0ms) + var(--boot-base) + 860ms); }
-  .boot-loader__glow {
+  /* The artwork pulls into focus while a soft edge of light sweeps it on from the left. */
+  .boot-loader__logo {
     animation:
-      boot-bloom 900ms ease-out calc(var(--boot-t, 0ms) + var(--boot-base) + 960ms) both,
-      boot-glow 5200ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1860ms) infinite;
+      boot-focus 1000ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 300ms) backwards,
+      boot-wipe 950ms var(--boot-draw) calc(var(--boot-t, 0ms) + var(--boot-base) + 300ms) backwards;
   }
-  .boot-loader__glow path { animation: none; }
-  .boot-loader__name { animation: boot-name 820ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 900ms) both; }
-  .boot-loader__name > span { animation: boot-track 900ms var(--boot-focus) calc(var(--boot-t, 0ms) + var(--boot-base) + 900ms) both; }
+  .boot-loader__bloom {
+    animation:
+      boot-bloom 900ms ease-out calc(var(--boot-t, 0ms) + var(--boot-base) + 520ms) both,
+      boot-glow 5200ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1420ms) infinite;
+  }
   /* A slow camera push on the lockup while loading continues. */
   .boot-loader__mark { animation: boot-push 9000ms ease-in-out calc(var(--boot-t, 0ms) + var(--boot-base) + 1700ms) infinite alternate; }
   .boot-loader__glint::before { animation: boot-glint 4800ms var(--boot-shutter) calc(var(--boot-t, 0ms) + var(--boot-base) + 1450ms) infinite; }
@@ -159,17 +170,19 @@ html[data-theme='light'] { background: #ffffff; }
 }
 @keyframes boot-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 @keyframes boot-pool { from { opacity: 0; transform: scale(0.8); } }
-@keyframes boot-focus { from { opacity: 0; filter: blur(12px); transform: translateY(0.06em) scale(1.08); } }
-@keyframes boot-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes boot-focus { from { opacity: 0; filter: blur(10px); transform: scale(1.05); } }
+/* mask-size 250%: position 100% shows only the clear end of the gradient, 0% only the solid end. */
+@keyframes boot-wipe {
+  from { -webkit-mask-image: linear-gradient(90deg, #000 40%, transparent 60%); mask-image: linear-gradient(90deg, #000 40%, transparent 60%); -webkit-mask-size: 250% 100%; mask-size: 250% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: 100% 0; mask-position: 100% 0; }
+  to { -webkit-mask-image: linear-gradient(90deg, #000 40%, transparent 60%); mask-image: linear-gradient(90deg, #000 40%, transparent 60%); -webkit-mask-size: 250% 100%; mask-size: 250% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: 0 0; mask-position: 0 0; }
+}
 @keyframes boot-bloom { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0.5; } }
 @keyframes boot-glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
-@keyframes boot-name { from { opacity: 0; filter: blur(8px); } }
-@keyframes boot-track { from { transform: translateX(calc(var(--o, 0) * 0.085em)); } }
 @keyframes boot-push { to { transform: scale(1.03); } }
 @keyframes boot-glint { 0% { transform: translateX(-110%); } 20%, 100% { transform: translateX(110%); } }
 
-/* Reduced motion: a still, composed final frame; only the light and the x glow pulse gently. */
+/* Reduced motion: a still, composed final frame; the full artwork is still and only the stage light pulses gently. */
 @media (prefers-reduced-motion: reduce) {
   .boot-stage__beam { animation: boot-breathe 2400ms ease-in-out infinite; }
-  .boot-loader__glow { animation: boot-glow 2400ms ease-in-out infinite; }
+  .boot-loader__bloom { opacity: 0.5; }
 }

@@ -2,15 +2,16 @@ import { useState, type CSSProperties } from 'react'
 
 /*
  * The workspace loader: a short title sequence on a black stage. Letterbox bars part, a stage
- * light strikes from above, "TED" pulls into focus, the red x draws in two strokes and blooms,
- * then "AteneodeManilaU" tracks in. While loading continues, the light breathes and a glint
- * passes over the lockup now and then. Styles live in public/boot.css and the same markup is
- * served as the static boot screen in index.html, so the hand-off from boot to React does not
- * flash. It never delays anything: it is shown only while something else is loading, and only
- * after a 250ms delay so fast loads never flash.
+ * light strikes from above, and the official TEDxAteneodeManilaU artwork pulls into focus as a
+ * soft edge of light sweeps it on, with a red glow blooming behind the x. While loading
+ * continues, the light breathes and a glint passes over the artwork now and then. The artwork is
+ * always shown whole (no cropping or masking at rest). Styles live in public/boot.css and the
+ * same markup is served as the static boot screen in index.html, so the hand-off from boot to
+ * React does not flash. It never delays anything: it is shown only while something else is
+ * loading, and only after a 250ms delay so fast loads never flash.
  */
 
-const NAME = 'AteneodeManilaU'
+const LOGO_SRC = `${import.meta.env.BASE_URL}brand/tedx-logo-on-dark.png`
 
 /**
  * --boot-t shifts every animation delay. While the static boot screen from index.html is still on
@@ -30,12 +31,8 @@ export function BrandLoader({ label = 'Loading' }: { label?: string }) {
   const clock = useBootClock()
   return <div className="boot-loader" role="status" aria-label={label} style={clock}>
     <span className="boot-loader__mark" aria-hidden="true">
-      <span className="boot-loader__ted"><span>T</span><span>E</span><span>D</span></span>
-      <span className="boot-loader__x">
-        <svg className="boot-loader__glow" viewBox="0 0 10 10" focusable="false"><path pathLength={1} d="M1 0 9 10M9 0 1 10" /></svg>
-        <svg viewBox="0 0 10 10" focusable="false"><path pathLength={1} d="M1 0 9 10" /><path pathLength={1} d="M9 0 1 10" /></svg>
-      </span>
-      <span className="boot-loader__name">{NAME.split('').map((letter, index) => <span key={index}>{letter}</span>)}</span>
+      <span className="boot-loader__bloom" />
+      <img className="boot-loader__logo" src={LOGO_SRC} width={2087} height={322} alt="" decoding="async" fetchPriority="high" draggable={false} />
       <span className="boot-loader__glint" />
     </span>
   </div>
