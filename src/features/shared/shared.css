@@ -1,6 +1,7 @@
 /* Feature-level primitives shared by member pages. Tokens only. */
-.button--quiet { color: var(--color-ink-secondary); border-color: transparent; background: transparent; font-weight: 600; }
-.button--quiet:hover:not(:disabled) { color: var(--color-ink); background: var(--color-surface-subtle); border-color: transparent; }
+/* Doubled class: this file can load before global.css, whose .button would otherwise win and paint quiet buttons red. */
+.button.button--quiet { color: var(--color-ink-secondary); border-color: transparent; background: transparent; font-weight: 600; }
+.button.button--quiet:hover:not(:disabled) { color: var(--color-ink); background: var(--color-surface-subtle); border-color: transparent; }
 .refresh-button { width: 36px; height: 36px; min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--color-muted); border-radius: var(--radius-control); cursor: pointer; }
 .refresh-button:disabled { opacity: .5; cursor: default; }
 .page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 0 24px; }

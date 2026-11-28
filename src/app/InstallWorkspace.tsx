@@ -54,7 +54,7 @@ export function useInstallPrompt() {
   return { available: !!prompt, install }
 }
 
-/** Account page option. The Today banner (src/features/install) uses the same capture. */
+/** Settings page "Install the app" section body. The Today banner (src/features/install) uses the same capture. */
 export function InstallWorkspace() {
   const { available, install } = useInstallPrompt()
   const [status, setStatus] = useState('')
@@ -66,15 +66,15 @@ export function InstallWorkspace() {
         : 'Installation could not start. Check your browser menu for Install or Add to Home Screen.')
   }
 
-  if (!import.meta.env.PROD || isStandalone()) return null
+  if (isStandalone()) return <p className="muted">You're using the installed app. Nothing to do here.</p>
+  if (!import.meta.env.PROD) return <p className="muted">Installing works on the published workspace, not in local development.</p>
   const platform = installPlatform(available)
-  return <details className="panel">
-    <summary>Install the app</summary>
+  return <>
     <p>Add the workspace to your home screen. It opens faster and can send reminders. You still need a connection to load work.</p>
-    {platform === 'prompt' ? <button className="button" onClick={() => void start()}>Install the app</button>
+    {platform === 'prompt' ? <button className="button button--secondary" onClick={() => void start()}>Install the app</button>
       : platform === 'ios' ? <p>In Safari, tap Share, then Add to Home Screen, then Add.</p>
         : platform === 'in-app' ? <p>Open this page in Safari or Chrome first. In-app browsers cannot install apps.</p>
           : <p>Look for Install or Add to Home Screen in your browser menu.</p>}
     <p role="status">{status}</p>
-  </details>
+  </>
 }

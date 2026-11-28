@@ -1,5 +1,5 @@
 import { NotificationBadge } from '../features/notifications/Notifications'
-import { ChevronLeft, CircleUser, LogOut, MessageSquareText, Moon, PenLine, RotateCcw, Search, Settings2, Sun, UserRound } from 'lucide-react'
+import { ChevronLeft, CircleUser, LogOut, MessageSquareText, Moon, PenLine, Search, Settings, Sun } from 'lucide-react'
 import { DeveloperMessageDialog } from '../features/developer-message/DeveloperMessageDialog'
 import { DeveloperMessageError, type DeveloperMessageApi } from '../features/developer-message/api'
 import { TedxLockup, licenseLine } from '../components/TedxLockup'
@@ -16,9 +16,7 @@ import { appPath } from '../lib/basePath'
 import { useDelayedFlag } from '../lib/useDelayedFlag'
 import { CommandPalette, openPalette } from '../features/palette/Palette'
 import { Tutorial } from '../features/tutorial/Tutorial'
-import { replayTour } from '../features/tutorial/events'
 import { SetupWizard } from '../features/setup-wizard/SetupWizard'
-import { openSetup } from '../features/setup-wizard/gate'
 import { countVisit, useInstalledReport } from '../features/install/InstallBanner'
 
 type AppShellProps = {
@@ -134,9 +132,8 @@ export function AppShell({ context = setupNavigation, identity, content, preview
 
   const accountMenu: MenuEntry[] = [
     { kind: 'label', label: <><strong>{identity?.displayName ?? 'Not signed in'}</strong>{identity?.unitName ? <span>{identity.unitName}</span> : null}</> },
-    { kind: 'link', label: 'Account', to: destination('/account'), icon: <UserRound size={16} strokeWidth={1.75} /> },
-    ...(live ? [{ kind: 'action' as const, label: 'Set up again', icon: <Settings2 size={16} strokeWidth={1.75} />, onSelect: openSetup }] : []),
-    ...(!guest && !memberPreviewPath ? [{ kind: 'action' as const, label: 'Replay the tour', icon: <RotateCcw size={16} strokeWidth={1.75} />, onSelect: replayTour }] : []),
+    // Settings holds profile, theme, alerts, install, the tour and setup again; the menu keeps quick actions only.
+    { kind: 'link', label: 'Settings', to: destination('/account'), icon: <Settings size={16} strokeWidth={1.75} /> },
     // An explicit toggle is remembered; until then the device preference applies.
     { kind: 'action', label: theme === 'dark' ? 'Light theme' : 'Dark theme', icon: theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />, onSelect: () => setThemeChoice(theme === 'dark' ? 'light' : 'dark') },
     ...(developerApi ? [{ kind: 'action' as const, label: 'Message the developer', icon: <MessageSquareText size={16} strokeWidth={1.75} />, onSelect: () => setMessaging(true) }] : []),
@@ -181,7 +178,7 @@ export function AppShell({ context = setupNavigation, identity, content, preview
               {checking && live ? <span className="access-check" aria-hidden="true"><span className="access-check__line" />Checking access</span> : null}
               {/* The one spoken announcement for the session check; the visual chip above is hidden from screen readers. */}
               {live ? <span className="visually-hidden" role="status">{checking ? 'Checking current access. Your edits stay here while actions are paused.' : ''}</span> : null}
-              {signOutError ? <span className="access-check access-check--error" role="alert">Sign-out failed. Try again from Account.</span> : null}
+              {signOutError ? <span className="access-check access-check--error" role="alert">Sign-out failed. Try again from Settings.</span> : null}
               <CountdownChip className="header-countdown" />
               {headerAction}
               {!memberPreviewPath ? <button className="header-search" type="button" onClick={() => openPalette()} aria-label={`Find or add (${shortcut})`} aria-keyshortcuts="Meta+K Control+K" data-tour="search">

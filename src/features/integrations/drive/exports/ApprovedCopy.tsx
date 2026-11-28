@@ -28,7 +28,7 @@ export function ApprovedDriveCopy({api,term,work,asset,name,revision,disabled}: 
     }catch(cause){
       const code=cause instanceof DriveUiError?cause.code:'unavailable'
       if(code==='denied'||code==='stale')setError('The approval or folder access changed. Ask an admin to check it, then choose the folder again.')
-      else if(code==='reconnect')setError('Connect Drive again from Account, then try again.')
+      else if(code==='reconnect')setError('Connect Drive again from Settings, then try again.')
       else if(code==='file_unavailable')setError('Couldn\'t confirm the approved file. Ask an admin to check it.')
       else setError(action==='copy'?'Couldn\'t confirm the copy. Try the same folder again.':'Couldn\'t load Drive folders. Try again.')
     }finally{active.current=false;setBusy(false)}

@@ -25,7 +25,8 @@ export function profileDirty(base: OwnProfile, values: ProfileValues): boolean {
   return profileFields.some(field => (base[field.value] ?? '') !== (values[field.value] ?? ''))
 }
 
-export function ProfileEditor({ api, termId }: { api: ProfileGateway; termId: string }) {
+/** `bare` drops the panel and heading, for the Settings page which supplies its own section heading. */
+export function ProfileEditor({ api, termId, bare = false }: { api: ProfileGateway; termId: string; bare?: boolean }) {
   const [current, setCurrent] = useState<OwnProfile | null>(null)
   const [values, setValues] = useState<ProfileValues>(empty)
   const [touched, setTouched] = useState(false)
@@ -65,8 +66,8 @@ export function ProfileEditor({ api, termId }: { api: ProfileGateway; termId: st
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t save. Try again.') }
     finally { setBusy(false) }
   }
-  return <Panel title="Your profile">
-    <p className="muted">Everything here is optional. Core members can see what you add, so they can reach you.</p>
+  const content = <>
+    {!bare ? <p className="muted">Everything here is optional. Core members can see what you add, so they can reach you.</p> : null}
     {error ? <p role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
     {!current && !error ? <LoadingState /> : null}
     {current ? <form onSubmit={event => void save(event)} noValidate>
@@ -87,5 +88,6 @@ export function ProfileEditor({ api, termId }: { api: ProfileGateway; termId: st
           <div className="auth-actions"><button className="button" type="submit">{busy ? 'Saving…' : 'Save'}</button>{dirty ? <button className="button button--quiet" type="button" onClick={() => { setValues(pick(current)); setTouched(false); setNotice(''); setError('') }}>Discard changes</button> : null}</div>
         </fieldset>
       </form> : error ? <button className="button button--secondary" type="button" onClick={() => { setError(''); setReload(reload + 1) }}>Try again</button> : null}
-  </Panel>
+  </>
+  return bare ? <div className="profile-editor">{content}</div> : <Panel title="Your profile">{content}</Panel>
 }

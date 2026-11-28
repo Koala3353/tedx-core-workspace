@@ -12,6 +12,9 @@
 
 .hub-group { margin-top: var(--space-6); }
 .hub-group:first-of-type { margin-top: var(--space-4); }
+/* Two untitled lists in a row (slot links, then the tab's own links) read as one list. */
+.hub-group:not([aria-label]) + .hub-group:not([aria-label]) { margin-top: 0; }
+.hub-group:not([aria-label]) + .hub-group:not([aria-label]) .hub-links { border-top: 0; }
 .hub-group__title { margin: 0 0 4px; font-size: 1rem; }
 .hub-links { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-line); }
 .hub-links li { border-bottom: 1px solid var(--color-line); }
@@ -41,5 +44,5 @@
 }
 /* Phones: the scope tabs scroll sideways; keep the last one from sitting flush on the edge. */
 @media (max-width: 47.99rem) {
-  .scope-tabs { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+  .scope-tabs { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
 }

@@ -94,7 +94,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { id: 'event-info', label: 'Event info', href: '/my-part/info', description: 'Where and when, and who to contact', group: 'workspace', audiences: ['guest'] },
   { id: 'shared', label: 'Shared with me', href: '/shared', description: 'Work shared with your guest account', group: 'workspace', audiences: ['guest'] },
   // Header menu
-  { id: 'account', label: 'Account', href: '/account', description: 'Your profile and settings', group: 'account', audiences: ['setup', 'core', 'guest'] },
+  { id: 'account', label: 'Settings', href: '/account', description: 'Profile, theme, alerts and the app', group: 'account', audiences: ['setup', 'core', 'guest'] },
 ]
 
 // Areas that only exist when their optional workspace connection is configured

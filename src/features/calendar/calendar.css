@@ -58,3 +58,22 @@
   .calendar-editor__actions .button, .calendar-export .button { flex: 1 1 auto; }
 }
 @media (prefers-reduced-motion: reduce) { .calendar-dialog[open] { animation: none; } }
+
+/* Phones: the list is the calendar, so keep each event compact. Facts sit tight under the title;
+ * the two copy-to-calendar buttons share a row. */
+.calendar-list > li > h3 { margin: 0 0 var(--space-2); }
+.calendar-list > li > p { margin: 0 0 var(--space-1); }
+.calendar-list > li > p:nth-of-type(2) { color: var(--color-muted); font-size: .875rem; }
+.calendar-list > li > a { display: inline-flex; align-items: center; min-height: var(--control-min-size); }
+.calendar-list .calendar-export { margin-top: var(--space-3); }
+.calendar-list .calendar-export > p.muted { font-size: .8125rem; }
+@media (max-width: 700px) {
+  .calendar-list > li { padding-block: var(--space-4); }
+  .calendar-list .calendar-export .auth-actions { flex-wrap: nowrap; gap: var(--space-2); }
+  .calendar-list .calendar-export .auth-actions > .button { flex: 1 1 0; min-width: 0; padding-inline: 10px; font-size: .875rem; white-space: normal; line-height: 1.2; }
+}
+@media (max-width: 700px) {
+  .calendar-controls + .page-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+  .calendar-controls + .page-actions .page-actions__spacer { display: none; }
+  .calendar-controls + .page-actions .button { width: 100%; padding-inline: 8px; white-space: nowrap; }
+}

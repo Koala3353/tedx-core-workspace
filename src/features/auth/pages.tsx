@@ -1,7 +1,7 @@
 import { EmailCodeSignIn } from './EmailCodeSignIn'
 import '../shared/shared.css'
 import { appPath } from '../../lib/basePath'
-import { TriangleAlert } from 'lucide-react'
+import { ChevronRight, LogOut, MessageSquareText, TriangleAlert } from 'lucide-react'
 import { TedxLockup, licenseLine } from '../../components/TedxLockup'
 import { Countdown } from '../../components/Countdown'
 import {SiteLogo} from '../admin/site/SiteLogo'
@@ -22,6 +22,9 @@ import { Link, Outlet, useLoaderData, useLocation, useNavigate, useNavigation, u
 import { onPageReturn } from '../../lib/pageReturn'
 import { useDelayedFlag } from '../../lib/useDelayedFlag'
 import { ProfileEditor } from '../account/ProfileEditor'
+import { SettingsSection, ThemeSettings } from '../account/Settings'
+import { PageHeading } from '../../components/Page'
+import { DeveloperMessageDialog } from '../developer-message/DeveloperMessageDialog'
 import { GuestContactEditor } from '../account/GuestContactEditor'
 import { LoadingState } from '../../components/FeedbackState'
 import { AppShell } from '../../app/AppShell'
@@ -145,10 +148,7 @@ export function LoginPage({ gateway }: { gateway: AuthGateway }) {
   return <div className="stage">
   <main className="stage-main">
     <div className="stage-lockup"><TedxLockup size="lg" /></div>
-    <div className="stage-identity">
-      <p className="stage-kicker">Core workspace</p>
-      <Countdown variant="hero" />
-    </div>
+    <div className="stage-identity"><Countdown variant="hero" /></div>
     <div className="stage-panel auth-panel">
     <h1>Sign in to your workspace</h1>
     {new URLSearchParams(safeReturnPath(new URLSearchParams(location.search).get('returnTo')).split('?')[1]).has('term')?<p>The selected term could not be opened. You can <Link to="/search">return to current workspace search</Link> or retry sign-in for the selected term below.</p>:null}
@@ -200,20 +200,54 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
   const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [messaging, setMessaging] = useState(false)
+  const guest = !!context && isGuest(context)
   async function leave(switchAccount: boolean) {
     setBusy(true); setError('')
     try { await gateway.signOut(); if (switchAccount) await gateway.beginGoogle('/'); else window.location.replace(appPath('/login')) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t sign you out. Try again.'); setBusy(false) }
   }
-  return <><h1>Your account</h1><p className="muted">{context && isGuest(context) ? 'Your access comes from your invitation and ends when it expires.' : 'Your access comes from your committee role.'}</p>
-  {context && !isGuest(context) && gateway.profile ? <ProfileEditor key={context.memberId + context.termId} api={gateway.profile} termId={context.termId} /> : null}
-  {context && isGuest(context) && gateway.guestContacts ? <GuestContactEditor key={context.guestAccessId} api={gateway.guestContacts} termId={context.termId} /> : null}
-  <InstallWorkspace />
-  {context && !isGuest(context) ? <section className="account-tour" aria-labelledby="account-tour-title"><h2 id="account-tour-title">Workspace tour</h2><p className="muted">A short walk through Today, Work, Event, Team and the search.</p><ReplayTourButton /><SetupAgainButton /></section> : null}
-  {context && !isGuest(context) && gateway.files?.drive ? <DriveConnection key={context.memberId+context.termId} api={gateway.files.drive} term={context.termId} /> : null}
-  <p><Link to="/privacy">Privacy notice and requests</Link></p>
-  <div className="auth-actions">
-    <button className="button button--quiet" disabled={busy} onClick={() => void leave(true)}>Switch Google account</button>
-    <button className="button button--quiet" disabled={busy} onClick={() => void leave(false)}>Sign out</button>
-  </div>{error ? <p role="alert">{error}</p> : null}</>
+  return <div className="settings">
+    <PageHeading title="Settings" description={guest ? 'Your access comes from your invitation and ends when it expires.' : 'Your access comes from your committee role. Everything here only changes things for you.'} />
+    {context && !guest && gateway.profile ? <SettingsSection id="profile" title="Profile" lead="Optional. Core members see what you add, so they can reach you.">
+      <ProfileEditor key={context.memberId + context.termId} api={gateway.profile} termId={context.termId} bare />
+    </SettingsSection> : null}
+    {context && isGuest(context) && gateway.guestContacts ? <SettingsSection id="guest-contacts" title="Your contacts" lead="Your own details and the contacts the organizer shared with you.">
+      <GuestContactEditor key={context.guestAccessId} api={gateway.guestContacts} termId={context.termId} bare />
+    </SettingsSection> : null}
+    <SettingsSection id="appearance" title="Appearance" lead="Changes right away, on this device only.">
+      <ThemeSettings />
+    </SettingsSection>
+    <SettingsSection id="alerts" title="Alerts and reminders" lead="Updates always show in the app. This is about extra nudges.">
+      <Link className="settings-link" to="/notifications">
+        <span className="settings-link__text"><span className="settings-link__label">Alert settings</span><span className="settings-link__hint">Right away, a daily digest or off. Email and Telegram live here too.</span></span>
+        <ChevronRight className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+      </Link>
+    </SettingsSection>
+    <SettingsSection id="install" title="Install the app" lead="Open it from your home screen like any other app.">
+      <InstallWorkspace />
+    </SettingsSection>
+    {context ? <SettingsSection id="tour" title="Getting started" lead={guest ? 'Run the short setup again: theme, reminders and the app.' : 'A short walk through Today, Work, Event, Team and search, or the setup steps again.'}>
+      <div className="auth-actions">{!guest ? <ReplayTourButton /> : null}<SetupAgainButton /></div>
+    </SettingsSection> : null}
+    {context && !guest && gateway.files?.drive ? <SettingsSection id="connections" title="Connections" lead="Link your Google Drive to attach files from it.">
+      <DriveConnection key={context.memberId+context.termId} api={gateway.files.drive} term={context.termId} />
+    </SettingsSection> : null}
+    <SettingsSection id="privacy" title="Privacy and your data" lead="What the workspace keeps about you, and how to ask for a copy or a correction.">
+      <Link className="settings-link" to="/privacy">
+        <span className="settings-link__text"><span className="settings-link__label">Privacy notice and requests</span><span className="settings-link__hint">Read the notice or make a data request.</span></span>
+        <ChevronRight className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+      </Link>
+    </SettingsSection>
+    {gateway.developerMessage ? <SettingsSection id="help" title="Help" lead="Something broken or confusing? Tell the developer directly.">
+      <div className="auth-actions"><button type="button" className="button button--secondary" onClick={() => setMessaging(true)}><MessageSquareText className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />Message the developer</button></div>
+    </SettingsSection> : null}
+    <SettingsSection id="session" title="Signed in" lead={context?.displayName ? <>As <strong>{context.displayName}</strong>.</> : undefined}>
+      <div className="auth-actions">
+        <button className="button button--secondary" disabled={busy} onClick={() => void leave(true)}>Switch Google account</button>
+        <button className="button button--quiet" disabled={busy} onClick={() => void leave(false)}><LogOut className="icon" size={16} strokeWidth={1.75} aria-hidden="true" />Sign out</button>
+      </div>{error ? <p role="alert">{error}</p> : null}
+    </SettingsSection>
+    {messaging && gateway.developerMessage ? <DeveloperMessageDialog api={gateway.developerMessage} onClose={() => setMessaging(false)} /> : null}
+  </div>
 }

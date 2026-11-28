@@ -5,7 +5,8 @@ import { TextField } from '../../components/TextField'
 import { LoadingState } from '../../components/FeedbackState'
 import type { GuestContactGateway, GuestContactView } from './guestContacts'
 
-export function GuestContactEditor({ api, termId }: { api: GuestContactGateway; termId: string }) {
+/** `bare` drops the panel and heading, for the Settings page which supplies its own section heading. */
+export function GuestContactEditor({ api, termId, bare = false }: { api: GuestContactGateway; termId: string; bare?: boolean }) {
   const [data, setData] = useState<GuestContactView | null>(null)
   const [name, setName] = useState('')
   const [contact, setContact] = useState('')
@@ -36,7 +37,7 @@ export function GuestContactEditor({ api, termId }: { api: GuestContactGateway; 
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn\'t save. Try again.') }
     finally { setBusy(false) }
   }
-  return <Panel title="Your contacts" id="guest-contacts">
+  const content = <>
     <p>You can see your own contact details and any contacts the organizer shared with you.</p>
     <p><Link to="/shared">Shared with me</Link> · <Link to="/resources">Resources & Start Here</Link></p>
     {error ? <p role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
@@ -58,5 +59,6 @@ export function GuestContactEditor({ api, termId }: { api: GuestContactGateway; 
       </li>)}</ul> : <p>No other contacts are shared with this invitation. Ask the person who gave you the link for help.</p>}
     </> : null}
     <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setData(null); setError(''); setNotice(''); setAttempt(attempt + 1) }}>Discard changes</button>
-  </Panel>
+  </>
+  return bare ? <div className="guest-contact-editor">{content}</div> : <Panel title="Your contacts" id="guest-contacts">{content}</Panel>
 }

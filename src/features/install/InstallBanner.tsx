@@ -91,7 +91,7 @@ export function InstallBanner() {
     const outcome = await install()
     if (outcome === 'accepted') { rememberInstallAccepted(); hide() }
     else if (outcome === 'unavailable') setSheet(true)
-    else setStatus('You can install any time from Account.')
+    else setStatus('You can install any time from Settings.')
   }
 
   if (!visible) return null

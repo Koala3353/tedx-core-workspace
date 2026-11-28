@@ -38,7 +38,7 @@ export function WelcomeStep({ headingId, name, committee, position, guest }: Ste
     </div>
     <p>{guest ? 'This is where you see the work the team shared with you, and send back what they need.'
       : 'This is where the core team keeps tasks, deadlines and asks between committees, so nothing gets lost in group chats.'}</p>
-    <p className="muted">Setup takes about a minute. You can change all of it later in Account.</p>
+    <p className="muted">Setup takes about a minute. You can change all of it later in Settings.</p>
   </>
 }
 
@@ -80,7 +80,7 @@ export function ProfileStep({ headingId, registerCommit, api, termId }: StepProp
         setCurrent(next); setValues(pickValues(next))
         return true
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Couldn\'t save your profile. Try again, or skip and finish it in Account.')
+        setError(cause instanceof Error ? cause.message : 'Couldn\'t save your profile. Try again, or skip and finish it in Settings.')
         return false
       }
     })
@@ -92,7 +92,7 @@ export function ProfileStep({ headingId, registerCommit, api, termId }: StepProp
     <StepHeading id={headingId} lead="All optional. Core members can see what you add, so they can reach you.">Your profile</StepHeading>
     {error ? <p className="setup-alert" role="alert">{error}</p> : null}
     {state === 'loading' ? <p className="muted" role="status">Loading your profile…</p>
-      : state === 'unavailable' ? <p className="muted" role="status">Couldn't load your profile right now. Skip this step and fill it in later from Account.</p>
+      : state === 'unavailable' ? <p className="muted" role="status">Couldn't load your profile right now. Skip this step and fill it in later from Settings.</p>
         : <div className="setup-fields">
           {fields.map(field => {
             const problem = field.value === 'messenger' || field.value === 'telegram' ? contactError(field.value, values[field.value]) : ''
@@ -244,7 +244,7 @@ const looks: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
 export function LookStep({ headingId }: StepProps) {
   const { choice } = useTheme()
   return <>
-    <StepHeading id={headingId} lead="It changes right away. You can switch it later from the account menu too.">How should it look?</StepHeading>
+    <StepHeading id={headingId} lead="It changes right away. You can switch it later in Settings too.">How should it look?</StepHeading>
     <fieldset className="setup-looks">
       <legend className="visually-hidden">Theme</legend>
       {looks.map(look => <label key={look.value} className="setup-look">
@@ -268,7 +268,7 @@ export function InstallStep({ headingId }: StepProps) {
     const outcome = await install()
     if (outcome === 'accepted') rememberInstallAccepted()
     setStatus(outcome === 'accepted' ? 'Installing. Look for the TEDx icon on your home screen.'
-      : outcome === 'dismissed' ? 'No problem. You can install later from Account.'
+      : outcome === 'dismissed' ? 'No problem. You can install later from Settings.'
         : 'Installation couldn\'t start. Look for Install or Add to Home Screen in your browser menu.')
   }
 
@@ -305,7 +305,7 @@ export function DoneStep({ headingId, guest }: StepProps & { guest: boolean }) {
   return <>
     <div className="setup-done-mark" aria-hidden="true"><Check size={28} strokeWidth={2.25} /></div>
     <StepHeading id={headingId}>You're all set</StepHeading>
-    {guest ? <p>Your shared work is ready. Find setup again in the account menu if you want to change anything.</p>
-      : <p>Want a quick look around? The tour walks you through Today, Work, Team and search in about two minutes. You can replay it any time from the account menu.</p>}
+    {guest ? <p>Your shared work is ready. Find setup again in Settings if you want to change anything.</p>
+      : <p>Want a quick look around? The tour walks you through Today, Work, Team and search in about two minutes. You can replay it any time from Settings.</p>}
   </>
 }

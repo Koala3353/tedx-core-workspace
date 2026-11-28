@@ -213,24 +213,30 @@ a.tedx-lockup:hover { text-decoration: none; }
 .standalone-page { max-width: 760px; margin: 0 auto; padding: 48px 24px; }
 
 /* ── Sign-in stage ───────────────────────────────────────── */
+/* Minimal: one centred column on black. Logo, a quiet countdown line, then the sign-in panel.
+ * Red stays to the logo and the one primary button. */
 .stage { min-height: 100dvh; display: grid; grid-template-rows: 1fr auto; background: var(--color-background); color: var(--color-ink); }
-.stage-main { width: 100%; max-width: 1120px; margin: 0 auto; padding: clamp(32px, 8vh, 96px) clamp(20px, 5vw, 56px) 48px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 40px 80px; align-content: center; }
-.stage-lockup { grid-column: 1 / -1; padding-bottom: clamp(24px, 6vh, 56px); border-bottom: 1px solid var(--color-line); }
-.stage-identity { display: grid; gap: 28px; align-content: start; }
-.stage-identity .stage-kicker { margin: 0; color: var(--color-ink-secondary); font-size: 1.125rem; font-weight: 500; }
-.stage-panel { display: grid; gap: 20px; align-content: start; max-width: 30rem; }
-.stage-panel h1 { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.25rem); margin: 0; }
+.stage-main { box-sizing: border-box; width: 100%; max-width: 440px; margin: 0 auto; padding: max(48px, 10vh) 24px 40px; display: grid; gap: 40px; align-content: center; }
+.stage-lockup .tedx-logo { width: 100%; }
+.stage .countdown--hero { display: block; gap: 0; padding: 0; border: 0; max-width: none; }
+.stage .countdown--hero .countdown__number { display: inline; font-size: 1rem; line-height: 1.5; letter-spacing: 0; font-weight: 700; color: var(--color-ink); }
+.stage .countdown--hero .countdown__number::after { content: ' '; }
+.stage .countdown--hero .countdown__caption { display: inline; font-size: 1rem; color: var(--color-muted); }
+.stage .countdown--hero .countdown__caption strong { font-weight: 400; color: var(--color-muted); }
+.stage-panel { display: grid; gap: 16px; align-content: start; }
+.stage-panel h1 { font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.01em; margin: 0; }
 .stage-panel p { margin: 0; color: var(--color-ink-secondary); }
-.stage-panel .muted { color: var(--color-muted); font-size: .9375rem; }
-.stage-panel .button { justify-self: start; min-height: 52px; padding-inline: 24px; font-size: 1.0625rem; }
-.stage-panel .button--secondary { min-height: var(--control-min-size); font-size: .9375rem; }
+.stage-panel .muted { color: var(--color-muted); font-size: .875rem; }
+.stage-panel > .button { justify-self: stretch; min-height: 48px; margin-top: 8px; }
+.stage-panel .button--secondary { justify-self: start; }
 .stage-panel [role=alert], .stage-panel [role=status] { color: var(--color-ink); }
 .stage-panel .feedback-state h2 { color: var(--color-ink); }
-.stage-footer { border-top: 1px solid var(--color-line); padding: 20px clamp(20px, 5vw, 56px) calc(20px + env(safe-area-inset-bottom)); }
-.stage-footer .license-line { max-width: 1120px; margin: 0 auto; }
-@media (max-width: 52rem) {
-  .stage-main { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 40px; }
+.stage-footer { padding: 20px 24px calc(20px + env(safe-area-inset-bottom)); text-align: center; }
+.stage-footer .license-line { margin: 0; color: var(--color-muted); font-size: .8125rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .stage-main { animation: stageFade 420ms var(--ease-standard) both; }
 }
+@keyframes stageFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .form-field { display: grid; gap: 8px; }
 .form-field label { font-weight: 600; }
