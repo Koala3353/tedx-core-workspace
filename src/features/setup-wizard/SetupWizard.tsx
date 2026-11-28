@@ -10,12 +10,17 @@ import type { NotificationsApi } from '../notifications/api'
 import { markTourDone } from '../tutorial/Tutorial'
 import { replayTour } from '../tutorial/events'
 import { openSetup, readSetupGate, setSetupGate, setupOpenEvent, type SetupGate } from './gate'
-import { DoneStep, InstallStep, LookStep, ProfileStep, RemindersStep, WelcomeStep, type Commit } from './steps'
+import { DeviceStep, DoneStep, InstallStep, LookStep, ProfileStep, RemindersStep, WelcomeStep, type Commit } from './steps'
+import { deviceSupport } from '../notifications/push'
 import './setup-wizard.css'
 
-/** Canonical order. The saved step is an index into this list, so hidden steps keep their number. */
-const order = ['welcome', 'profile', 'reminders', 'look', 'install', 'done'] as const
+/**
+ * Saved step numbers. The saved step is an index into this list, so hidden steps keep their number
+ * and new steps are only ever appended. `sequence` is the order people see them in.
+ */
+const order = ['welcome', 'profile', 'reminders', 'look', 'install', 'done', 'device'] as const
 type StepId = typeof order[number]
+const sequence: readonly StepId[] = ['welcome', 'profile', 'reminders', 'device', 'look', 'install', 'done']
 
 type Local = { step: number; done: boolean }
 const localKey = (who: string) => 'tedx-setup:' + who
@@ -96,8 +101,11 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
   const live = !preview
   const profile: ProfileGateway | undefined = live && !identity.guest ? gateway?.profile : undefined
   const notifications: NotificationsApi | undefined = live && !identity.guest ? gateway?.notifications : undefined
-  const steps = order.filter(id => !(identity.guest && (id === 'profile' || id === 'reminders')) && !(id === 'install' && isStandalone()))
-  const first = Math.max(0, steps.findIndex(id => order.indexOf(id) >= Math.min(startAt, order.length - 1)))
+  const push = notifications?.push
+  const steps = sequence.filter(id => !(identity.guest && (id === 'profile' || id === 'reminders')) && !(id === 'install' && isStandalone())
+    && !(id === 'device' && (!push?.vapidKey || deviceSupport() === 'unsupported')))
+  const resume = sequence.indexOf(order[Math.min(Math.max(startAt, 0), order.length - 1)])
+  const first = Math.max(0, steps.findIndex(id => sequence.indexOf(id) >= resume))
   const [index, setIndex] = useState(first)
   const [direction, setDirection] = useState<'forward' | 'back'>('forward')
   const [busy, setBusy] = useState(false)
@@ -187,6 +195,7 @@ function Wizard({ identity, startAt, preview = false, clientState, onClose }: {
           {step === 'welcome' ? <WelcomeStep {...props} name={identity.name} committee={identity.committee} position={identity.position} guest={identity.guest} />
             : step === 'profile' ? <ProfileStep {...props} api={profile} termId={identity.termId} />
               : step === 'reminders' ? <RemindersStep {...props} api={notifications} termId={identity.termId} />
+                : step === 'device' && push && identity.termId ? <DeviceStep {...props} api={push} termId={identity.termId} />
                 : step === 'look' ? <LookStep {...props} />
                   : step === 'install' ? <InstallStep {...props} />
                     : <DoneStep {...props} guest={identity.guest} />}

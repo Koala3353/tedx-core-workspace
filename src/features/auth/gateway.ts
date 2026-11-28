@@ -25,6 +25,7 @@ import {createCalendarSyncApi} from '../integrations/calendar/api'
 import {createNotificationsApi,type NotificationsApi} from '../notifications/api'
 import {createTelegramApi} from '../integrations/telegram/api'
 import {createEmailDigestApi} from '../integrations/email/api'
+import {createPushApi} from '../notifications/push'
 import type { ReadinessApi } from '../deliverables/readiness-api'
 import type { PublicityApi } from '../publicity/api'
 import type { LedgerApi } from '../finance/ledger-api'
@@ -307,7 +308,8 @@ export function createAuthGateway(environment: ClientEnvironment, origin: string
       environment.state==='configured'&&environment.telegramBot&&environment.appOrigin===origin
         ?createTelegramApi(clientReady,environment.appOrigin,environment.telegramBot):undefined,
       environment.state==='configured'&&environment.emailDigest&&environment.appOrigin===origin
-        ?createEmailDigestApi(clientReady,environment.appOrigin):undefined),
+        ?createEmailDigestApi(clientReady,environment.appOrigin):undefined,
+      environment.state==='configured'?createPushApi(clientReady,environment.vapidPublicKey):undefined),
     readiness: lazyApi(() => import('../deliverables/readiness-api').then(m => m.createReadinessApi(clientReady))),
     publicity: lazyApi(() => import('../publicity/api').then(m => m.createPublicityApi(clientReady))),
     ledger: lazyApi(() => import('../finance/ledger-api').then(m => m.createLedgerApi(clientReady))),

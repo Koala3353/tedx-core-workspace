@@ -1,6 +1,6 @@
 export type ClientEnvironment =
   | { state: 'not_configured'; issues: string[] }
-  | { state: 'configured'; supabaseUrl: string; supabasePublishableKey: string; appOrigin?: string; drivePicker?: true; driveEvidence?: true; calendarSync?: true; telegramBot?: string; emailDigest?: true }
+  | { state: 'configured'; supabaseUrl: string; supabasePublishableKey: string; appOrigin?: string; drivePicker?: true; driveEvidence?: true; calendarSync?: true; telegramBot?: string; emailDigest?: true; vapidPublicKey?: string }
 
 type ClientEnvironmentInput = {
   VITE_SUPABASE_URL?: string
@@ -11,6 +11,7 @@ type ClientEnvironmentInput = {
   VITE_CALENDAR_SYNC_ENABLED?: string
   VITE_TELEGRAM_BOT_USERNAME?: string
   VITE_EMAIL_DIGEST_ENABLED?: string
+  VITE_VAPID_PUBLIC_KEY?: string
 }
 
 function isExactHttpsOrigin(value: string): boolean {
@@ -32,6 +33,7 @@ export function readClientEnvironment(input: ClientEnvironmentInput): ClientEnvi
   const calendarSync = input.VITE_CALENDAR_SYNC_ENABLED?.trim()
   const telegramBot = input.VITE_TELEGRAM_BOT_USERNAME?.trim()
   const emailDigest = input.VITE_EMAIL_DIGEST_ENABLED?.trim()
+  const vapidPublicKey = input.VITE_VAPID_PUBLIC_KEY?.trim()
   const issues: string[] = []
 
   if (!supabaseUrl) {
@@ -67,6 +69,11 @@ export function readClientEnvironment(input: ClientEnvironmentInput): ClientEnvi
     issues.push('Email digest requires an explicit true setting and the exact HTTPS frontend origin.')
   }
 
+  // Device notifications: the public half of the VAPID pair (an uncompressed P-256 point, base64url).
+  if (vapidPublicKey && !/^B[A-Za-z0-9_-]{86}$/.test(vapidPublicKey)) {
+    issues.push('VITE_VAPID_PUBLIC_KEY must be the base64url VAPID public key from scripts/setup-push.sh.')
+  }
+
   if (!supabasePublishableKey) {
     issues.push('VITE_SUPABASE_PUBLISHABLE_KEY is missing.')
   } else if (!/^sb_publishable_[A-Za-z0-9_-]+$/.test(supabasePublishableKey)) {
@@ -78,5 +85,6 @@ export function readClientEnvironment(input: ClientEnvironmentInput): ClientEnvi
     : { state: 'configured', supabaseUrl: new URL(supabaseUrl).origin, supabasePublishableKey,
       ...(appOrigin ? {appOrigin} : {}), ...(drivePicker==='true' ? {drivePicker:true} : {}),
       ...(driveEvidence==='true' ? {driveEvidence:true} : {}), ...(calendarSync==='true' ? {calendarSync:true} : {}),
-      ...(telegramBot ? {telegramBot} : {}), ...(emailDigest==='true' ? {emailDigest:true} : {}) }
+      ...(telegramBot ? {telegramBot} : {}), ...(emailDigest==='true' ? {emailDigest:true} : {}),
+      ...(vapidPublicKey ? {vapidPublicKey} : {}) }
 }

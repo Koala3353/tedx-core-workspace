@@ -21,9 +21,10 @@ export default defineConfig(({ command, mode }) => {
     VITE_CALENDAR_SYNC_ENABLED: values.VITE_CALENDAR_SYNC_ENABLED,
     VITE_TELEGRAM_BOT_USERNAME: values.VITE_TELEGRAM_BOT_USERNAME,
     VITE_EMAIL_DIGEST_ENABLED: values.VITE_EMAIL_DIGEST_ENABLED,
+    VITE_VAPID_PUBLIC_KEY: values.VITE_VAPID_PUBLIC_KEY,
   }
   const hasSettings = !!(input.VITE_SUPABASE_URL?.trim() || input.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
-    || input.VITE_APP_ORIGIN?.trim() || input.VITE_TELEGRAM_BOT_USERNAME?.trim()
+    || input.VITE_APP_ORIGIN?.trim() || input.VITE_TELEGRAM_BOT_USERNAME?.trim() || input.VITE_VAPID_PUBLIC_KEY?.trim()
     || [input.VITE_DRIVE_PICKER_ENABLED,input.VITE_DRIVE_EVIDENCE_ENABLED,input.VITE_CALENDAR_SYNC_ENABLED,input.VITE_EMAIL_DIGEST_ENABLED]
       .some(setting=>setting?.trim() && setting.trim()!=='false'))
   const environment = readClientEnvironment(input)

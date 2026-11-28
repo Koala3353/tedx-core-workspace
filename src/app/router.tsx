@@ -412,6 +412,7 @@ export function createAppRouter() {
     VITE_CALENDAR_SYNC_ENABLED: import.meta.env.VITE_CALENDAR_SYNC_ENABLED,
     VITE_TELEGRAM_BOT_USERNAME: import.meta.env.VITE_TELEGRAM_BOT_USERNAME,
     VITE_EMAIL_DIGEST_ENABLED: import.meta.env.VITE_EMAIL_DIGEST_ENABLED,
+    VITE_VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY,
   })
   const router = createBrowserRouter(createAppRoutes(environment), { basename: basePath || '/' })
   // From Today the likely next stops are the Work hub (all four hubs share a chunk) and Calendar.

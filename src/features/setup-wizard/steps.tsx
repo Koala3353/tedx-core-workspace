@@ -8,6 +8,8 @@ import { profileFields, type OwnProfile, type ProfileGateway, type ProfileValues
 import { profileDirty, saveProfile } from '../account/ProfileEditor'
 import { contactError } from '../people/contacts'
 import type { NotificationsApi } from '../notifications/api'
+import type { PushApi } from '../notifications/push'
+import { DevicePush } from '../notifications/DevicePush'
 import type { EmailDigestStatus } from '../integrations/email/api'
 import { telegramConfirmCode, telegramProofHash, telegramStartCode, type TelegramStatus } from '../integrations/telegram/api'
 import { InstallSteps, isPhone, rememberInstallAccepted } from '../install/InstallBanner'
@@ -232,6 +234,15 @@ function TelegramRow({ api, termId }: { api: NonNullable<NotificationsApi['teleg
     </div> : null}
     {error ? <p className="setup-alert setup-row__more" role="alert">{error}</p> : null}
   </div>
+}
+
+/* 3b. Device notifications: optional, the same control as Settings > Alerts and reminders. */
+export function DeviceStep({ headingId, api, termId }: StepProps & { api: PushApi; termId: string }) {
+  return <>
+    <StepHeading id={headingId} lead="Optional. Get a buzz on your phone or computer when something needs you, even with the workspace closed. You can turn it off any time in Settings.">Notifications on this device</StepHeading>
+    <DevicePush api={api} term={termId} canManage={false}
+      installHint="Add the workspace to your Home Screen in the next step, open it from there, then turn this on in Settings." />
+  </>
 }
 
 /* 4. Look */

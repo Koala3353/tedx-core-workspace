@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router'
 import { createAppRouter } from './app/router'
 import { UpdateToast } from './components/UpdateToast'
 import { watchForStaleBuild } from './lib/appUpdate'
+import { stripBase } from './lib/basePath'
 import './lib/fonts.css'
 import './styles/tokens.css'
 import './styles/global.css'
@@ -25,9 +26,23 @@ if (window.top !== window.self) {
 const root = document.getElementById('root')
 if (!root) throw new Error('The application root is missing from index.html.')
 
+const router = createAppRouter()
+
+// A tapped device notification focuses an open window and asks it to show the linked page.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    const data = event.data as { type?: unknown; url?: unknown } | null
+    if (data?.type !== 'workspace-navigate' || typeof data.url !== 'string') return
+    try {
+      const url = new URL(data.url)
+      if (url.origin === window.location.origin) void router.navigate(stripBase(url.pathname))
+    } catch { /* Ignore malformed messages. */ }
+  })
+}
+
 createRoot(root).render(
   <StrictMode>
-    <RouterProvider router={createAppRouter()} />
+    <RouterProvider router={router} />
     <UpdateToast />
   </StrictMode>,
 )

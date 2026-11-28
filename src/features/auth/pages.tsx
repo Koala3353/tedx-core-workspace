@@ -36,6 +36,7 @@ import { InstallWorkspace } from '../../app/InstallWorkspace'
 import { ReplayTourButton } from '../tutorial/Tutorial'
 import { SetupAgainButton } from '../setup-wizard/SetupWizard'
 import { DriveConnection } from '../integrations/drive/DriveSource'
+import { DevicePush } from '../notifications/DevicePush'
 import type { NavigationCapability } from '../../app/navigation'
 import type { AuthGateway, AuthResult, WorkspaceContext } from './gateway'
 import { consumeReturnPath, isGuest } from './gateway'
@@ -231,6 +232,8 @@ export function AccountPage({ gateway }: { gateway: AuthGateway }) {
         <span className="settings-link__text"><span className="settings-link__label">Alert settings</span><span className="settings-link__hint">Right away, a daily digest or off. Email and Telegram live here too.</span></span>
         <ChevronRight className="icon" size={18} strokeWidth={1.75} aria-hidden="true" />
       </Link>
+      {context && !guest && gateway.notifications?.push ? <DevicePush key={context.memberId + context.termId} api={gateway.notifications.push}
+        term={context.termId} canManage={context.capabilities.includes('admin.configure')} /> : null}
     </SettingsSection>
     <SettingsSection id="install" title="Install the app" lead="Open it from your home screen like any other app.">
       <InstallWorkspace />

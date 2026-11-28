@@ -6,6 +6,7 @@
 #     VITE_SUPABASE_PUBLISHABLE_KEY  sb_publishable_... (public browser key, never a secret key)
 #     VITE_APP_ORIGIN                https://david-gy.github.io  (or https://<custom-domain>)
 #     PAGES_BASE_PATH                optional; defaults to /<repository>/. Set to / for a custom domain.
+#     VITE_VAPID_PUBLIC_KEY          optional; public key for device notifications (scripts/setup-push.sh sets it)
 #   Environments -> github-pages -> Deployment branches: allow the branch below.
 # Supabase Auth must list <VITE_APP_ORIGIN><PAGES_BASE_PATH>auth/callback as a redirect URL.
 name: Deploy to GitHub Pages
@@ -53,6 +54,7 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_APP_ORIGIN: ${{ vars.VITE_APP_ORIGIN }}
           VITE_EMAIL_DIGEST_ENABLED: ${{ vars.VITE_EMAIL_DIGEST_ENABLED }}
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
           PAGES_BASE_PATH: ${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}
         run: pnpm build:pages
 

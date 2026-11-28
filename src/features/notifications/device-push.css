@@ -1,0 +1,26 @@
+/* Notifications on this device: Settings > Alerts and reminders, Notifications page, setup wizard. */
+.device-push { display: grid; gap: var(--space-3); min-width: 0; }
+.device-push__row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-3); padding: 12px 14px; border: 1px solid var(--color-line); border-radius: var(--radius-panel); }
+.device-push__row > .button { grid-column: 2; justify-self: start; min-height: var(--control-min-size); }
+@media (min-width: 560px) {
+  .device-push__row { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+  .device-push__row > .button { grid-column: auto; }
+}
+.device-push__icon { color: var(--color-accent); margin-top: 2px; }
+.device-push__text { display: grid; gap: 2px; min-width: 0; }
+.device-push__text > span { color: var(--color-muted); font-size: .875rem; line-height: 1.4; max-width: 60ch; }
+.device-push__text > span[data-state="blocked"] { color: var(--color-ink-secondary); }
+.device-push__note { margin: 0; color: var(--color-ink-secondary); font-size: .875rem; line-height: 1.4; max-width: 60ch; }
+.device-push__error { margin: 0; color: var(--color-danger); font-size: .875rem; }
+.device-push .auth-actions { margin: 0; }
+.device-push__devices h3 { margin: 0 0 var(--space-2); font-size: .875rem; font-weight: 700; color: var(--color-ink-secondary); }
+.device-push__devices ul { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--color-line); border-radius: var(--radius-panel); }
+.device-push__devices li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: 10px 6px 10px 14px; }
+.device-push__devices li + li { border-top: 1px solid var(--color-line); }
+.device-push__devices li > .icon { color: var(--color-muted); }
+.device-push__device { display: grid; gap: 2px; min-width: 0; }
+.device-push__device strong { font-weight: 600; overflow-wrap: anywhere; }
+.device-push__device > span { color: var(--color-muted); font-size: .8125rem; }
+.device-push__this { color: var(--color-accent); font-weight: 600; }
+.device-push__remove { min-height: 40px; min-width: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+@media (max-width: 479px) { .device-push__remove-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .device-push__devices li { gap: var(--space-2); } }

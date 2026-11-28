@@ -17,6 +17,8 @@ import type{NotificationsApi,NotificationPage,NotificationCommand,NotificationRo
 import {ProposalEditor} from '../admin/notifications/ProposalEditor'
 import {TelegramPreferences} from '../integrations/telegram/TelegramPreferences'
 import {EmailDigest} from '../integrations/email/EmailDigest'
+import {DevicePush} from './DevicePush'
+import {syncDevice} from './push'
 import '../overview/overview.css'
 import { EmptyNotifications } from '../../components/illustrations'
 type Center={api:NotificationsApi;term:string;page:number;setPage:(v:number)=>void;value:NotificationPage|null;error:boolean;refresh:()=>void}
@@ -29,6 +31,10 @@ function CenterBody({api,term,children}:{api:NotificationsApi;term:string;childr
  // change, and on navigation only when the count is more than 15 seconds old.
  useAutoRefresh(refresh,{intervalMs:60_000});
  useEffect(()=>{window.addEventListener('notifications-changed',refresh);return()=>window.removeEventListener('notifications-changed',refresh)},[refresh]);
+ // Device notifications: re-save this browser's subscription if the browser rotated it. Never prompts.
+ useEffect(()=>{const push=api.push;if(!push)return;const sync=()=>void syncDevice(push,term).catch(()=>undefined);sync();
+  const listen=(event:MessageEvent)=>{if((event.data as{type?:unknown}|null)?.type==='push-subscription-changed')sync()}
+  if(!('serviceWorker' in navigator))return;navigator.serviceWorker.addEventListener('message',listen);return()=>navigator.serviceWorker.removeEventListener('message',listen)},[api,term]);
  useEffect(()=>{if(loadedAt.current&&Date.now()-loadedAt.current>15_000)refresh()},[pathname,refresh]);
  const current=settled(state,key);return <Context.Provider value={{api,term,page,setPage,value:current?.value??null,error:current?.error??false,refresh}}>{children}</Context.Provider>
 }
@@ -49,6 +55,7 @@ export function Notifications(){
       <Inbox key={c.term} center={c} value={c.value} showPreferences={!telegram}/>}
     {telegram?<TelegramPreferences api={telegram} notifications={c.api} term={c.term}
       preference={c.value?.preference} refresh={c.refresh}/>:null}
+    {optional?.push&&c.value?<Panel title="Notifications on this device"><DevicePush api={optional.push} term={c.term} canManage={c.value.canManage} mode={c.value.preference.mode}/></Panel>:null}
     {optional?.email?<EmailDigest api={optional.email} term={c.term} scopeReady={!!c.value}/>:null}
   </>:<ErrorState title="Notifications aren't available" description="Couldn't connect. Try again later."/>}
   {c?.api.rules&&workspace&&c.term===workspace.termId?<SavedNotificationRules api={c.api.rules} context={workspace}/>:null}
