@@ -124,7 +124,8 @@ function PaletteDialog({ items, seed, initialMode, onClose }: { items: Navigatio
     ]
     list.push(...actions.filter(option => matches(option.label + ' ' + (option.keywords ?? ''))))
     const extra = member ? hubPages.filter(page => !page.anyOf || page.anyOf.some(capability => member.capabilities.includes(capability))) : []
-    const pages = [...items.map(item => ({ ...item, icon: item.id })), ...extra].filter(item => matches(item.label + ' ' + item.description)).slice(0, q ? 8 : 6)
+    // One row per destination: Publicity sign-off is listed under both Event and Desk.
+    const pages = [...items.map(item => ({ ...item, icon: item.id })), ...extra].filter((item, index, all) => all.findIndex(other => other.href === item.href) === index).filter(item => matches(item.label + ' ' + item.description)).slice(0, q ? 8 : 6)
     list.push(...pages.map(item => { const Icon = navIcon(item.icon); return { id: 'page:' + item.id + item.href, group: 'Pages', label: item.label, detail: item.description, icon: icon(Icon), run: () => go(item.href) } }))
     if (member && q) {
       list.push(...askEntries.filter(entry => matches(entry.label + ' ' + entry.keywords)).slice(0, 4)

@@ -10,7 +10,7 @@ import type {RosterImportsApi} from './roster-import-api'
 import {HowThisWorks} from '../shared/HowThisWorks'
 import './imports.css'
 
-const labels:Record<string,string>={source_key:'source key',title:'title',assignee:'person responsible',committee:'committee',due_on:'due date',reference:'existing reference',display_name:'person’s name',email:'school email'}
+const labels:Record<string,string>={source_key:'row ID (source key)',title:'title',assignee:'person responsible',committee:'committee',due_on:'due date',reference:'existing reference',display_name:'person’s name',email:'school email'}
 const defaultMap=(kind:Kind):Mapping=>Object.fromEntries(fields[kind].map(field=>[field,field]))
 export function CsvPreparation({api,rosterApi}:{api?:TaskImportsApi;rosterApi?:RosterImportsApi}={}){
   const context=useRouteLoaderData('workspace') as WorkspaceContext
@@ -24,7 +24,7 @@ function Preparation({api,rosterApi,term}:{api?:TaskImportsApi;rosterApi?:Roster
   const parsed=useMemo(()=>{try{return {rows:parseCsv(input),error:''}}catch(e){return {rows:[],error:(e as Error).message}}},[input])
   const header=parsed.rows[0]??[]
   const ignored=header.filter(h=>!Object.values(mapping).includes(h))
-  return <div className="csv-preparation"><PageHeading title="Prepare a CSV" description="Match your columns, fix any problem rows, then review before importing."/>
+  return <div className="csv-preparation"><PageHeading title="Imports" description="Bring in tasks or people from a spreadsheet saved as CSV. Match your columns, fix any problem rows, then review before importing."/>
     <p role="status">{api||rosterApi?'Nothing is imported until you review and confirm it.':'This page only prepares a CSV. Importing isn\'t available here.'}</p><p>To start from existing records, download them from <Link to="/tasks">My tasks</Link> or <Link to="/deliverables">Deliverables</Link>.</p><fieldset disabled={locked} className="csv-editor">
     <Panel title="1. Choose a template"><label>What are you importing?<select aria-label="What are you importing?" value={kind} onChange={e=>{setKind(e.target.value as Kind);setMapping({});setReview(null)}}><option value="tasks">Tasks</option><option value="roster">People for the roster</option></select></label>
       <HowThisWorks title="Formatting rules"><ul><li>Save as a UTF-8 CSV with a header row: up to 500 rows, 32 columns and 200,000 characters.</li><li>Cells in quotes can contain commas and line breaks. Row numbers count the header row.</li><li>Give every row a unique source key, and keep it the same if you import the file again.</li><li>Use people and committee names exactly as they appear in the workspace.</li><li>An existing reference only helps find a record. New work gets its reference automatically.</li><li>Roster rows add people for review only. They don't link a login or assign a role.</li><li>Budget items can't be imported here.</li><li>Your CSV stays on this page only until you save a draft. Reloading clears it, so keep your original file.</li></ul></HowThisWorks>
@@ -32,7 +32,7 @@ function Preparation({api,rosterApi,term}:{api?:TaskImportsApi;rosterApi?:Roster
       <label>CSV input<textarea aria-label="CSV input" rows={8} spellCheck={false} value={input} onChange={e=>{setInput(e.target.value);setReview(null)}}/></label>
       {parsed.error?<p role="alert">{parsed.error} Fix the CSV and try again.</p>:null}
     </Panel>
-    <Panel title="2. Match your columns"><p>Pick which CSV column fills each field. Tasks need a source key and title. Roster rows need a source key, name and school email.</p>
+    <Panel title="2. Match your columns"><p>Pick which CSV column fills each field. Tasks need a row ID and title. Roster rows need a row ID, name and school email. The row ID (source key) is any short code you give each row, like T-01, so importing the same file again updates rows instead of adding duplicates.</p>
       <div className="csv-mapping">{fields[kind].map(field=><label key={field}>Column for {labels[field]}<select aria-label={'Column for '+labels[field]} value={mapping[field]??''} onChange={e=>{setMapping({...mapping,[field]:e.target.value});setReview(null)}}><option value="">Not used</option>{mapping[field]&&!header.includes(mapping[field])?<option value={mapping[field]}>Missing: {mapping[field]}</option>:null}{header.map((h,i)=><option key={i} value={h}>{h||'(unnamed column)'}</option>)}</select></label>)}</div>
       <p>Columns not used: {ignored.join(', ')||'none'}. Remove any role, permission or money columns, even if they're not used.</p>
       <button className={api||rosterApi?'button button--secondary':'button'} disabled={!!parsed.error||!input} onClick={()=>setReview(dryRun(kind,parsed.rows,mapping))}>Check rows</button>

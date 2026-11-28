@@ -180,11 +180,12 @@ export function WorkView({ v, open, editing, select }: ViewProps) {
 }
 
 const PAGE = 40
+const historyLabels: Record<string, string> = { unit_save: 'Committee added or edited', unit_merge: 'Committees merged', unit_archive: 'Committee archived', roster_add: 'Person added', roster_edit: 'Person edited', deployment_save: 'Placement changed', work_reassign: 'Deliverable moved' }
 export function HistoryView({ v }: { v: OrganizationData }) {
   const [limit, setLimit] = useState(PAGE)
-  const actionLabel = (a: string) => { const t = a.replaceAll('_', ' '); return t[0].toUpperCase() + t.slice(1) }
+  const actionLabel = (a: string) => historyLabels[a] ?? (a.charAt(0).toUpperCase() + a.slice(1)).replaceAll('_', ' ')
   const list = useListFilter(v.history, {
-    text: h => [h.action.replaceAll('_', ' '), h.reason, formatDateTime(h.at)],
+    text: h => [actionLabel(h.action), h.reason, formatDateTime(h.at)],
     filters: [{ key: 'action', label: 'Change', get: h => h.action, options: [...new Set(v.history.map(h => h.action))].sort().map(a => ({ value: a, label: actionLabel(a) })) }],
   })
   const shown = list.results.slice(0, limit)

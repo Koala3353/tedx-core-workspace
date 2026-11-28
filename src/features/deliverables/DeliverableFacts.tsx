@@ -1,5 +1,5 @@
 import { formatDateTime, formatDay } from '../shared/dates'
-import {Status} from '../../components/Status'
+import {Status, stateLabel} from '../../components/Status'
 import {readinessLabel} from './Readiness'
 import type { Deliverable } from './api'
 export function dateLabel(at: string | null, on: string | null): string {
@@ -15,7 +15,7 @@ export function DeliverableFacts({ item }: { item: Deliverable }) {
     <div><dt>Checklist</dt><dd>{readinessLabel(item.readiness)}{item.reviewRequired?' · Needs another review':''}</dd></div>
     <div><dt>Next step</dt><dd>{item.nextAction}<span className="muted"> {item.readiness==='ready_for_acceptance'?'Acceptance reviewer':item.owner.active ? item.owner.name : 'Needs an owner'}</span></dd></div>
     <div><dt>Blockers</dt><dd>{item.blocked ? <><Status state="blocked"/> {item.blocker ?? 'Blocked. Ask the owner for details.'}</> : 'Not blocked'}</dd></div>
-    <div><dt>Sign-offs</dt><dd>Budget: {item.gates.finance.replaceAll('_',' ')}<br/>Publicity: {item.gates.publicity.replaceAll('_',' ')}<br/>Acceptance: {item.gates.acceptance.replaceAll('_',' ')}{item.tasksComplete!==undefined?<><br/>Tasks done: {item.tasksComplete?'All':'Not yet'}</>:null}</dd></div>
+    <div><dt>Sign-offs</dt><dd>Budget: {stateLabel(item.gates.finance)}<br/>Publicity: {stateLabel(item.gates.publicity)}<br/>Acceptance: {stateLabel(item.gates.acceptance)}{item.tasksComplete!==undefined?<><br/>Tasks done: {item.tasksComplete?'All':'Not yet'}</>:null}</dd></div>
     <div><dt>Last updated</dt><dd><time dateTime={item.updatedAt}>{dateLabel(item.updatedAt,null)}</time></dd></div>
   </dl>
 }

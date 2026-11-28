@@ -8,3 +8,6 @@
 .privacy-text { white-space: pre-wrap; max-width: 75ch; }
 .privacy-editor fieldset { min-width: 0; }
 .privacy-editor input[type='checkbox'] { width: var(--control-min-size); height: var(--control-min-size); }
+.privacy-tools { list-style: none; padding: 0; display: grid; gap: var(--space-2); }
+.privacy-tools li { display: flex; flex-direction: column; }
+.privacy-tools a { min-height: var(--control-min-size); display: inline-flex; align-items: center; }

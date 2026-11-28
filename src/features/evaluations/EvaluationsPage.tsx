@@ -85,7 +85,7 @@ function EvaluationBody({api,term,caseId,view}:{api:EvaluationsApi;term:string;c
     {failed?<ErrorState title="Couldn't load check-ins" description="Check your connection and try again. What you typed is kept."
       action={<button className="button button--secondary" onClick={()=>void load()}>Try again</button>}/>:null}
     {w?<div hidden={failed} inert={checking}>
-      {!w.enabled?<EmptyState title="Not switched on yet" description="Check-ins (PRISM) aren't switched on yet."/>:<>
+      {!w.enabled?<EmptyState title="Not switched on yet" description="Check-ins (PRISM) aren't switched on for this term yet. Ask a workspace admin when they'll open. Nothing is lost while they're off."/>:<>
         <div ref={focus} tabIndex={-1}>{notice?<p role="status">{notice}</p>:null}</div>
         {caseId?view==='summary'?summary?<Panel title={summary.round}>
           <p>{summary.purpose}</p><p><strong>{summary.state==='released'?'Your summary is ready':summary.state==='awaiting_updated_summary'?'Waiting for an updated summary':'Waiting for release'}</strong></p>
@@ -187,13 +187,13 @@ function Custody(actions:Actions){
   },[api,term,open,revision,actions.checking])
   const saved=(n:string)=>{setChosen(null);setRevision(v=>v+1);actions.saved(n)}
   const current=setup?.rounds.flatMap(r=>r.cases).find(c=>c.id===chosen)
-  return <details className="work-section" onToggle={e=>setOpen(e.currentTarget.open)}><summary>Custodian: downloads and term report</summary>
+  return <details className="work-section" onToggle={e=>setOpen(e.currentTarget.open)}><summary>Download approvals and term report (PRISM custodian only)</summary>
     {open?<>{error?<p role="alert">{error}</p>:null}
       {current&&setup?<EvaluationEditor {...actions} saved={saved} edit={{kind:'grantExport',caseRecord:current,people:setup.people}} close={()=>setChosen(null)}/>:null}
       {setup?.rounds.map(r=><Panel title={r.label} key={r.id}>{r.cases.map(c=><article key={c.id}>
-        <h3>{setup.people.find(p=>p.id===c.subjectId)?.name??'Current subject'}</h3>
+        <h3>{setup.people.find(p=>p.id===c.subjectId)?.name??'Person being reviewed'}</h3>
         {!chosen?<button className="button button--secondary" onClick={()=>setChosen(c.id)}>Approve download for this person</button>:null}
-        {c.exports.filter(g=>!g.revoked).map(g=><div key={g.id}><p>Export for {setup.people.find(p=>p.id===g.memberId)?.name??'Named participant'} · ends {date(g.expiresAt)}</p>
+        {c.exports.filter(g=>!g.revoked).map(g=><div key={g.id}><p>Export for {setup.people.find(p=>p.id===g.memberId)?.name??'Participant'} · ends {date(g.expiresAt)}</p>
           <EvaluationAction {...actions} saved={saved} id={g.id} command={{kind:'revokeExport',term,grant:g.id,version:g.version}}
             label="Revoke download approval" notice="Download approval revoked."/></div>)}
       </article>)}</Panel>)}

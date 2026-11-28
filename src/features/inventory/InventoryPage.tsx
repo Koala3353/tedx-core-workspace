@@ -158,7 +158,7 @@ function InventoryBody({api,term,loanId,termQuery,focusItem=null}:{api:Inventory
       {receipt?<p ref={confirmation} tabIndex={-1} role="status" className="inventory-result">
         {'loanId'in receipt?<>{loanId?'Saved':'Reserved'} · {receipt.reference}{!loanId?
           <> <Link className="button button--secondary" to={'/inventory/'+receipt.loanId+termQuery}>Open booking {receipt.reference}</Link></>:null}</>:
-          'financeRequestId'in receipt?<>FIN draft created. <Link className="button button--secondary" to={'/finance/'+term+'/'+receipt.financeRequestId+termQuery}>Open FIN request</Link></>:
+          'financeRequestId'in receipt?<>Budget request (FIN) draft created. <Link className="button button--secondary" to={'/finance/'+term+'/'+receipt.financeRequestId+termQuery}>Open budget request</Link></>:
           'Inventory item saved.'}
       </p>:null}
       {loud&&workspace&&!pressed?<p role="status" className="refreshing-hint"><span className="pending-spinner" aria-hidden="true"/>Updating stock and bookings…</p>:null}
@@ -252,10 +252,10 @@ function LoanSummary({loan:l,item,term,termQuery,choose,editing,editable}:{
         <p>{historyNames[h.action]} · {h.quantity} units{h.condition?' · '+conditions[h.condition]:''} · {formatDateTime(h.at)}</p>
         {h.note?<p className="record-text">{h.note}</p>:null}
         {h.evidence?<p>Photo or file attached</p>:null}
-        {h.financeRequestId?<Link className="button button--secondary" to={'/finance/'+term+'/'+h.financeRequestId+termQuery}>Open FIN follow-up</Link>:
-          h.financeStarted?<p>FIN follow-up started</p>:null}
+        {h.financeRequestId?<Link className="button button--secondary" to={'/finance/'+term+'/'+h.financeRequestId+termQuery}>Open budget follow-up</Link>:
+          h.financeStarted?<p>Budget follow-up (FIN) started</p>:null}
         {h.incidentId&&l.canStartFinance&&!h.financeStarted&&!editing?
-          <button className="button button--secondary" onClick={()=>choose({kind:'replacement',loan:l.id,incident:h.incidentId!})}>Request replacement through FIN</button>:null}
+          <button className="button button--secondary" onClick={()=>choose({kind:'replacement',loan:l.id,incident:h.incidentId!})}>Request a replacement budget</button>:null}
       </li>)}</ol>
     </details>
   </Panel>

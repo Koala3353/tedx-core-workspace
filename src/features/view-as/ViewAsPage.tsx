@@ -148,7 +148,7 @@ function Gate<V extends PreviewView>({ outcome, member, onRetry, onSample, child
 }) {
   if (!outcome) return <LoadingState title={`Loading ${member.name}’s view`} />
   if (!outcome.ok) {
-    if (outcome.reason === 'not_deployed') return <ErrorState title="Viewing a real member is not set up yet" description="The database update for this page is not applied. Use the sample member for now."
+    if (outcome.reason === 'not_deployed') return <ErrorState title="Viewing a real member is not set up yet" description="This needs a workspace update that hasn't been applied yet. Ask the workspace maintainer, and use the sample member for now."
       action={<button className="button button--secondary" type="button" onClick={onSample}>Use a sample member</button>} />
     if (outcome.reason === 'denied') return <ErrorState title="Only full admins can view a real member" description="Ask an admin who can manage roles to open this page." />
     return <ErrorState title="This view could not load" description="Check your connection, then try again."

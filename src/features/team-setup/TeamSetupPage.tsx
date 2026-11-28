@@ -46,7 +46,7 @@ export function useTeamSetup(api: TeamSetupApi | undefined, termId: string | und
 }
 
 function NotSwitchedOn() {
-  return <EmptyState title="Team setup isn't switched on yet" description="The database update is pending. Once it's applied, you'll see who has signed in, installed the app and finished the tour here." />
+  return <EmptyState title="Team setup isn't switched on yet" description="This page needs a workspace update that hasn't been applied yet. Ask the workspace maintainer to apply it. After that, you'll see who has signed in, installed the app and finished the tour here." />
 }
 
 function Kpi({ label, value, total, alert = false }: { label: string; value: number; total?: number; alert?: boolean }) {

@@ -42,3 +42,6 @@ export function createSynergiesApi(ready:ReturnType<typeof createSupabaseClient>
  async contribution(id){if(!uuid(id))return null;try{const{data,error}=await(await client()).rpc('read_contribution',{p_work_item_id:id});if(error)throw error;if(data===null)return null;if(!contributionView(data))throw new Error();return data}catch{throw new Error('Contribution could not load. Check access or connection and retry.')}},
  }
 }
+
+/** Agreement states in plain words. */
+export const agreementStateLabel=(state:string)=>({proposed:'Waiting for a reply',countered:'Changes suggested',accepted:'Agreed',declined:'Declined'} as Record<string,string>)[state]??state

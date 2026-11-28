@@ -2,7 +2,7 @@ import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { appPath, basePath, stripBase } from '../lib/basePath'
 import { announceUpdate, chunkLoaded, reloadOnceForMissingChunk } from '../lib/appUpdate'
 import { Countdown } from '../components/Countdown'
-import { createBrowserRouter, Link, Navigate, redirect, useLocation, type RouteObject } from 'react-router'
+import { createBrowserRouter, Link, Navigate, redirect, useLocation, useRouteLoaderData, type RouteObject } from 'react-router'
 import { readClientEnvironment, type ClientEnvironment } from '../lib/env'
 import { PageHeading, Panel } from '../components/Page'
 import { EmptyState, ErrorState, LoadingState } from '../components/FeedbackState'
@@ -225,6 +225,12 @@ function MovedPage({ to }: { to: string }) {
   return <Navigate replace to={{ pathname: to, search, hash }} />
 }
 
+/** Budget: reviewers come here to review, so their queue leads; everyone else starts with their own plans. */
+function FinanceRoute({ desk, reviews }: { desk: ReactNode; reviews: ReactNode }) {
+  const context = useRouteLoaderData('workspace') as WorkspaceContext | undefined
+  return context?.capabilities.includes('finance.review') ? <>{reviews}{desk}</> : <>{desk}{reviews}</>
+}
+
 function Unavailable({ title, description = 'Check your connection and try again.' }: { title: string; description?: string }) {
   return <><PageHeading title={title} /><EmptyState title="This page can't load right now" description={description} action={<Link className="button button--secondary" to="/">Back to Today</Link>} /></>
 }
@@ -235,7 +241,6 @@ function Unavailable({ title, description = 'Check your connection and try again
 function adminCapabilities(path: string): string[] | null {
   if (path === '/admin') return ['admin.configure']
   if (path === '/admin/access' || path === '/admin/imports') return ['admin.configure', 'roles.manage']
-  if (path === '/admin/data') return ['roles.manage']
   if (/^\/admin\/(?:config|process|layouts)(?:\/|$)/.test(path)) return ['admin.configure', 'committee.manage']
   if (path === '/team/setup') return [...teamSetupCapabilities]
   return null
@@ -297,6 +302,8 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
           if(path==='/desk' && !result.capabilities.some(capability=>(deskCapabilities as readonly string[]).includes(capability)))return redirect('/')
           const adminNeeds=adminCapabilities(path)
           if(adminNeeds && !adminNeeds.some(capability=>result.capabilities.includes(capability)))return redirect('/')
+          // Data needs both: the page itself refuses anyone without Admin and Roles & access.
+          if(path==='/admin/data' && !(['admin.configure','roles.manage'] as const).every(capability=>result.capabilities.includes(capability)))return redirect('/')
           return result
         }
         const url = new URL(request.url), appUrlPath = stripBase(url.pathname)
@@ -366,7 +373,7 @@ export function createAppRoutes(environment: ClientEnvironment, gateway: AuthGat
       {path:'reviews',element:gateway.inbox?<ReviewInbox api={gateway.inbox}/>:<Unavailable title="Reviews"/>},
       {path:'publicity',element:gateway.publicity?<PublicityDesk api={gateway.publicity}/>:<Unavailable title="Publicity sign-off"/>},
       {path:'publicity/:publicityTerm/:publicityId',element:gateway.publicity&&gateway.requests?<PublicityPage api={gateway.publicity} requests={gateway.requests} forms={gateway.forms} files={gateway.files}/>:<Unavailable title="Publicity sign-off"/>},
-      {path:'finance',element:gateway.finance?<><FinanceDesk api={gateway.finance}/>{gateway.finAuthority?<FinanceReviewQueue api={gateway.finAuthority}/>:null}</>:<Unavailable title="Budget"/>},
+      {path:'finance',element:gateway.finance?<FinanceRoute desk={<FinanceDesk api={gateway.finance}/>} reviews={gateway.finAuthority?<FinanceReviewQueue api={gateway.finAuthority}/>:null}/>:<Unavailable title="Budget"/>},
       {path:'finance/reviews/:finTerm/:finId',element:gateway.finAuthority?<FinanceReviewPage api={gateway.finAuthority} files={gateway.files} ledger={gateway.ledger}/>:<Unavailable title="FIN review"/>},
       {path:'finance/:financeTermId/:financeId',element:gateway.finance&&gateway.requests?<FinanceCasePage api={gateway.finance} requests={gateway.requests} files={gateway.files}/>:<Unavailable title="Budget"/>},
       {path:'reviews/:reviewTermId/:reviewId',element:gateway.inbox&&gateway.approvals?<ReviewPage api={gateway.approvals} inbox={gateway.inbox} files={gateway.files} roomBookings={gateway.roomBookings}/>:<Unavailable title="Review"/>},

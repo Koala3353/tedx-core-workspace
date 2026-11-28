@@ -1,6 +1,7 @@
 import type { OverviewRow } from '../overview/api'
 import type { Announcement } from '../announcements/api'
 import type { CalendarEvent } from '../calendar/api'
+import { manilaDay } from '../timeline/dates'
 import { addDaysTo, dueState, eventWhen, manilaToday, relativeDue, timeAgo, waitingFor } from '../../lib/format'
 
 export type TodayVerb = 'Open' | 'Review' | 'Acknowledge'
@@ -97,6 +98,14 @@ function eventEnd(event: CalendarEvent): number {
   return event.allDay ? Date.parse((event.endOn ?? '') + 'T00:00:00+08:00') : Date.parse(event.endsAt ?? '')
 }
 
+/** The event's own month in the calendar, scrolled to its row, so next month's events are not lost. */
+function calendarHref(event: CalendarEvent): string {
+  let day: string | null
+  try { day = event.allDay ? event.startOn : event.startsAt ? manilaDay(event.startsAt) : null } catch { day = null }
+  const anchor = '#calendar-' + event.key.replace(':', '-')
+  return day ? `/calendar?month=${day.slice(0, 7)}${anchor}` : '/calendar' + anchor
+}
+
 export function fromEvent(event: CalendarEvent, now: Date): TodayItem {
   return {
     key: 'event:' + event.key,
@@ -105,7 +114,7 @@ export function fromEvent(event: CalendarEvent, now: Date): TodayItem {
     who: event.location,
     when: eventWhen(event, now),
     late: false,
-    href: event.href ?? '/calendar',
+    href: event.href ?? calendarHref(event),
     verb: 'Open',
     sortAt: eventStart(event),
   }

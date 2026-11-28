@@ -88,17 +88,18 @@ export function WorkHub() {
       {member ? <MyWork termId={member.termId} /> : null}
       <HubLinks title="Your lists" capabilities={caps} links={[
         { id: 'tasks', to: '/tasks', label: 'My tasks', description: 'Everything assigned to you' },
-        { id: 'deliverables', to: '/deliverables?mine=1', label: 'My deliverables', description: 'Event outputs you own' },
         { id: 'requests', to: '/requests/mine', label: 'My requests', description: 'What you asked other committees for, and where it stands' },
         { id: 'tasks', to: '/tasks?view=overdue', label: 'My overdue work', description: 'Anything past its date', icon: 'notifications' },
+        { id: 'tasks', to: '/tasks?view=watching', label: 'Shared with me', description: 'Tasks you collaborate on' },
+        { id: 'tasks', to: '/tasks?view=created', label: 'Tasks I created', description: 'Work you handed out' },
       ]} />
     </> : null}
     {scope === 'committee' ? <HubLinks capabilities={caps} links={[
       { id: 'committee', to: '/committee', label: 'My committee', description: 'What your members owe and what others asked of you', capability: 'committee.manage' },
       { id: 'tasks', to: '/tasks?view=unit', label: 'Committee tasks', description: 'Tasks in the committees you lead', capability: 'committee.manage' },
-      { id: 'deliverables', to: '/deliverables', label: 'Deliverables', description: 'Every event output, filter by committee' },
+      { id: 'deliverables', to: '/deliverables?mine=1', label: 'Committee deliverables', description: 'Event outputs your committee is part of' },
       { id: 'department', to: '/reviews', label: 'Inbox', description: 'Requests and reviews sent to your committee', capability: 'department.review' },
-      { id: 'tasks', to: '/tasks?view=watching', label: 'Shared with me', description: 'Tasks you collaborate on' },
+      { id: 'committees', to: '/team/committees', label: 'Committees', description: 'What each committee does and who leads it', icon: 'team.committeePages' },
     ]} /> : null}
     {scope === 'between' ? <HubLinks capabilities={caps} links={[
       { id: 'requests', to: '/requests', label: 'Ask a committee', description: 'Request a room, budget, a poster or a hand from another team' },
@@ -109,7 +110,7 @@ export function WorkHub() {
     {scope === 'all' ? <HubLinks capabilities={caps} links={[
       { id: 'deliverables', to: '/deliverables', label: 'All deliverables', description: 'Every event output and who owns it' },
       { id: 'deliverables', to: '/deliverables?blocked=1', label: 'Blocked deliverables', description: 'Outputs waiting on something', icon: 'department' },
-      { id: 'tasks', to: '/tasks?view=created', label: 'Tasks I created', description: 'Work you handed out' },
+      { id: 'timeline', to: '/working-together/timeline', label: 'Timeline', description: 'All committee work laid out over the weeks' },
       { id: 'department', to: '/reviews', label: 'Inbox', description: 'Requests and reviews sent to your committee', capability: 'department.review' },
       { id: 'search', to: '/search', label: 'Find', description: 'Search work, guides and people by name or reference' },
     ]} /> : null}
@@ -155,7 +156,8 @@ export function EventHub() {
       { id: 'publicity', to: '/publicity', label: 'Publicity sign-off', description: 'Final publicity and where its sign-off stands' },
       { id: 'speakers', to: '/event/speakers', label: 'Speakers', description: 'Every speaker’s checklist, rehearsal and contact' },
       ...(gateway?.inventory ? [{ id: 'inventory', to: '/inventory', label: 'Inventory', description: 'Equipment and borrowed items' }] : []),
-      { id: 'qr', to: '/event/qr', label: 'Event QR codes', description: 'Item labels and the crew check-in code to print' },
+      // The QR page has item labels (needs inventory) and the crew code (PMs and admins); with neither it is empty.
+      ...(gateway?.inventory || caps.includes('admin.configure') || caps.includes('roles.manage') ? [{ id: 'qr', to: '/event/qr', label: 'Event QR codes', description: 'Item labels and the crew check-in code to print' }] : []),
       { id: 'guests', to: '/guests', label: 'Guests & speakers', description: 'Invitations for speakers and partners you sponsor', capability: 'roles.manage' },
     ]} />
   </div>
@@ -221,10 +223,10 @@ export function DeskHub() {
     ]} />
     <HubLinks title="Run the workspace" capabilities={caps} links={[
       { id: 'reports', to: '/reports', label: 'Reports', description: 'Progress and exports for your area', capability: 'reports.view' },
-      { id: 'admin', to: '/admin', label: 'Admin', description: 'Roster, roles, services and site setup', capability: 'admin.configure', tour: 'desk-admin' },
-      { id: 'guests', to: '/admin/access', label: 'Roles & access', description: 'Give someone a role or change what a role can do', capability: 'roles.manage', icon: 'admin' },
-      { id: 'guests', to: '/admin/data', label: 'Data', description: 'Read-only spreadsheet view of people, positions and work', capability: 'roles.manage', icon: 'resources' },
-      { id: 'guests', to: '/admin/imports', label: 'Imports', description: 'Bring in tasks or people from a spreadsheet', capability: 'roles.manage', icon: 'resources' },
+      { id: 'admin', to: '/admin', label: 'Admin', description: 'Roster, roles, services, phases, layouts and privacy', capability: 'admin.configure', tour: 'desk-admin' },
+      { id: 'access', to: '/admin/access', label: 'Roles & access', description: 'Give someone a role or change what a role can do', capability: 'roles.manage', icon: 'admin' },
+      ...(caps.includes('admin.configure') && caps.includes('roles.manage') ? [{ id: 'data', to: '/admin/data', label: 'Data', description: 'Read-only spreadsheet view of people, positions and work', icon: 'resources' }] : []),
+      { id: 'imports', to: '/admin/imports', label: 'Imports', description: 'Bring in tasks or people from a spreadsheet', capability: 'roles.manage', icon: 'resources' },
       { id: 'announcements', to: '/admin/announcements', label: 'Publish announcements', description: 'Write and send an announcement', capability: 'admin.configure' },
       { id: 'guests', to: '/guests', label: 'Guests & speakers', description: 'Invitations you sponsor', capability: 'roles.manage' },
     ]} />

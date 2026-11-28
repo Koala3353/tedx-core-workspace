@@ -70,7 +70,8 @@ export function ListToolbar<T>({ filter, label, placeholder, noun, sort, group, 
       <span className="list-chips__label" aria-hidden="true">{def.label}</span>
       <div className="list-chips__scroll">
         <button type="button" className="list-chip" aria-pressed={!filter.selected[def.key]} onClick={() => filter.setFilter(def.key, '')}>All</button>
-        {options.map(option => <button key={option.value} type="button" className="list-chip" aria-pressed={filter.selected[def.key] === option.value}
+        {/* An option with nothing in it leads nowhere: hide it unless it is the current choice. */}
+        {options.filter(option => option.count > 0 || filter.selected[def.key] === option.value).map(option => <button key={option.value} type="button" className="list-chip" aria-pressed={filter.selected[def.key] === option.value}
           onClick={() => filter.setFilter(def.key, filter.selected[def.key] === option.value ? '' : option.value)}>
           {option.label}<span className="list-chip__count numeric" aria-label={`, ${option.count}`}>{option.count}</span>
         </button>)}

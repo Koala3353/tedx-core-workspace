@@ -57,7 +57,7 @@ function ServiceReadiness({api,term,catalog,items,epoch}:{api:ConfigurationApi;t
 
 const problemText:Record<ServiceProblem,string>={
  committee:'Pick the committee that receives these requests.',
- review_service:'Let the receiving committee take requests in Organization.',
+ review_service:'In Admin, open Committees, edit the receiving committee and tick "Takes requests from other committees".',
  contacts:'Add two different contacts from the receiving committee.',
  lead_time:'Set how many days ahead people should ask.',
  form:'Publish the request form.',

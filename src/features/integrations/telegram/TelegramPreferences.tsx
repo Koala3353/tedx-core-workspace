@@ -92,7 +92,7 @@ export function TelegramPreferences({api,notifications,term,preference,refresh}:
 
   return <Panel title="Delivery preferences">
     <p>All updates stay here. Telegram can also send you a short alert with a link back.</p>
-    {preference?<p>Telegram alerts: <strong>{savedMode(preference.mode)}</strong></p>:<p>Loading…</p>}
+    {preference?<p>Telegram alerts: <strong>{savedMode(preference.mode)}</strong>{status&&status.state!=='linked'&&preference.mode!=='mute'?' (starts once Telegram is linked below)':''}</p>:<p>Loading…</p>}
     <div className="auth-actions" aria-label="Optional alerts">
       {deliveryModes.map(([mode,label])=><button type="button" key={mode} className="button button--secondary"
         aria-pressed={preference?.mode===mode} disabled={settings.locked||!preference||preference.mode===mode}
