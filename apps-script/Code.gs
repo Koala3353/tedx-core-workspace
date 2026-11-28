@@ -11,6 +11,13 @@
  * Script Properties (Project Settings -> Script properties):
  *   HMAC_SECRET  required, the value printed once by scripts/setup-reminders.sh
  *   NO_REPLY     optional, 'true' or 'false'; defaults to true on Google Workspace accounts, false on @gmail.com
+ *   NOTIFICATION_DISPATCH_SECRET, EMAIL_DISPATCH_SECRET
+ *                optional, printed once by scripts/rotate-dispatch-secrets.sh; used by runReminders()
+ *
+ * Reminders: runReminders() calls the dispatch-notifications and email-adapter functions, like the GitHub
+ * "Reminders" workflow, but from a time-driven trigger that actually fires every 15 minutes (GitHub's
+ * scheduler was firing every 6-9 hours). Run installReminderTrigger() once from the editor to set it up.
+ * Running both this trigger and the GitHub workflow is safe: jobs are claimed with leases.
  */
 
 var SENDER_NAME = 'TEDxAteneodeManilaU Core Workspace';
@@ -152,4 +159,36 @@ function sameText_(a, b) {
   var difference = 0;
   for (var i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return difference === 0;
+}
+
+var FUNCTIONS_URL = 'https://wyurosneoxfqqrrvstke.supabase.co/functions/v1';
+var REMINDER_STEPS = [
+  { fn: 'dispatch-notifications', header: 'x-notification-dispatch-secret', property: 'NOTIFICATION_DISPATCH_SECRET' },
+  { fn: 'email-adapter', header: 'x-email-dispatch-secret', property: 'EMAIL_DISPATCH_SECRET' }
+];
+
+/** One reminder run: queue and deliver in-app reminders, then send queued email. Called by the time trigger. */
+function runReminders() {
+  var props = PropertiesService.getScriptProperties();
+  REMINDER_STEPS.forEach(function (step) {
+    var secret = props.getProperty(step.property);
+    if (!secret) { console.warn(step.property + ' is not set in Script properties; skipping ' + step.fn); return; }
+    var headers = {};
+    headers[step.header] = secret;
+    try {
+      var response = UrlFetchApp.fetch(FUNCTIONS_URL + '/' + step.fn, { method: 'post', headers: headers, muteHttpExceptions: true });
+      console.log(step.fn + ' HTTP ' + response.getResponseCode() + ': ' + response.getContentText().slice(0, 300));
+    } catch (error) {
+      console.error(step.fn + ' failed: ' + error);
+    }
+  });
+}
+
+/** Run once from the editor (Run > installReminderTrigger). Replaces any earlier reminder trigger. */
+function installReminderTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'runReminders') ScriptApp.deleteTrigger(trigger);
+  });
+  ScriptApp.newTrigger('runReminders').timeBased().everyMinutes(15).create();
+  console.log('Reminder trigger installed: runReminders every 15 minutes.');
 }
